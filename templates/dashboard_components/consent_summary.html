@@ -37,3 +37,10 @@
     <span style="color: red;">Inactive.</span>
     </br>Data source is not yet active.
 {% endif %}
+
+{% if consent.link %}
+    </br>
+    <a href="{{ consent.link.0 }}" style="color: blue; text-decoration: underline; margin-left: 10px;">
+        {{ consent.link.1 }}
+    </a>
+{% endif %}

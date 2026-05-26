@@ -50,6 +50,15 @@ class DataSource(PolymorphicModel):
         """Returns a user-friendly name for the data source type."""
         return "Generic Data"
 
+    def show_link(self):
+        """Whether the data source shoudl display a link on the dashboard.
+        
+        Returns:
+            link: None or Tuple of (url, display_text)
+        """
+        return ("test", "test")
+        return None
+
     def get_instructions_card(self, request, consent_id=None, study_id=None):
         """HTML card shown in instructions and dashboard."""
         return None
