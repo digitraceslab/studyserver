@@ -1,7 +1,7 @@
 {{ consent.source.display_type }}:
 {% if consent.source.status == 'active' %}
-    <span style="color: green;">Linked.</span>
-    </br>This data source is set up and actively sending data.
+    <span style="color: green;">Complete.</span>
+    </br>This data source is set up.
     {% if optional %}
         <a href="{% url 'revoke_consent' consent.consent.id %}" style="color: red; margin-left: 10px;">
             (Revoke)

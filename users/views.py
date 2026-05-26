@@ -22,7 +22,6 @@ from data_sources.models import get_display_type_from_source_type
 
 
 def login_view(request):
-    print("Login view called")
     if request.method == 'POST':
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
@@ -175,16 +174,13 @@ def get_active_studies_data(profile, request):
             elif consent.data_source:
                 instructions = source.get_instructions_card(request, consent_id=consent.id, study_id=study.id)
                 if source.status == 'pending' and instructions:
-                    studies_data[study]['incomplete_sources'].append({
-                        'consent': consent,
-                        'source': source,
-                    })
+                    studies_data[study]['incomplete_sources'].append(
+                        consent_data
+                    )
                 else:
-                    studies_data[study]['active_consents'].append({
-                        'consent': consent,
-                        'source': source,
-                        'type_name': consent_data['type_name'],
-                    })
+                    studies_data[study]['active_consents'].append(
+                        consent_data
+                    )
     return studies_data
 
 def get_next_instructions_card(request, studies_data):

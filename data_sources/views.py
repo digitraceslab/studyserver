@@ -1,3 +1,4 @@
+import importlib
 from django.apps import apps
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import Http404
@@ -64,16 +65,31 @@ def select_data_source_type(request):
 def add_data_source(request, source_type):
     consent_id = request.GET.get('consent_id')
 
-    try:
-        # Dynamically get the Model and Form classes
-        model_name = f"{source_type}DataSource"
-        form_name = f"{source_type}DataSourceForm"
-        ModelClass = apps.get_model('data_sources', model_name)
-        FormClass = getattr(forms, form_name)
-
-    except (LookupError, AttributeError):
-        raise Http404(f"Invalid data source type {source_type}")
+    # Dynamically get the Model and Form classes
+    model_name = f"{source_type}DataSource"
+    form_name = f"{source_type}DataSourceForm"
+    ModelClass = None
+    FormClass = None
+    for app in apps.get_app_configs():
+        try:
+            ModelClass = app.get_model(model_name)
+        except LookupError:
+            continue
+        
+        for module_name in [f"{app.label}.forms", "data_sources.models"]:
+            try:
+                mod = importlib.import_module(module_name)
+                FormClass = getattr(mod, form_name)
+                break
+            except (ImportError, AttributeError):
+                continue
+        
+        if ModelClass and FormClass:
+            break
     
+    if not ModelClass or not FormClass:
+        raise Http404("Data source type not found.")
+
     source_title = source_type.replace('_', ' ')
     default_name = source_default_title(source_title, consent_id, request.user.profile)
     

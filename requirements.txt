@@ -13,4 +13,4 @@ cryptography
 sphinx
 myst-parser
 sphinx-rtd-theme
-django-survey-and-report
+django-survey-and-report[sankey]
