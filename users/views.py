@@ -167,7 +167,6 @@ def get_active_studies_data(profile, request):
                 source = consent.data_source.get_real_instance()
                 consent_data['source'] = source
             
-
             if consent.is_optional:
                 # Optional consents are only shown in the optional section
                 if consent.data_source:
