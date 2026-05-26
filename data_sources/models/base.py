@@ -56,7 +56,6 @@ class DataSource(PolymorphicModel):
         Returns:
             link: None or Tuple of (url, display_text)
         """
-        return ("test", "test")
         return None
 
     def get_instructions_card(self, request, consent_id=None, study_id=None):
