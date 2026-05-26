@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'users',
     'data_sources',
     'survey_datasource',
+    'survey',
     'studies',
 ]
 
