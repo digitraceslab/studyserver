@@ -37,35 +37,7 @@ You have enrolled in {{ study.title }}.
         <ul>
         {% for consent in data.active_consents %}
             <li>
-                {{ consent.source.display_type }}:
-                {% if consent.source.status == 'active' %}
-                    <span style="color: green;">Linked.</span>
-                    </br>This data source is set up and actively sending data.
-                {% elif consent.source.status == 'pending' %}
-                    <span style="color: orange;">Pending Setup.</span>
-                    </br>Setup is required for this data source.
-                    {% if consent.source.get_setup_url %}
-                        <a href="{{ consent.source.get_setup_url }}?consent_id={{ consent.consent.id }}" style="color: blue; text-decoration: underline; margin-left: 10px;">
-                            Go to Setup/Authorization
-                        </a>
-                        {% if consent.source.display_type == "Google Portability Data" %}
-                            <div style="font-size:90%; margin-top:6px; color:#333; max-width:40rem;">
-                                The use of information received from the Data Portability API adheres to the Data Portability API user data and developer policy, including the Limited Use Requirements.
-                            </div>
-                        {% endif %}
-                    {% endif %}
-                {% elif consent.source.status == 'processing' %}
-                    <span style="color: orange;">Waiting for data.</span>
-                    </br>This data source is set up and awaiting data.
-                    {% if consent.source.get_confirm_url %}
-                        <a href="{{ consent.source.get_confirm_url }}?consent_id={{ consent.consent.id }}" style="color: blue; text-decoration: underline; margin-left: 10px;">
-                            Check for data
-                        </a>
-                    {% endif %}
-                {% else %}
-                    <span style="color: red;">Inactive.</span>
-                    </br>Data source is not yet active.
-                {% endif %}
+                {% include "dashboard_components/consent_summary.html" with consent=consent study=study optional=False %}
             </li>
         {% endfor %}
         </ul>
@@ -79,33 +51,7 @@ You have enrolled in {{ study.title }}.
         {% for opt_item in data.optional_consents %}
             {% if opt_item.consent.is_complete and opt_item.source %}
                 <li>
-                    {{ opt_item.type_name }}:
-                    {% if opt_item.source.status == 'active' %}
-                        <span style="color: green;">Linked.</span>
-                        <a href="{% url 'revoke_consent' opt_item.consent.id %}" style="color: red; margin-left: 10px;">
-                            (Revoke)
-                        </a>
-                        </br>This data source is set up and actively sending data.
-                        {% elif opt_item.source.status == 'pending' %}
-                            <span style="color: orange;">Pending Setup.</span>
-                            </br>Setup is required for this data source.
-                            {% if opt_item.source.get_setup_url %}
-                                <a href="{{ opt_item.source.get_setup_url }}?consent_id={{ opt_item.consent.id }}" style="color: blue; text-decoration: underline; margin-left: 10px;">
-                                    Go to Setup/Authorization
-                                </a>
-                            {% endif %}
-                    {% elif opt_item.source.status == 'processing' %}
-                        <span style="color: orange;">Waiting for data.</span>
-                        </br>This data source is set up and awaiting data.
-                        {% if opt_item.source.get_confirm_url %}
-                            <a href="{{ opt_item.source.get_confirm_url }}?consent_id={{ opt_item.consent.id }}" style="color: blue; text-decoration: underline; margin-left: 10px;">
-                                Check for data
-                            </a>
-                        {% endif %}
-                    {% else %}
-                        <span style="color: red;">Inactive.</span>
-                        </br>Data source is not yet active.
-                    {% endif %}
+                    {% include "dashboard_components/consent_summary.html" with consent=opt_item study=study optional=True %}
                 </li>
             {% else %}
                 <li>
