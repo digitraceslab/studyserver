@@ -76,7 +76,7 @@ SECURE_HSTS_SECONDS = 31536000
 SECURE_REFERRER_POLICY = 'same-origin'
 
 CORS_ALLOWED_ORIGINS = [
-    "https://polalpha.cs.aalto.fi",
+    SERVER_URL,
 ]
 CORS_ALLOW_CREDENTIALS = True
 
