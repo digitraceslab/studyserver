@@ -1,7 +1,10 @@
-Django==4.2.0
+Django==5.2
 psycopg2-binary
 django-environ
+django-cors-headers
+django-csp
 django-polymorphic
+django-permissions-policy
 requests
 mysql-connector-python
 qrcode[pil]

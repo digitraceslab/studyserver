@@ -62,11 +62,15 @@ class Study(models.Model):
 
     @property
     def required_data_sources(self):
+        if self.pk and self.source_config_entries.exists():
+            return list(self.source_config_entries.filter(status='required').values_list('source_type', flat=True))
         return [k for k, v in self.source_configurations.items()
                 if isinstance(v, dict) and v.get('status') == 'required']
 
     @property
     def optional_data_sources(self):
+        if self.pk and self.source_config_entries.exists():
+            return list(self.source_config_entries.filter(status='optional').values_list('source_type', flat=True))
         return [k for k, v in self.source_configurations.items()
                 if isinstance(v, dict) and v.get('status') == 'optional']
 
@@ -95,6 +99,34 @@ class Study(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class StudySourceConfiguration(models.Model):
+    STATUS_CHOICES = [
+        ('required', 'Required'),
+        ('optional', 'Optional'),
+    ]
+
+    study = models.ForeignKey(
+        Study,
+        on_delete=models.CASCADE,
+        related_name='source_config_entries',
+    )
+    source_type = models.CharField(max_length=100)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='optional')
+    requested_data_types = models.TextField(
+        blank=True,
+        default='',
+        help_text='Comma-separated list of data types to request from this source',
+    )
+
+    class Meta:
+        unique_together = [('study', 'source_type')]
+        verbose_name = 'Source Configuration'
+        verbose_name_plural = 'Source Configurations'
+
+    def __str__(self):
+        return f"{self.source_type} ({self.status})"
 
 
 class StudyParticipant(models.Model):

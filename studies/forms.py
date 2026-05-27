@@ -1,6 +1,6 @@
 from django import forms
 from django.apps import apps
-from .models import Study, DataSource
+from .models import Study, DataSource, StudySourceConfiguration
 
 
 def get_data_source_type_choices():
@@ -32,6 +32,23 @@ class StudyAdminForm(forms.ModelForm):
                     "You cannot remove yourself from the list of researchers."
                 )
             return cleaned_data
+
+
+class SourceConfigurationInlineForm(forms.ModelForm):
+    source_type = forms.ChoiceField(choices=[])
+
+    class Meta:
+        model = StudySourceConfiguration
+        fields = ['source_type', 'status', 'requested_data_types']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        choices = get_data_source_type_choices()
+        if self.instance.pk and self.instance.source_type:
+            existing = self.instance.source_type
+            if not any(c[0] == existing for c in choices):
+                choices = [(existing, existing)] + choices
+        self.fields['source_type'].choices = choices
 
 
 class ConsentAcceptanceForm(forms.Form):

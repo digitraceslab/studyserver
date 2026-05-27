@@ -71,6 +71,40 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'study_server.urls'
 
+SECURE_SSL_REDIRECT = True
+SECURE_HSTS_SECONDS = 31536000
+SECURE_REFERRER_POLICY = 'same-origin'
+
+CORS_ALLOWED_ORIGINS = [
+    "https://polalpha.cs.aalto.fi",
+]
+CORS_ALLOW_CREDENTIALS = True
+
+CONTENT_SECURITY_POLICY = {
+    "DIRECTIVES": {
+        "default-src": ["'self'"],
+        "script-src": ["'self'"],
+        "style-src": ["'self'"],
+        "img-src": ["'self'", "data:"],
+        "connect-src": ["'self'"],
+        "frame-ancestors": ["'none'"],
+        "form-action": [
+            "'self'",
+        ],
+    }
+}
+
+PERMISSIONS_POLICY = {
+    "accelerometer": [],
+    "camera": [],
+    "geolocation": [],
+    "gyroscope": [],
+    "magnetometer": [],
+    "microphone": [],
+    "payment": [],
+    "usb": [],
+}
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',

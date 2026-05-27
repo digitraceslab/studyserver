@@ -1,8 +1,8 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
-from .models import Study, Consent, StudyParticipant
-from .forms import StudyAdminForm
+from .models import Study, Consent, StudyParticipant, StudySourceConfiguration
+from .forms import StudyAdminForm, SourceConfigurationInlineForm
 
 @admin.register(StudyParticipant)
 class StudyParticipantAdmin(admin.ModelAdmin):
@@ -69,6 +69,13 @@ class ConsentAdmin(admin.ModelAdmin):
         return f"{source.name} ({source.status})"
 
 
+class SourceConfigurationInline(admin.TabularInline):
+    model = StudySourceConfiguration
+    form = SourceConfigurationInlineForm
+    extra = 1
+    fields = ['source_type', 'status', 'requested_data_types']
+
+
 class ConsentInline(admin.TabularInline):
     model = Consent
     list_display = ('participant_username', 'consent_date', 'revocation_date', 'is_complete')
@@ -124,7 +131,7 @@ class StudyAdmin(admin.ModelAdmin):
     form = StudyAdminForm
     list_display = ('title',)
     filter_horizontal = ('researchers',)
-    inlines = [ConsentInline]
+    inlines = [SourceConfigurationInline, ConsentInline]
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
