@@ -28,7 +28,7 @@ jobs:
           SECRET_KEY: 'docs-build-dummy-key'
           DATABASE_URL: 'sqlite:///db.sqlite3'
           DEBUG: 'True'
-        run: sphinx-build -b html docs/ docs/_build/html
+        run: sphinx-build -b html docs/source docs/_build/html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
