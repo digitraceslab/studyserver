@@ -1,8 +1,21 @@
+import json
 from django.contrib import admin
+from django.db import models
+from django import forms
 from django.utils.html import format_html
 from django.urls import reverse
+from django_ace import AceWidget
 from .models import Study, Consent, StudyParticipant, StudySourceConfiguration
 from .forms import StudyAdminForm, SourceConfigurationInlineForm
+
+
+class PrettyJSONFormField(forms.JSONField):
+    widget = AceWidget(mode='json', theme='monokai', width='100%', height='300px')
+
+    def prepare_value(self, value):
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, indent=2)
+        return super().prepare_value(value)
 
 @admin.register(StudyParticipant)
 class StudyParticipantAdmin(admin.ModelAdmin):
@@ -90,6 +103,9 @@ class StudySourceConfigurationAdmin(admin.ModelAdmin):
     readonly_fields = ('study', 'source_type')
     can_delete = False
     fields = ('study', 'source_type', 'status', 'requested_data_types', 'configuration')
+    formfield_overrides = {
+        models.JSONField: {'form_class': PrettyJSONFormField},
+    }
 
 
 class ConsentInline(admin.TabularInline):
