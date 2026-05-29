@@ -1,0 +1,36 @@
+studies.migrations
+==================
+
+.. automodule:: studies.migrations
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   0001_initial
+   0002_remove_consent_data_sources_consent_data_source_and_more
+   0003_study_optional_data_sources_and_more
+   0004_remove_study_source_configurations
+   0005_create_researcher_group
+   0006_alter_consent_unique_together_and_more
+   0007_consent_is_optional_consent_source_type
+   0008_consent_consent_text_accepted
+   0009_researcher_token_permission
+   0010_alter_consent_data_source
+   0011_study_source_configurations
+   0012_alter_study_source_configurations
+   0013_study_domain
+   0014_alter_consent_consent_date
+   0015_consent_data_start
+   0016_studyparticipant_consent_study_participant
+   0017_backfill_study_participants
+   0018_alter_consent_participant
+   0019_study_contact_email_study_contact_name
+   0020_study_repo_branch
+   0021_remove_study_domain
+   0022_convert_source_configurations
+   0023_remove_data_source_list_fields
+   0024_alter_study_source_configurations

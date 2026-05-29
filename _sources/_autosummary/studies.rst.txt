@@ -1,0 +1,22 @@
+﻿studies
+=======
+
+.. automodule:: studies
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   admin
+   apps
+   forms
+   management
+   migrations
+   models
+   services
+   tests
+   urls
+   views

@@ -1,0 +1,24 @@
+data\_sources.views
+===================
+
+.. automodule:: data_sources.views
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      add_data_source
+      auth_callback
+      auth_start
+      confirm_data_source
+      delete_data_source
+      edit_data_source
+      form_has_only_name_field
+      instructions
+      link_consent_to_source
+      select_data_source_type
+      source_default_title
+      token_view_dispatcher
+      view_data_source
+   

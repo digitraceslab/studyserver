@@ -1,0 +1,15 @@
+data\_sources.models.portability\_client
+========================================
+
+.. automodule:: data_sources.models.portability_client
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      create_donation
+      delete_donation
+      get_data
+      get_donation
+   

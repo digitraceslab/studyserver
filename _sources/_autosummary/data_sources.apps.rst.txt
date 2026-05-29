@@ -1,0 +1,12 @@
+data\_sources.apps
+==================
+
+.. automodule:: data_sources.apps
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      DataSourcesConfig
+   

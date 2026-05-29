@@ -1,0 +1,18 @@
+studies.management.commands.create\_study
+=========================================
+
+.. automodule:: studies.management.commands.create_study
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      get_available_source_types
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Command
+   

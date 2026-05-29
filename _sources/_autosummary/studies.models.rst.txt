@@ -1,0 +1,15 @@
+studies.models
+==============
+
+.. automodule:: studies.models
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Consent
+      Study
+      StudyParticipant
+      StudySourceConfiguration
+   

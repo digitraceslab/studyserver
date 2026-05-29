@@ -1,0 +1,35 @@
+users.tests
+===========
+
+.. automodule:: users.tests
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      test_message_view
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      BaseTestCase
+      DashboardExtendedTest
+      DashboardViewTest
+      HomeViewExtendedTest
+      HomeViewTest
+      LoginViewTest
+      ManageTokenExtendedTest
+      ManageTokenViewTest
+      MyDataApiTest
+      ParticipantDetailTest
+      ProfileModelTest
+      ResearcherDashboardExtendedTest
+      ResearcherDashboardViewTest
+      SignupResearcherExtendedTest
+      SignupResearcherViewTest
+      SignupViewExtendedTest
+      SignupViewTest
+      StaticPagesTest
+   

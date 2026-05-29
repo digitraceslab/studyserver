@@ -1,0 +1,6 @@
+users.admin
+===========
+
+.. automodule:: users.admin
+
+   

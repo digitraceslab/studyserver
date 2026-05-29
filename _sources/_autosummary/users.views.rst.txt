@@ -1,0 +1,26 @@
+users.views
+===========
+
+.. automodule:: users.views
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      dashboard
+      get_active_studies
+      get_active_studies_data
+      get_next_instructions_card
+      get_past_consents
+      home
+      login_view
+      manage_token
+      my_data_api
+      participant_detail
+      privacy_statement
+      researcher_dashboard
+      signup
+      signup_researcher
+      terms_of_service
+   

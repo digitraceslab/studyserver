@@ -1,0 +1,12 @@
+data\_sources.models.jsonurl
+============================
+
+.. automodule:: data_sources.models.jsonurl
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      JsonUrlDataSource
+   

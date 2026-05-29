@@ -1,0 +1,18 @@
+studies.apps
+============
+
+.. automodule:: studies.apps
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      setup_researcher_group
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      StudiesConfig
+   

@@ -1,0 +1,21 @@
+studies.views
+=============
+
+.. automodule:: studies.views
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      consent_checkbox_view
+      consent_workflow
+      create_data_source_flow
+      get_next_consent
+      join_study
+      revoke_consent
+      select_data_source_view
+      study_data_api
+      study_detail
+      withdraw_from_study
+   

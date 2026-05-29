@@ -1,0 +1,13 @@
+data\_sources.templatetags
+==========================
+
+.. automodule:: data_sources.templatetags
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   custom_filters

@@ -1,0 +1,22 @@
+﻿data\_sources
+=============
+
+.. automodule:: data_sources
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   admin
+   apps
+   forms
+   migrations
+   models
+   tasks
+   templatetags
+   tests
+   urls
+   views

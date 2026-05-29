@@ -1,0 +1,16 @@
+studies.admin
+=============
+
+.. automodule:: studies.admin
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      ConsentAdmin
+      ConsentInline
+      SourceConfigurationInline
+      StudyAdmin
+      StudyParticipantAdmin
+   

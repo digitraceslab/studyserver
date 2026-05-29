@@ -1,0 +1,20 @@
+﻿users
+=====
+
+.. automodule:: users
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   admin
+   apps
+   forms
+   migrations
+   models
+   tests
+   urls
+   views

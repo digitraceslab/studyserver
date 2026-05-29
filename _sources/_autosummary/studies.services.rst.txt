@@ -1,0 +1,13 @@
+studies.services
+================
+
+.. automodule:: studies.services
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      get_consent_template
+      get_study_page_html
+   

@@ -1,0 +1,12 @@
+study\_server.views
+===================
+
+.. automodule:: study_server.views
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      download_static_file
+   

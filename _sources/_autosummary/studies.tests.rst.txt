@@ -1,0 +1,26 @@
+studies.tests
+=============
+
+.. automodule:: studies.tests
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      ConsentCheckboxViewTest
+      ConsentModelTest
+      ConsentProfileDeletionTest
+      ConsentWorkflowOrchestratorTest
+      GetNextConsentHelperTest
+      JoinStudyViewTest
+      RevokeConsentViewTest
+      SelectDataSourceViewTest
+      StudyAdminTest
+      StudyDataApiTest
+      StudyDetailViewTest
+      StudyModelTest
+      StudyParticipantTest
+      StudyTestMixin
+      WithdrawFromStudyViewTest
+   

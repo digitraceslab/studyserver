@@ -1,0 +1,20 @@
+﻿study\_server
+=============
+
+.. automodule:: study_server
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   asgi
+   celery
+   local_settings
+   settings
+   urls
+   utils
+   views
+   wsgi

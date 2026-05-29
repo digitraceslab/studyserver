@@ -1,0 +1,12 @@
+data\_sources.templatetags.custom\_filters
+==========================================
+
+.. automodule:: data_sources.templatetags.custom_filters
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      get_item
+   

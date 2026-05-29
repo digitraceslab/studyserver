@@ -1,0 +1,13 @@
+studies.management
+==================
+
+.. automodule:: studies.management
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   commands

@@ -1,0 +1,26 @@
+data\_sources.tests
+===================
+
+.. automodule:: data_sources.tests
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      AddDataSourceViewTest
+      AwareDataSourceTest
+      DataSourceModelTest
+      DataSourceTest
+      DataSourcesViewsTest
+      DbConnectorTest
+      GooglePortabilityDataSourceTest
+      GooglePortabilityModelTest
+      JsonUrlDataSourceTest
+      PortabilityClientTest
+      PortabilityModelTestMixin
+      PortabilityViewCreationRollbackTest
+      PortabilityViewDeleteTest
+      TikTokPortabilityDataSourceTest
+      TikTokPortabilityModelTest
+   

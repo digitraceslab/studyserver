@@ -1,0 +1,6 @@
+study\_server.settings
+======================
+
+.. automodule:: study_server.settings
+
+   

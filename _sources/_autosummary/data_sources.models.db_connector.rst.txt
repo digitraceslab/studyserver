@@ -1,0 +1,16 @@
+data\_sources.models.db\_connector
+==================================
+
+.. automodule:: data_sources.models.db_connector
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      get_aware_count
+      get_aware_data
+      get_aware_tables
+      get_device_ids_for_label
+      query_aware_data
+   
