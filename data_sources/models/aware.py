@@ -151,21 +151,11 @@ class AwareDataSource(DataSource):
                     study=study,
                     source_type='AwareDataSource'
                 ).first()
-                config_filename = source_config.config_file if source_config else 'aware_config.json'
-                base_url = study.raw_content_base_url
-                if not base_url:
-                    continue
-                full_config_url = f"{base_url}/{config_filename}"
-                try:
-                    response = requests.get(full_config_url, timeout=5)
-                    response.raise_for_status()
-                    study_config = response.json()
-                    config_json['questions'].extend(study_config.get('questions', []))
-                    config_json['schedules'].extend(study_config.get('schedules', []))
-                    sensors = study_config.get('sensors', [])
-                    config_json['sensors'].extend(sensors)
-                except requests.exceptions.RequestException:
-                    continue
+                study_config = source_config.configuration
+                config_json['questions'].extend(study_config.get('questions', []))
+                config_json['schedules'].extend(study_config.get('schedules', []))
+                sensors = study_config.get('sensors', [])
+                config_json['sensors'].extend(sensors)
             # Deduplicate sensors by "setting" key, keeping the last occurrence
             seen = {}
             for sensor in config_json['sensors']:

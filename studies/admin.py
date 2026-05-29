@@ -89,7 +89,7 @@ class StudySourceConfigurationAdmin(admin.ModelAdmin):
     list_display = ('study', 'source_type', 'status')
     readonly_fields = ('study', 'source_type')
     can_delete = False
-    fields = ('study', 'source_type', 'status', 'requested_data_types', 'config_file')
+    fields = ('study', 'source_type', 'status', 'requested_data_types', 'configuration')
 
 
 class ConsentInline(admin.TabularInline):

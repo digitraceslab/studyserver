@@ -112,11 +112,10 @@ class StudySourceConfiguration(models.Model):
         null=True, blank=True,
         help_text="End of the data collection period. May be null for ongoing collection."
     )
-    config_file = models.CharField(
-        max_length=200,
+    configuration = models.JSONField(
         blank=True,
-        default='',
-        help_text="Optional config file name in the repository for this source (e.g. aware_config.yaml)"
+        default=dict,
+        help_text="Source configuration. Specific to the source type."
     )
 
     class Meta:
