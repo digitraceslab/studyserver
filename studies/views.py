@@ -106,9 +106,11 @@ def revoke_consent(request, consent_id):
     return render(request, 'studies/revoke_consent.html', {'study': study, 'consent': consent})
 
 
-def study_detail(request, study_id):
-    study = get_object_or_404(Study, pk=study_id)
-    html_content = services.get_study_page_html(study.raw_content_base_url)
+def study_detail(request):
+    study = Study.objects.first()
+    html_content = study.study_page_html
+    if not html_content:
+        html_content = services.get_study_page_html(study.raw_content_base_url)
     user_in_study = False
     if request.user.is_authenticated and hasattr(request.user, 'profile'):
         user_in_study = Consent.objects.filter(

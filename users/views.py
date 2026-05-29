@@ -49,7 +49,7 @@ def home(request):
         if user_in_study:
             return redirect('dashboard')
 
-    return study_detail(request, study_id=study.id)
+    return study_detail(request)
 
 
 def terms_of_service(request):

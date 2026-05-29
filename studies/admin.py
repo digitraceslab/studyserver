@@ -183,6 +183,10 @@ class StudyAdmin(admin.ModelAdmin):
     list_display = ('title',)
     filter_horizontal = ('researchers',)
     inlines = [SourceConfigurationInline, ConsentInline]
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == 'study_page_html':
+            kwargs['widget'] = AceWidget(mode='html', theme='monokai', width='100%', height='300px')
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)

@@ -48,6 +48,13 @@ class Study(models.Model):
         blank=True,
         help_text="Branch name in the config repository (default: main)"
     )
+
+    study_page_html = models.TextField(
+        blank=True,
+        default='',
+        help_text="Front page HTML content."
+    )
+
     @property
     def required_data_sources(self):
         if self.pk and self.source_config_entries.exists():
