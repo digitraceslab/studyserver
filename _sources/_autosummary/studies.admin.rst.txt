@@ -13,4 +13,5 @@ studies.admin
       SourceConfigurationInline
       StudyAdmin
       StudyParticipantAdmin
+      StudySourceConfigurationAdmin
    

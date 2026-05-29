@@ -34,3 +34,6 @@ studies.migrations
    0022_convert_source_configurations
    0023_remove_data_source_list_fields
    0024_alter_study_source_configurations
+   0025_studysourceconfiguration
+   0026_add_studysourceconfiguration_fields
+   0027_backfill_studysourceconfiguration
