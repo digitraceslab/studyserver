@@ -73,7 +73,23 @@ class SourceConfigurationInline(admin.TabularInline):
     model = StudySourceConfiguration
     form = SourceConfigurationInlineForm
     extra = 1
-    fields = ['source_type', 'status', 'requested_data_types']
+    fields = ['source_type', 'status', 'data_start', 'data_end', 'change_link']
+    readonly_fields = ['change_link']
+
+    @admin.display(description='')
+    def change_link(self, obj):
+        if not obj.pk:
+            return '-'
+        url = reverse('admin:studies_studysourceconfiguration_change', args=[obj.pk])
+        return format_html('<a href="{}">Edit</a>', url)
+
+
+@admin.register(StudySourceConfiguration)
+class StudySourceConfigurationAdmin(admin.ModelAdmin):
+    list_display = ('study', 'source_type', 'status')
+    readonly_fields = ('study', 'source_type')
+    can_delete = False
+    fields = ('study', 'source_type', 'status', 'requested_data_types', 'config_file')
 
 
 class ConsentInline(admin.TabularInline):
@@ -98,6 +114,25 @@ class ConsentInline(admin.TabularInline):
     )
     can_delete = False
     extra = 0
+
+    def get_fields(self, request, obj=None):
+        fields = super().get_fields(request, obj)
+        if request.user.is_superuser and 'change_link' not in fields:
+            return tuple(fields) + ('change_link',)
+        return fields
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = super().get_readonly_fields(request, obj)
+        if request.user.is_superuser and 'change_link' not in readonly:
+            return tuple(readonly) + ('change_link',)
+        return readonly
+
+    @admin.display(description='')
+    def change_link(self, obj):
+        if not obj.pk:
+            return '-'
+        url = reverse('admin:studies_consent_change', args=[obj.pk])
+        return format_html('<a href="{}">Edit</a>', url)
 
     @admin.display(description='Participant')
     def participant_username(self, obj):

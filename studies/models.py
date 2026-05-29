@@ -119,6 +119,20 @@ class StudySourceConfiguration(models.Model):
         default='',
         help_text='Comma-separated list of data types to request from this source',
     )
+    data_start = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Start of the data collection period. May predate consent_date."
+    )
+    data_end = models.DateTimeField(
+        null=True, blank=True,
+        help_text="End of the data collection period. May be null for ongoing collection."
+    )
+    config_file = models.CharField(
+        max_length=200,
+        blank=True,
+        default='',
+        help_text="Optional config file name in the repository for this source (e.g. aware_config.yaml)"
+    )
 
     class Meta:
         unique_together = [('study', 'source_type')]
