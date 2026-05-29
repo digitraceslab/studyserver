@@ -37,3 +37,4 @@ data\_sources.migrations
    0025_googleportabilitydatasource_data_end_date_and_more
    0026_remove_googleportabilitydatasource_requested_data_types_and_more
    0027_remove_googleportabilitydatasource_data_end_date_and_more
+   0028_alter_awaredatasource_options_and_more
