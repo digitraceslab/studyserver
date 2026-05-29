@@ -48,31 +48,17 @@ class Study(models.Model):
         blank=True,
         help_text="Branch name in the config repository (default: main)"
     )
-    source_configurations = models.JSONField(
-        default=dict,
-        blank=True,
-        help_text=(
-            "Dict mapping source type names to their configuration. "
-            "Each entry should have at minimum a 'status' key ('required' or 'optional'). "
-            "Optional keys: 'data_start', 'data_end' (ISO datetime strings), 'config_file', "
-            "'requested_data_types' (list of strings, for portability sources). "
-            "Example: {\"AwareDataSource\": {\"status\": \"required\", \"data_start\": \"2024-01-01T00:00:00\"}}"
-        )
-    )
-
     @property
     def required_data_sources(self):
         if self.pk and self.source_config_entries.exists():
             return list(self.source_config_entries.filter(status='required').values_list('source_type', flat=True))
-        return [k for k, v in self.source_configurations.items()
-                if isinstance(v, dict) and v.get('status') == 'required']
+        return []
 
     @property
     def optional_data_sources(self):
         if self.pk and self.source_config_entries.exists():
             return list(self.source_config_entries.filter(status='optional').values_list('source_type', flat=True))
-        return [k for k, v in self.source_configurations.items()
-                if isinstance(v, dict) and v.get('status') == 'optional']
+        return []
 
     @property
     def raw_content_base_url(self):
@@ -88,14 +74,13 @@ class Study(models.Model):
         return self.config_url
 
     def get_source_dates(self, source_type):
-        """Return (data_start, data_end) for a source type from source_configurations."""
-        config = self.source_configurations.get(source_type, {})
-        if not isinstance(config, dict):
-            return None, None
-        return (
-            _parse_config_date(config.get('data_start')),
-            _parse_config_date(config.get('data_end')),
-        )
+        """Return (data_start, data_end) for a source type."""
+        source_configuration = self.source_config_entries.filter(
+            source_type=source_type
+        ).first()
+        if source_configuration:
+            return source_configuration.data_start, source_configuration.data_end
+        return None, None
 
     def __str__(self):
         return self.title

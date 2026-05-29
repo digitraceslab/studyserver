@@ -4,6 +4,7 @@ import logging
 from django.conf import settings
 from django.db import models
 
+from studies.models import StudySourceConfiguration
 from .base import DataSource
 from . import portability_client
 
@@ -51,9 +52,12 @@ class GooglePortabilityDataSource(DataSource):
             kwargs['data_start_date'] = data_start.date()
         if data_end:
             kwargs['data_end_date'] = data_end.date()
-        source_config = study.source_configurations.get(model_name, {})
-        if isinstance(source_config, dict) and source_config.get('requested_data_types'):
-            kwargs['requested_data_types'] = source_config['requested_data_types']
+        source_config = StudySourceConfiguration.objects.filter(
+            study=study,
+            source_type=model_name
+        ).first()
+        if source_config and source_config.requested_data_types:
+            kwargs['requested_data_types'] = source_config.requested_data_types
         return kwargs
 
     def _create_donation(self):

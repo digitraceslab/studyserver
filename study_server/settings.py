@@ -32,7 +32,7 @@ environ.Env.read_env(BASE_DIR / '.env')
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-p@jdu6$ugool=+$#lan3&9fyfgy3k5+%vv8owj19zgsl)4^*-y')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env.bool('DEBUG', default=False)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 
@@ -74,28 +74,29 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'study_server.urls'
 
-SECURE_SSL_REDIRECT = True
-SECURE_HSTS_SECONDS = 31536000
-SECURE_REFERRER_POLICY = 'same-origin'
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_REFERRER_POLICY = 'same-origin'
 
-CORS_ALLOWED_ORIGINS = [
-    env('SERVER_URL', default='localhost'),
-]
-CORS_ALLOW_CREDENTIALS = True
+    CORS_ALLOWED_ORIGINS = [
+        env('SERVER_URL', default='localhost'),
+    ]
+    CORS_ALLOW_CREDENTIALS = True
 
-CONTENT_SECURITY_POLICY = {
-    "DIRECTIVES": {
-        "default-src": ["'self'"],
-        "script-src": ["'self'"],
-        "style-src": ["'self'", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:"],
-        "connect-src": ["'self'"],
-        "frame-ancestors": ["'none'"],
-        "form-action": [
-            "'self'",
-        ],
+    CONTENT_SECURITY_POLICY = {
+        "DIRECTIVES": {
+            "default-src": ["'self'"],
+            "script-src": ["'self'"],
+            "style-src": ["'self'", "'unsafe-inline'"],
+            "img-src": ["'self'", "data:"],
+            "connect-src": ["'self'"],
+            "frame-ancestors": ["'none'"],
+            "form-action": [
+                "'self'",
+            ],
+        }
     }
-}
 
 PERMISSIONS_POLICY = {
     "accelerometer": [],

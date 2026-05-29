@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 
 from data_sources.models import DataSource
-from studies.models import Study
+from studies.models import Study, StudySourceConfiguration
 from users.models import Profile
 
 
@@ -59,19 +59,6 @@ class Command(BaseCommand):
         self.stdout.write(f'\nAvailable data source types: {", ".join(source_types)}')
         self.stdout.write('Enter comma-separated type names, or leave blank to skip.\n')
 
-        source_configurations = {}
-        required_input = input('Required data sources: ')
-        for name in [s.strip() for s in required_input.split(',') if s.strip()]:
-            if name not in source_types:
-                raise CommandError(f'Unknown data source type: {name}')
-            source_configurations[name] = {'status': 'required'}
-
-        optional_input = input('Optional data sources: ')
-        for name in [s.strip() for s in optional_input.split(',') if s.strip()]:
-            if name not in source_types:
-                raise CommandError(f'Unknown data source type: {name}')
-            source_configurations[name] = {'status': 'optional'}
-
         study = Study.objects.create(
             title=title,
             description=description,
@@ -79,8 +66,28 @@ class Command(BaseCommand):
             contact_email=contact_email,
             config_url=config_url,
             repo_branch=repo_branch,
-            source_configurations=source_configurations,
         )
+
+        # Create source configuration entries
+        required_input = input('Required data sources: ')
+        for name in [s.strip() for s in required_input.split(',') if s.strip()]:
+            if name not in source_types:
+                raise CommandError(f'Unknown data source type: {name}')
+            StudySourceConfiguration.objects.create(
+                study=study,
+                source_type=name,
+                status='required'
+            )
+
+        optional_input = input('Optional data sources: ')
+        for name in [s.strip() for s in optional_input.split(',') if s.strip()]:
+            if name not in source_types:
+                raise CommandError(f'Unknown data source type: {name}')
+            StudySourceConfiguration.objects.create(
+                study=study,
+                source_type=name,
+                status='optional'
+            )
 
         self.stdout.write(self.style.SUCCESS(f'\nStudy "{study.title}" created (id={study.id}).\n'))
         self.stdout.write('Deployment setup complete. Add researchers via the admin UI.')
