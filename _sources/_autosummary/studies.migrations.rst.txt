@@ -40,3 +40,4 @@ studies.migrations
    0028_remove_source_configurations
    0029_studysourceconfiguration_configuration
    0030_remove_studysourceconfiguration_config_file
+   0031_study_study_page_html
