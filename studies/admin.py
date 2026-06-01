@@ -107,6 +107,21 @@ class StudySourceConfigurationAdmin(admin.ModelAdmin):
         models.JSONField: {'form_class': PrettyJSONFormField},
     }
 
+    def get_fields(self, request, obj=None):
+        if obj and obj.source_type == 'niimport':
+            return ('study', 'source_type', 'status', 'requested_data_types', 'niimport_source_type', 'configuration')
+        return super().get_fields(request, obj)
+
+    def get_form(self, request, obj=None, **kwargs):
+        # Select form based on source_type
+        if obj and obj.source_type:
+            source_type = obj.source_type
+            if source_type == 'niimport':
+                from data_sources.forms import NiimportStudySourceConfigurationForm
+                kwargs['form'] = NiimportStudySourceConfigurationForm
+        
+        return super().get_form(request, obj, **kwargs)
+
 
 class ConsentInline(admin.TabularInline):
     model = Consent

@@ -122,7 +122,7 @@ class StudySourceConfiguration(models.Model):
     configuration = models.JSONField(
         blank=True,
         default=dict,
-        help_text="Source configuration. Specific to the source type."
+        help_text="Source configuration. Specific to the source type.",
     )
 
     class Meta:

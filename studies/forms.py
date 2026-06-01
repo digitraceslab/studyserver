@@ -50,6 +50,12 @@ class SourceConfigurationInlineForm(forms.ModelForm):
         self.fields['source_type'].choices = choices
 
 
+class StudySourceConfigurationForm(forms.ModelForm):
+    class Meta:
+        model = StudySourceConfiguration
+        fields = ['study', 'source_type', 'status', 'requested_data_types', 'configuration']
+
+
 class ConsentAcceptanceForm(forms.Form):
     accept_consent = forms.BooleanField(required=True, label="I consent")
 
