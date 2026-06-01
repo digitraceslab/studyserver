@@ -1,0 +1,12 @@
+data\_sources.models.niimport
+=============================
+
+.. automodule:: data_sources.models.niimport
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      NiimportDataSource
+   

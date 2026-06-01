@@ -14,13 +14,11 @@ data\_sources.tests
       DataSourceTest
       DataSourcesViewsTest
       DbConnectorTest
-      GooglePortabilityDataSourceTest
-      GooglePortabilityModelTest
       JsonUrlDataSourceTest
+      NiimportDataSourceTest
+      NiimportPortabilityModelTest
       PortabilityClientTest
       PortabilityModelTestMixin
       PortabilityViewCreationRollbackTest
       PortabilityViewDeleteTest
-      TikTokPortabilityDataSourceTest
-      TikTokPortabilityModelTest
    

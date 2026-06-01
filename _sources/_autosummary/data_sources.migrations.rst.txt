@@ -38,3 +38,6 @@ data\_sources.migrations
    0026_remove_googleportabilitydatasource_requested_data_types_and_more
    0027_remove_googleportabilitydatasource_data_end_date_and_more
    0028_alter_awaredatasource_options_and_more
+   0029_consolidate_niimport
+   0030_consolidate_niimport
+   0031_delete_googleportabilitydatasource_and_more

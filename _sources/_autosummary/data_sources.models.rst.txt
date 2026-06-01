@@ -13,8 +13,7 @@ data\_sources.models
    aware
    base
    db_connector
-   google_portability
    jsonurl
+   niimport
    portability_client
-   tiktok_portability
    utils

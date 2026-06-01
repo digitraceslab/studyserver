@@ -10,7 +10,6 @@ data\_sources.admin
    
       AwareDataSourceAdmin
       DataSourceAdmin
-      GooglePortabilityDataSourceAdmin
       JsonUrlDataSourceAdmin
-      TikTokPortabilityDataSourceAdmin
+      NiimportDataSourceAdmin
    

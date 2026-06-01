@@ -10,7 +10,6 @@ data\_sources.forms
    
       AwareDataSourceForm
       DataFilterForm
-      GooglePortabilityDataSourceForm
       JsonUrlDataSourceForm
-      TikTokPortabilityDataSourceForm
+      NiimportDataSourceForm
    
