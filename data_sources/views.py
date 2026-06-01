@@ -66,29 +66,11 @@ def add_data_source(request, source_type):
     consent_id = request.GET.get('consent_id')
 
     # Dynamically get the Model and Form classes
-    model_name = f"{source_type}DataSource"
-    form_name = f"{source_type}DataSourceForm"
-    ModelClass = None
-    FormClass = None
-    for app in apps.get_app_configs():
-        try:
-            ModelClass = app.get_model(model_name)
-        except LookupError:
-            continue
-        
-        for module_name in [f"{app.label}.forms", "data_sources.models"]:
-            try:
-                mod = importlib.import_module(module_name)
-                FormClass = getattr(mod, form_name)
-                break
-            except (ImportError, AttributeError):
-                continue
-        
-        if ModelClass and FormClass:
-            break
+    ModelClass = DataSource.get_class_for_type(source_type)
+    FormClass = DataSource.get_form_class_for_type(source_type)
     
     if not ModelClass or not FormClass:
-        raise Http404("Data source type not found.")
+        raise Http404("Data source does not have a valid model and form class.")
 
     source_title = source_type.replace('_', ' ')
     default_name = source_default_title(source_title, consent_id, request.user.profile)

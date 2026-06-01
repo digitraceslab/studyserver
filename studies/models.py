@@ -126,7 +126,6 @@ class StudySourceConfiguration(models.Model):
     )
 
     class Meta:
-        unique_together = [('study', 'source_type')]
         verbose_name = 'Source Configuration'
         verbose_name_plural = 'Source Configurations'
 

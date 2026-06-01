@@ -4,11 +4,10 @@ from .models import Study, DataSource, StudySourceConfiguration
 
 
 def get_data_source_type_choices():
-    all_models = apps.get_app_config('data_sources').get_models()
     choices = []
-    for model in all_models:
-        if issubclass(model, DataSource) and model is not DataSource:
-            choices.append((model.__name__, model.display_type.fget(None)))
+    for source_type, cls in DataSource._data_source_types.items():
+        label = source_type.replace('_', ' ').title()
+        choices.append((source_type, label))
     return choices
 
 

@@ -2,7 +2,7 @@ from unittest.mock import patch, MagicMock
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
-from .models import AwareDataSource, JsonUrlDataSource, GooglePortabilityDataSource, TikTokPortabilityDataSource
+from .models import AwareDataSource, JsonUrlDataSource, NiimportDataSource
 from .models.base import DataSource
 from django.core.exceptions import ValidationError
 from studies.models import Study, Consent
@@ -338,36 +338,21 @@ class JsonUrlDataSourceTest(TestCase):
         self.assertEqual(count, 1)
 
 
-# Test for GooglePortabilityDataSource
-class GooglePortabilityDataSourceTest(TestCase):
+# Test for NiimportDataSource
+class NiimportDataSourceTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='testuser', password='testpass')
         self.profile = Profile.objects.create(user=self.user)
 
     @patch('data_sources.models.portability_client.create_donation')
-    def test_create_google_source_redirects_to_portability(self, mock_create):
+    def test_create_niimport_source_redirects_to_portability(self, mock_create):
         mock_create.return_value = {'id': 1, 'token': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'status': 'pending'}
         self.client.login(username='testuser', password='testpass')
-        response = self.client.get(reverse('add_data_source', args=['GooglePortability']))
+        response = self.client.get(reverse('add_data_source', args=['niimportPortability']))
         self.assertEqual(response.status_code, 302)
         self.assertIn('/donate/', response.url)
-        mock_create.assert_called_once_with('google_portability')
+        mock_create.assert_called_once_with('niimport_portability')
 
-
-# Test for TikTokPortabilityDataSource
-class TikTokPortabilityDataSourceTest(TestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(username='testuser', password='testpass')
-        self.profile = Profile.objects.create(user=self.user)
-
-    @patch('data_sources.models.portability_client.create_donation')
-    def test_create_tiktok_source_redirects_to_portability(self, mock_create):
-        mock_create.return_value = {'id': 2, 'token': 'b2c3d4e5-f6a7-8901-bcde-f12345678901', 'status': 'pending'}
-        self.client.login(username='testuser', password='testpass')
-        response = self.client.get(reverse('add_data_source', args=['TikTokPortability']))
-        self.assertEqual(response.status_code, 302)
-        self.assertIn('/donate/', response.url)
-        mock_create.assert_called_once_with('tiktok_portability')
 
 
 # Test for DataSource (base class)
@@ -396,11 +381,11 @@ class PortabilityClientTest(TestCase):
         mock_response.json.return_value = {'id': 1, 'token': 'abc', 'status': 'pending'}
         mock_post.return_value = mock_response
 
-        result = portability_client.create_donation('google_portability')
+        result = portability_client.create_donation('niimport_portability')
 
         mock_post.assert_called_once_with(
             'http://test-server/api/donations/',
-            json={'source_type': 'google_portability'},
+            json={'source_type': 'niimport_portability'},
             headers=self.EXPECTED_HEADERS,
             timeout=portability_client.REQUEST_TIMEOUT,
         )
@@ -504,15 +489,15 @@ class PortabilityClientTest(TestCase):
         mock_post.return_value = mock_response
 
         with self.assertRaises(requests.HTTPError):
-            portability_client.create_donation('google_portability')
+            portability_client.create_donation('niimport_portability')
 
 
 # ---------------------------------------------------------------------------
-# Shared mixin for Google / TikTok portability model tests
+# Shared mixin for Niimport portability model tests
 # ---------------------------------------------------------------------------
 
 class PortabilityModelTestMixin:
-    """Shared tests for Google/TikTok portability data sources."""
+    """Shared tests for niimport/TikTok portability data sources."""
 
     model_class = None  # set in subclass
 
@@ -695,12 +680,8 @@ class PortabilityModelTestMixin:
 # Concrete model test classes using the mixin
 # ---------------------------------------------------------------------------
 
-class GooglePortabilityModelTest(PortabilityModelTestMixin, TestCase):
-    model_class = GooglePortabilityDataSource
-
-
-class TikTokPortabilityModelTest(PortabilityModelTestMixin, TestCase):
-    model_class = TikTokPortabilityDataSource
+class NiimportPortabilityModelTest(PortabilityModelTestMixin, TestCase):
+    model_class = NiimportDataSource
 
 
 # ---------------------------------------------------------------------------
@@ -715,16 +696,16 @@ class PortabilityViewCreationRollbackTest(TestCase):
 
     @patch('data_sources.models.portability_client.create_donation',
            side_effect=Exception('portability server unreachable'))
-    def test_google_creation_failure_redirects_to_dashboard(self, _mock):
-        response = self.client.get(reverse('add_data_source', args=['GooglePortability']))
+    def test_niimport_creation_failure_redirects_to_dashboard(self, _mock):
+        response = self.client.get(reverse('add_data_source', args=['NiimportPortability']))
         self.assertRedirects(response, reverse('dashboard'))
 
     @patch('data_sources.models.portability_client.create_donation',
            side_effect=Exception('portability server unreachable'))
-    def test_google_creation_failure_rolls_back_source(self, _mock):
-        self.client.get(reverse('add_data_source', args=['GooglePortability']))
+    def test_niimport_creation_failure_rolls_back_source(self, _mock):
+        self.client.get(reverse('add_data_source', args=['niimportPortability']))
         self.assertFalse(
-            GooglePortabilityDataSource.objects.filter(profile=self.profile).exists()
+            NiimportDataSource.objects.filter(profile=self.profile).exists()
         )
 
     @patch('data_sources.models.portability_client.create_donation',
@@ -732,14 +713,6 @@ class PortabilityViewCreationRollbackTest(TestCase):
     def test_tiktok_creation_failure_redirects_to_dashboard(self, _mock):
         response = self.client.get(reverse('add_data_source', args=['TikTokPortability']))
         self.assertRedirects(response, reverse('dashboard'))
-
-    @patch('data_sources.models.portability_client.create_donation',
-           side_effect=Exception('portability server unreachable'))
-    def test_tiktok_creation_failure_rolls_back_source(self, _mock):
-        self.client.get(reverse('add_data_source', args=['TikTokPortability']))
-        self.assertFalse(
-            TikTokPortabilityDataSource.objects.filter(profile=self.profile).exists()
-        )
 
 
 class PortabilityViewDeleteTest(TestCase):
@@ -749,46 +722,23 @@ class PortabilityViewDeleteTest(TestCase):
         self.client.login(username='testuser', password='testpass')
 
     @patch('data_sources.models.portability_client.delete_donation')
-    def test_delete_google_source_calls_delete_donation(self, mock_delete):
-        source = GooglePortabilityDataSource.objects.create(
+    def test_delete_niimport_source_calls_delete_donation(self, mock_delete):
+        source = NiimportDataSource.objects.create(
             profile=self.profile,
-            name='My Google Source',
+            name='My niimport Source',
             donation_id=42,
         )
         self.client.post(reverse('delete_data_source', args=[source.id]))
         mock_delete.assert_called_once_with(42)
 
     @patch('data_sources.models.portability_client.delete_donation')
-    def test_delete_google_source_removes_from_db(self, _mock):
-        source = GooglePortabilityDataSource.objects.create(
+    def test_delete_niimport_source_removes_from_db(self, _mock):
+        source = NiimportDataSource.objects.create(
             profile=self.profile,
-            name='My Google Source',
+            name='My niimport Source',
             donation_id=42,
         )
         self.client.post(reverse('delete_data_source', args=[source.id]))
         self.assertFalse(
-            GooglePortabilityDataSource.objects.filter(id=source.id).exists()
+            NiimportDataSource.objects.filter(id=source.id).exists()
         )
-
-    @patch('data_sources.models.portability_client.delete_donation')
-    def test_delete_tiktok_source_calls_delete_donation(self, mock_delete):
-        source = TikTokPortabilityDataSource.objects.create(
-            profile=self.profile,
-            name='My TikTok Source',
-            donation_id=99,
-        )
-        self.client.post(reverse('delete_data_source', args=[source.id]))
-        mock_delete.assert_called_once_with(99)
-
-    @patch('data_sources.models.portability_client.delete_donation')
-    def test_delete_tiktok_source_removes_from_db(self, _mock):
-        source = TikTokPortabilityDataSource.objects.create(
-            profile=self.profile,
-            name='My TikTok Source',
-            donation_id=99,
-        )
-        self.client.post(reverse('delete_data_source', args=[source.id]))
-        self.assertFalse(
-            TikTokPortabilityDataSource.objects.filter(id=source.id).exists()
-        )
-

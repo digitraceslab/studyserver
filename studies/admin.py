@@ -100,7 +100,7 @@ class SourceConfigurationInline(admin.TabularInline):
 @admin.register(StudySourceConfiguration)
 class StudySourceConfigurationAdmin(admin.ModelAdmin):
     list_display = ('study', 'source_type', 'status')
-    readonly_fields = ('study', 'source_type')
+    readonly_fields = ('study',)
     can_delete = False
     fields = ('study', 'source_type', 'status', 'requested_data_types', 'configuration')
     formfield_overrides = {

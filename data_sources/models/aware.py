@@ -16,6 +16,8 @@ import requests
 
 
 class AwareDataSource(DataSource):
+    SOURCE_TYPE = "aware"
+    FORM_CLASS = "AwareDataSourceForm"
     
     device_label = models.CharField(max_length=150, unique=True, default=uuid.uuid4)
     

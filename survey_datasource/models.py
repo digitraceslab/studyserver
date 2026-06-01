@@ -9,6 +9,8 @@ class SurveyDataSource(DataSource):
     For the purposes of grouping data, we treat each survey
     as a data type and each question response as a row of data.
     """
+    SOURCE_TYPE = "survey"
+    FORM_CLASS = "SurveyDataSourceForm"
     
     display_type = "Survey"
     

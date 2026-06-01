@@ -1,4 +1,4 @@
-"""Google Portability data source — proxies to portability-server."""
+"""Abstract base class for Niimport-backed data sources."""
 import logging
 
 from django.conf import settings
@@ -11,15 +11,29 @@ from . import portability_client
 logger = logging.getLogger(__name__)
 
 
-class GooglePortabilityDataSource(DataSource):
+class NiimportDataSource(DataSource):
+    """Concrete base for data sources that proxy to a Niimport server."""
+    SOURCE_TYPE = "niimport"
+    FORM_CLASS = "NiimportDataSourceForm"
+
     PROCESSING_STATUS_CHOICES = (
         ('pending', 'Pending'),
-        ('authorized', 'Authorized, waiting for download'),
+        ('authorized', 'Authorized, waiting for data'),
         ('processing', 'Processing'),
         ('processed', 'Processed successfully'),
         ('error', 'Error during processing'),
     )
 
+    NIIMPORT_SOURCE_TYPE_CHOICES = (
+        ('google_portability', 'Google Portability'),
+        ('tiktok_portability', 'TikTok Portability'),
+        ('tiktok_export', 'TikTok Export'),
+    )
+
+    niimport_source_type = models.CharField(
+        max_length=30,
+        choices=NIIMPORT_SOURCE_TYPE_CHOICES,
+    )
     donation_id = models.IntegerField(null=True, blank=True)
     donation_token = models.UUIDField(null=True, blank=True)
     processing_status = models.CharField(
@@ -28,43 +42,51 @@ class GooglePortabilityDataSource(DataSource):
         default='pending',
     )
     processing_log = models.TextField(blank=True, default='')
-    data_type_status = models.JSONField(default=dict, blank=True)
 
     requires_setup = True
     requires_confirmation = False
 
     @property
-    def display_type(self):
-        return "Google Portability Data"
+    def NIIMPORT_SOURCE_TYPE(self):
+        return self.niimport_source_type
 
-    PORTABILITY_SOURCE_TYPE = 'google_portability'
+    @property
+    def display_type(self):
+        if self.NIIMPORT_SOURCE_TYPE == "google_portability":
+            return "Google Portability Data"
+        elif self.NIIMPORT_SOURCE_TYPE == "tiktok_portability":
+            return "TikTok Portability Data"
+        elif self.NIIMPORT_SOURCE_TYPE == "tiktok_export":
+            return "TikTok Export Data" 
+        else:
+            return "Missing portability data type"
 
     def _get_study_config(self):
         """Look up study configuration for this source via its linked consent."""
-        model_name = type(self).__name__
+        source_type = self.SOURCE_TYPE
         consent = self.consents.select_related('study').first()
         if not consent:
             return {}
         study = consent.study
         kwargs = {}
-        data_start, data_end = study.get_source_dates(model_name)
+        data_start, data_end = study.get_source_dates(source_type)
         if data_start:
             kwargs['data_start_date'] = data_start.date()
         if data_end:
             kwargs['data_end_date'] = data_end.date()
         source_config = StudySourceConfiguration.objects.filter(
             study=study,
-            source_type=model_name
+            source_type=source_type
         ).first()
         if source_config and source_config.requested_data_types:
             kwargs['requested_data_types'] = source_config.requested_data_types
         return kwargs
 
     def _create_donation(self):
-        """Create a donation on the portability server and store the result."""
+        """Create a donation on the Niimport server and store the result."""
         kwargs = self._get_study_config()
         donation = portability_client.create_donation(
-            self.PORTABILITY_SOURCE_TYPE, **kwargs
+            self.NIIMPORT_SOURCE_TYPE, **kwargs
         )
         self.donation_id = donation['id']
         self.donation_token = donation['token']
@@ -84,7 +106,7 @@ class GooglePortabilityDataSource(DataSource):
             result = portability_client.get_data(self.donation_id)
             return result.get('data_types', [])
         except Exception as e:
-            logger.warning("Failed to get data types from portability server: %s", e)
+            logger.warning("Failed to get data types from Niimport server: %s", e)
             return []
 
     def fetch_data(self, data_type, limit=1000, start_date=None, end_date=None, offset=0):
@@ -101,7 +123,7 @@ class GooglePortabilityDataSource(DataSource):
             )
             return result.get('data', [])
         except Exception as e:
-            logger.warning("Failed to fetch data from portability server: %s", e)
+            logger.warning("Failed to fetch data from Niimport server: %s", e)
             return []
 
     def count_rows(self, data_type, start_date=None, end_date=None):
@@ -117,7 +139,7 @@ class GooglePortabilityDataSource(DataSource):
             )
             return result.get('count', 0)
         except Exception as e:
-            logger.warning("Failed to count rows from portability server: %s", e)
+            logger.warning("Failed to count rows from Niimport server: %s", e)
             return 0
 
     def revoke_before_delete(self):
@@ -125,10 +147,10 @@ class GooglePortabilityDataSource(DataSource):
             try:
                 portability_client.delete_donation(self.donation_id)
             except Exception as e:
-                logger.warning("Failed to delete donation on portability server: %s", e)
+                logger.warning("Failed to delete donation on Niimport server: %s", e)
 
     def _process_data(self):
-        """Poll portability-server for status updates."""
+        """Poll Niimport server for status updates."""
         if not self.donation_id:
             return
         try:
@@ -144,4 +166,4 @@ class GooglePortabilityDataSource(DataSource):
                 self.status = 'processing'
             self.save()
         except Exception as e:
-            logger.warning("Failed to poll portability server: %s", e)
+            logger.warning("Failed to poll Niimport server: %s", e)

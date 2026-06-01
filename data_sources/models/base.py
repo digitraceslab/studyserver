@@ -7,6 +7,27 @@ from users.models import Profile
 
 
 class DataSource(PolymorphicModel):
+    SOURCE_TYPE = None  # Subclasses must set this
+    FORM_CLASS = None  # Subclasses can set this to specify a custom form for setup
+    _data_source_types = {}
+    _data_source_forms = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if cls.SOURCE_TYPE:
+            DataSource._data_source_types[cls.SOURCE_TYPE] = cls
+        if cls.FORM_CLASS:
+            DataSource._data_source_forms[cls.SOURCE_TYPE] = cls.FORM_CLASS
+    
+    @classmethod
+    def get_class_for_type(cls, source_type):
+        return cls._data_source_types.get(source_type)
+    
+    @classmethod
+    def get_form_class_for_type(cls, source_type):
+        return cls._data_source_forms.get(source_type)
+
+
     status = models.CharField(
         max_length=20,
         choices=(
