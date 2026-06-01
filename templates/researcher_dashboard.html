@@ -58,6 +58,10 @@
 <h2>API Access</h2>
 <p><a href="{% url 'manage_token' %}">Manage API Token</a></p>
 
-<p style="margin-top: 20px;"><a href="{% url 'logout' %}">Logout</a></p>
+
+<form method="post" action="{% url 'logout' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn">Logout</button>
+</form>
 
 {% endblock %}
