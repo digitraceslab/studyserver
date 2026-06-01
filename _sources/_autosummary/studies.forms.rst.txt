@@ -18,4 +18,5 @@ studies.forms
       DataSourceSelectionForm
       SourceConfigurationInlineForm
       StudyAdminForm
+      StudySourceConfigurationForm
    
