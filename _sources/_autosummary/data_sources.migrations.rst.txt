@@ -41,3 +41,4 @@ data\_sources.migrations
    0029_consolidate_niimport
    0030_consolidate_niimport
    0031_delete_googleportabilitydatasource_and_more
+   0032_niimport_donation_config_fields

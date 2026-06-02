@@ -42,3 +42,4 @@ studies.migrations
    0030_remove_studysourceconfiguration_config_file
    0031_study_study_page_html
    0032_rename_source_type_to_source_type_slug
+   0033_consent_source_configuration
