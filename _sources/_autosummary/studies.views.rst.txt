@@ -12,6 +12,7 @@ studies.views
       consent_workflow
       create_data_source_flow
       get_next_consent
+      get_study
       join_study
       revoke_consent
       select_data_source_view
