@@ -182,9 +182,9 @@ class DbConnectorTest(TestCase):
         expected_url = reverse('instructions', args=[source.id])
         self.assertEqual(response.url, expected_url)
         self.assertTrue(
-            AwareDataSource.objects.filter(profile=self.profile, name__startswith='Aware').exists()
+            AwareDataSource.objects.filter(profile=self.profile, name__istartswith='aware').exists()
         )
-        self.assertTrue(source.name.startswith('Aware'))
+        self.assertTrue(source.name.lower().startswith('aware'))
 
     def test_render_form_when_extra_fields(self):
         # Patch the helper that decides whether the form has only the name
@@ -355,10 +355,16 @@ class NiimportDataSourceTest(TestCase):
     def test_create_niimport_source_redirects_to_portability(self, mock_create):
         mock_create.return_value = {'id': 1, 'token': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'status': 'pending'}
         self.client.login(username='testuser', password='testpass')
-        response = self.client.get(reverse('add_data_source', args=['niimport']))
+        response = self.client.post(
+            reverse('add_data_source', args=['niimport']),
+            {
+                'name': 'My Niimport Source',
+                'niimport_source_type': 'tiktok_portability',
+            },
+        )
         self.assertEqual(response.status_code, 302)
         self.assertIn('/donate/', response.url)
-        mock_create.assert_called_once_with('niimport_portability')
+        mock_create.assert_called_once_with('tiktok_portability')
 
 
 
@@ -713,13 +719,25 @@ class PortabilityViewCreationRollbackTest(TestCase):
     @patch('data_sources.models.portability_client.create_donation',
            side_effect=Exception('portability server unreachable'))
     def test_niimport_creation_failure_redirects_to_dashboard(self, _mock):
-        response = self.client.get(reverse('add_data_source', args=['niimport']))
+        response = self.client.post(
+            reverse('add_data_source', args=['niimport']),
+            {
+                'name': 'Failing Niimport Source',
+                'niimport_source_type': 'google_portability',
+            },
+        )
         self.assertRedirects(response, reverse('dashboard'))
 
     @patch('data_sources.models.portability_client.create_donation',
            side_effect=Exception('portability server unreachable'))
     def test_niimport_creation_failure_rolls_back_source(self, _mock):
-        self.client.get(reverse('add_data_source', args=['niimport']))
+        self.client.post(
+            reverse('add_data_source', args=['niimport']),
+            {
+                'name': 'Failing Niimport Source',
+                'niimport_source_type': 'google_portability',
+            },
+        )
         self.assertFalse(
             NiimportDataSource.objects.filter(profile=self.profile).exists()
         )
@@ -727,7 +745,13 @@ class PortabilityViewCreationRollbackTest(TestCase):
     @patch('data_sources.models.portability_client.create_donation',
            side_effect=Exception('portability server unreachable'))
     def test_tiktok_creation_failure_redirects_to_dashboard(self, _mock):
-        response = self.client.get(reverse('add_data_source', args=['niimport']))
+        response = self.client.post(
+            reverse('add_data_source', args=['niimport']),
+            {
+                'name': 'Failing TikTok Source',
+                'niimport_source_type': 'tiktok_portability',
+            },
+        )
         self.assertRedirects(response, reverse('dashboard'))
 
 

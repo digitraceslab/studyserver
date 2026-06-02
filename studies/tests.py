@@ -187,7 +187,7 @@ class ConsentProfileDeletionTest(TestCase):
         self.consent.refresh_from_db()
         self.assertTrue(self.consent.is_complete)
         self.assertTrue(self.consent.consent_text_accepted)
-        self.assertEqual(self.consent.source_type, 'AwareDataSource')
+        self.assertEqual(self.consent.source_type, 'aware')
         self.assertEqual(
             self.consent.consent_date.replace(microsecond=0),
             consent_date.replace(microsecond=0),
@@ -327,8 +327,10 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn('/login', response['Location'])
 
-    def test_nonexistent_study_404(self):
-        url = reverse('join_study', args=[99999])
+    def test_no_study_configured_404(self):
+        # Delete all studies to trigger Http404 from get_study()
+        Study.objects.all().delete()
+        url = reverse('join_study')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 404)
 
@@ -445,7 +447,6 @@ class ConsentCheckboxViewTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_post_data_start_fallback_to_consent_date(self, mock_template):
-        self.study.source_config_entries.filter(source_type='aware').delete()
 
         source = AwareDataSource.objects.create(
             profile=self.profile,
@@ -600,11 +601,12 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_routes_to_select_view_filters_niimport_sources_by_configuration(self, mock_template):
-        # Need to create niimport config in the study
+        # Create niimport config with specific source type filter
         source_config = StudySourceConfiguration.objects.create(
             study=self.study,
             source_type='niimport',
             status='optional',
+            configuration={'niimport_source_type': 'tiktok_portability'},
         )
         Consent.objects.create(
             participant=self.profile,
@@ -620,12 +622,14 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
             name='Matching TikTok Source',
             status='active',
             niimport_source_type='tiktok_portability',
+            configuration={'niimport_source_type': 'tiktok_portability'},
         )
         NiimportDataSource.objects.create(
             profile=self.profile,
             name='Non-matching Google Source',
             status='active',
             niimport_source_type='google_portability',
+            configuration={'niimport_source_type': 'google_portability'},
         )
         url = reverse('consent_workflow')
         response = self.client.get(url)
@@ -1033,6 +1037,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
             study=self.study,
             source_type='aware',
             data_source=source,
+            source_configuration=StudySourceConfiguration.objects.get(study=self.study, source_type='aware'),
             is_complete=True,
             consent_date=timezone.now(),
             study_participant=self.study_participant,
@@ -1065,6 +1070,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
             study=self.study,
             source_type='aware',
             data_source=source,
+            source_configuration=StudySourceConfiguration.objects.get(study=self.study, source_type='aware'),
             is_complete=True,
             consent_date=timezone.make_aware(datetime(2024, 1, 1)),
             study_participant=self.study_participant,
@@ -1096,6 +1102,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
             study=self.study,
             source_type='aware',
             data_source=source,
+            source_configuration=StudySourceConfiguration.objects.get(study=self.study, source_type='aware'),
             is_complete=True,
             consent_date=timezone.make_aware(datetime(2024, 1, 1)),
             study_participant=self.study_participant,
@@ -1127,6 +1134,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
             study=self.study,
             source_type='aware',
             data_source=source,
+            source_configuration=StudySourceConfiguration.objects.get(study=self.study, source_type='aware'),
             is_complete=True,
             consent_date=timezone.make_aware(datetime(2024, 1, 1)),
             study_participant=self.study_participant,
@@ -1173,6 +1181,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
             study=self.study,
             source_type='aware',
             data_source=source,
+            source_configuration=StudySourceConfiguration.objects.get(study=self.study, source_type='aware'),
             is_complete=True,
             consent_date=timezone.make_aware(datetime(2024, 1, 1)),
             study_participant=self.study_participant,
@@ -1200,6 +1209,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
             study=self.study,
             source_type='aware',
             data_source=source,
+            source_configuration=StudySourceConfiguration.objects.get(study=self.study, source_type='aware'),
             is_complete=True,
             consent_date=consent_start,
             data_start=consent_start,
