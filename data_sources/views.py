@@ -11,7 +11,7 @@ from urllib.parse import urlencode
 from . import forms
 from .forms import JsonUrlDataSourceForm, AwareDataSourceForm, DataFilterForm
 from .models import DataSource, AwareDataSource, JsonUrlDataSource
-from studies.models import Consent
+from studies.models import Consent, StudySourceConfiguration
 from datetime import date, datetime, time, timedelta
 import zoneinfo
 
@@ -19,8 +19,7 @@ from urllib.parse import urlencode
 
 
 def form_has_only_name_field(form):
-    fields = list(form.fields.keys())
-    return fields == ['name']
+    return [name for name, field in form.fields.items() if not field.disabled] == ['name']
 
 def source_default_title(source_title, consent_id=None, profile = None):
     default_name = f"{source_title} Source"
@@ -43,7 +42,7 @@ def link_consent_to_source(consent_id, data_source, profile):
         consent.data_source = data_source
         consent.is_complete = True
         consent.consent_date = timezone.now()
-        source_start, _ = consent.study.get_source_dates(consent.source_type)
+        source_start = consent.source_configuration.data_start if consent.source_configuration else None
         consent.data_start = source_start or consent.consent_date
         consent.save()
 
@@ -64,6 +63,8 @@ def select_data_source_type(request):
 
 def add_data_source(request, source_type):
     consent_id = request.GET.get('consent_id')
+    source_configuration_id = request.GET.get('source_configuration_id')
+    source_configuration = None
 
     # Dynamically get the Model and Form classes
     ModelClass = DataSource.get_class_for_type(source_type)
@@ -74,12 +75,24 @@ def add_data_source(request, source_type):
 
     source_title = source_type.replace('_', ' ')
     default_name = source_default_title(source_title, consent_id, request.user.profile)
+
+    form_configuration = {}
+    if source_configuration_id:
+        source_configuration = StudySourceConfiguration.objects.filter(
+            id=source_configuration_id,
+            source_type=source_type,
+        ).first()
+        if source_configuration:
+            form_configuration = source_configuration.configuration or {}
     
     if request.method == 'GET':
-        form = FormClass(initial={'name': default_name})
+        form_kwargs = {'initial': {'name': default_name}}
+        if form_configuration:
+            form_kwargs['configuration'] = form_configuration
+        form = FormClass(**form_kwargs)
         if form_has_only_name_field(form):
             # Create a form that is already filled, no user input needed
-            form = FormClass({'name': default_name})
+            form = FormClass({'name': default_name}, **({k: v for k, v in form_kwargs.items() if k != 'initial'}))
         else:
             # Actually render the form and wait for a post
             return render(
@@ -92,11 +105,24 @@ def add_data_source(request, source_type):
             )
     else:
         # Normal post, create the form from posted data
-        form = FormClass(request.POST)
+        post_kwargs = {}
+        if form_configuration:
+            post_kwargs['configuration'] = form_configuration
+        form = FormClass(request.POST, **post_kwargs)
 
     if form.is_valid():
         new_source = form.save(commit=False)
         new_source.profile = request.user.profile
+        new_source.configuration = dict(form_configuration)
+        if source_configuration:
+            new_source.data_start = (
+                source_configuration.data_start.date() if source_configuration.data_start else None
+            )
+            new_source.data_end = (
+                source_configuration.data_end.date() if source_configuration.data_end else None
+            )
+            if source_configuration.requested_data_types:
+                new_source.configuration['requested_data_types'] = source_configuration.requested_data_types
         if not new_source.requires_setup and not new_source.requires_confirmation:
             new_source.status = 'active'
         new_source.save()
@@ -121,11 +147,7 @@ def add_data_source(request, source_type):
         else:
             messages.success(request, f"Successfully added data source: {new_source.name}")
             if consent_id:
-                consent = Consent.objects.filter(
-                    id=consent_id,
-                    participant=request.user.profile
-                ).first()
-                return redirect('consent_workflow', study_id=consent.study.id)
+                return redirect('consent_workflow')
             else:
                 return redirect('dashboard')
     

@@ -5,7 +5,6 @@ import requests
 
 class JsonUrlDataSource(DataSource):
     SOURCE_TYPE = "json_url"
-    FORM_CLASS = "JsonUrlDataSourceForm"
     
     url = models.URLField(max_length=500, help_text="The URL where the JSON data can be fetched")
 

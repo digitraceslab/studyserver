@@ -18,7 +18,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from study_server.utils import data_to_csv_response
 import base64
-from .models import Study, Consent, StudyParticipant
+from .models import Study, Consent, StudyParticipant, StudySourceConfiguration
 from .forms import ConsentAcceptanceForm, DataSourceSelectionForm
 from . import services
 from data_sources.models import DataSource
@@ -43,19 +43,21 @@ def join_study(request):
         study=study,
     )
 
-    for required_type in study.required_data_sources:
+    for source_configuration in study.source_config_entries.filter(status='required'):
         Consent.objects.create(
             participant=profile,
             study=study,
-            source_type=required_type,
+            source_configuration=source_configuration,
+            source_type=source_configuration.source_type,
             study_participant=study_participant,
         )
 
-    for optional_type in study.optional_data_sources:
+    for source_configuration in study.source_config_entries.filter(status='optional'):
         Consent.objects.create(
             participant=profile,
             study=study,
-            source_type=optional_type,
+            source_configuration=source_configuration,
+            source_type=source_configuration.source_type,
             is_optional=True,
             study_participant=study_participant,
         )
@@ -105,6 +107,7 @@ def revoke_consent(request, consent_id):
         Consent.objects.create(
             participant=profile,
             study=study,
+            source_configuration=consent.source_configuration,
             source_type=consent.source_type,
             is_optional=True,
             study_participant=consent.study_participant,
@@ -161,8 +164,18 @@ def get_next_consent(profile, study, consent_id=None):
 
 
 def consent_checkbox_view(request, consent, study):
-    html_template = services.get_consent_template(study, consent.source_type)
+    source_type = consent.source_configuration.source_type if consent.source_configuration else consent.source_type
+    html_template = services.get_consent_template(study, source_type)
     template = engines['django'].from_string(html_template)
+    source_configuration = consent.source_configuration
+    if source_configuration:
+        model_cls = source_configuration.get_data_source_class()
+        if model_cls:
+            source_type_label = model_cls.display_type_for_configuration(source_configuration.configuration)
+        else:
+            source_type_label = source_configuration.source_type.replace('_', ' ').title()
+    else:
+        source_type_label = consent.source_type
 
     if request.method == 'POST':
         form = ConsentAcceptanceForm(request.POST)
@@ -171,7 +184,7 @@ def consent_checkbox_view(request, consent, study):
             if consent.data_source:
                 consent.is_complete = True
                 consent.consent_date = timezone.now()
-                source_start, _ = study.get_source_dates(consent.source_type)
+                source_start = consent.source_configuration.data_start if consent.source_configuration else None
                 consent.data_start = source_start or consent.consent_date
             consent.save()
             return redirect(f"{reverse('consent_workflow')}?consent_id={consent.id}")
@@ -186,6 +199,7 @@ def consent_checkbox_view(request, consent, study):
         'study': study,
         'consent_form': mark_safe(consent_form_html),
         'request': request,
+        'source_type_label': source_type_label,
     }
     rendered = template.render(context)
     return render(request, 'studies/consent_wrapper.html', {
@@ -195,24 +209,50 @@ def consent_checkbox_view(request, consent, study):
 
 
 def create_data_source_flow(consent):
-    slug = DataSource.get_source_type_slug(consent.source_type)
-    if not slug:
+    source_configuration = consent.source_configuration
+    if not source_configuration:
         from django.http import Http404
-        raise Http404(f"Unknown data source type: {consent.source_type}")
-    base_url = reverse('add_data_source', args=[slug])
-    query_params = urlencode({'consent_id': consent.id})
+        raise Http404("Missing source configuration for consent.")
+    base_url = reverse('add_data_source', args=[source_configuration.source_type])
+    query_params = urlencode({
+        'consent_id': consent.id,
+        'source_configuration_id': source_configuration.id,
+    })
     return redirect(f'{base_url}?{query_params}')
 
 
-def select_data_source_view(request, consent, profile, study):
-    html_template = services.get_consent_template(study, consent.source_type)
-    template = engines['django'].from_string(html_template)
+def get_existing_sources_for_consent(profile, consent):
+    source_configuration = consent.source_configuration
+    if not source_configuration:
+        return []
 
-    slug = DataSource.get_source_type_slug(consent.source_type)
-    model_cls = DataSource.get_class_for_type(slug) if slug else None
-    available_sources = profile.data_sources.filter(
-        polymorphic_ctype__model=model_cls.__name__.lower() if model_cls else consent.source_type.lower(),
+    model_cls = source_configuration.get_data_source_class()
+    if not model_cls:
+        return []
+
+    sources = profile.data_sources.filter(
+        polymorphic_ctype__model=model_cls.__name__.lower(),
     )
+    if source_configuration.configuration:
+        sources = [source for source in sources if source_configuration.matches_data_source(source)]
+    return list(sources)
+
+
+def select_data_source_view(request, consent, profile, study):
+    source_type = consent.source_configuration.source_type if consent.source_configuration else consent.source_type
+    html_template = services.get_consent_template(study, source_type)
+    template = engines['django'].from_string(html_template)
+    source_configuration = consent.source_configuration
+    if source_configuration:
+        model_cls = source_configuration.get_data_source_class()
+        if model_cls:
+            source_type_label = model_cls.display_type_for_configuration(source_configuration.configuration)
+        else:
+            source_type_label = source_configuration.source_type.replace('_', ' ').title()
+    else:
+        source_type_label = source_type
+
+    available_sources = get_existing_sources_for_consent(profile, consent)
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -224,14 +264,19 @@ def select_data_source_view(request, consent, profile, study):
                     consent.data_source = source
                     consent.is_complete = True
                     consent.consent_date = timezone.now()
-                    source_start, _ = study.get_source_dates(consent.source_type)
+                    source_start = consent.source_configuration.data_start if consent.source_configuration else None
                     consent.data_start = source_start or consent.consent_date
                     consent.save()
                     return redirect('consent_workflow')
         elif action == 'create':
-            slug = DataSource.get_source_type_slug(consent.source_type)
-            base_url = reverse('add_data_source', args=[slug])
-            query_params = urlencode({'consent_id': consent.id})
+            if not consent.source_configuration:
+                from django.http import Http404
+                raise Http404("Missing source configuration for consent.")
+            base_url = reverse('add_data_source', args=[consent.source_configuration.source_type])
+            query_params = urlencode({
+                'consent_id': consent.id,
+                'source_configuration_id': consent.source_configuration.id,
+            })
             return redirect(f'{base_url}?{query_params}')
     else:
         form = DataSourceSelectionForm(available_sources=available_sources)
@@ -243,6 +288,7 @@ def select_data_source_view(request, consent, profile, study):
         'consent': consent,
         'study': study,
         'consent_form': source_form_html,
+        'source_type_label': source_type_label,
     }
     rendered = template.render(context)
     return render(request, 'studies/consent_wrapper.html', {
@@ -266,12 +312,8 @@ def consent_workflow(request):
         return consent_checkbox_view(request, consent, study)
     
     # step 2: select or create data source
-    slug = DataSource.get_source_type_slug(consent.source_type)
-    model_cls = DataSource.get_class_for_type(slug) if slug else None
-    available_sources = profile.data_sources.filter(
-        polymorphic_ctype__model=model_cls.__name__.lower() if model_cls else consent.source_type.lower(),
-    )
-    if available_sources.count() == 0:
+    available_sources = get_existing_sources_for_consent(profile, consent)
+    if not available_sources:
         return create_data_source_flow(consent)
     else:
         return select_data_source_view(request, consent, profile, study)
@@ -351,7 +393,8 @@ def study_data_api(request):
 
         consent_end = consent.revocation_date or timezone.now()
 
-        type_start, type_end = study.get_source_dates(consent.source_type)
+        type_start = consent.source_configuration.data_start if consent.source_configuration else None
+        type_end = consent.source_configuration.data_end if consent.source_configuration else None
 
         effective_start = type_start or consent_start
         start_candidates = [_make_timezone_aware(d) for d in [effective_start, start_date] if d is not None]
@@ -367,7 +410,7 @@ def study_data_api(request):
         )
         for row in data:
             row["data_type"] = data_type
-            row["source_type"] = consent.source_type
+            row["source_type"] = consent.source_configuration.source_type if consent.source_configuration else consent.source_type
             row["participant_id"] = str(consent.study_participant.pseudo_id) if consent.study_participant else None
             all_data.append(_clean_row(row))
 

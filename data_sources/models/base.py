@@ -43,6 +43,10 @@ class DataSource(PolymorphicModel):
     def get_form_class_for_type(cls, source_type):
         return cls._data_source_forms.get(source_type)
 
+    @classmethod
+    def register_form_class(cls, source_type, form_class):
+        cls._data_source_forms[source_type] = form_class
+
 
     status = models.CharField(
         max_length=20,
@@ -57,6 +61,9 @@ class DataSource(PolymorphicModel):
     device_id = models.UUIDField(default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, help_text="A personal name for this source")
     date_added = models.DateTimeField(auto_now_add=True)
+    configuration = models.JSONField(blank=True, default=dict)
+    data_start = models.DateField(null=True, blank=True)
+    data_end = models.DateField(null=True, blank=True)
     
     config_token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     oauth_state = models.CharField(max_length=100, blank=True, null=True)
@@ -86,6 +93,24 @@ class DataSource(PolymorphicModel):
     def display_type(self):
         """Returns a user-friendly name for the data source type."""
         return "Generic Data"
+
+    @classmethod
+    def display_type_for_configuration(cls, configuration):
+        source_type = cls.SOURCE_TYPE or ''
+        if source_type:
+            return source_type.replace('_', ' ').title()
+        return "Data Source"
+
+    def _matches_configuration(self, configuration):
+        """Return True when all provided configuration keys match this source."""
+        configuration = configuration or {}
+        if not configuration:
+            return True
+        own_configuration = self.configuration or {}
+        for key, expected_value in configuration.items():
+            if own_configuration.get(key) != expected_value:
+                return False
+        return True
 
     def show_link(self):
         """Whether the data source shoudl display a link on the dashboard.

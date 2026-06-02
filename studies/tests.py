@@ -9,6 +9,7 @@ from django.http import Http404
 from users.models import Profile
 from data_sources.models.aware import AwareDataSource
 from data_sources.models.jsonurl import JsonUrlDataSource
+from data_sources.models.niimport import NiimportDataSource
 from .models import Study, Consent, StudyParticipant, StudySourceConfiguration
 from .views import get_next_consent
 
@@ -28,8 +29,8 @@ class StudyTestMixin:
             description='A test study',
             config_url='https://github.com/example/study-repo',
         )
-        StudySourceConfiguration.objects.create(study=self.study, source_type='AwareDataSource', status='required')
-        StudySourceConfiguration.objects.create(study=self.study, source_type='JsonUrlDataSource', status='optional')
+        StudySourceConfiguration.objects.create(study=self.study, source_type='aware', status='required')
+        StudySourceConfiguration.objects.create(study=self.study, source_type='json_url', status='optional')
         self.study.researchers.add(self.researcher_profile)
         self.study_participant = StudyParticipant.objects.create(
             participant=self.profile,
@@ -89,24 +90,7 @@ class StudyModelTest(TestCase):
         self.study.save()
         self.assertIsNone(self.study.raw_content_base_url)
 
-    def test_get_source_dates(self):
-        StudySourceConfiguration.objects.create(
-            study=self.study,
-            source_type='AwareDataSource',
-            status='required',
-            data_start=timezone.make_aware(datetime(2024, 1, 1)),
-            data_end=timezone.make_aware(datetime(2024, 12, 31)),
-        )
-        start, end = self.study.get_source_dates('AwareDataSource')
-        self.assertEqual(start.year, 2024)
-        self.assertEqual(start.month, 1)
-        self.assertEqual(end.year, 2024)
-        self.assertEqual(end.month, 12)
 
-    def test_get_source_dates_missing_source_type(self):
-        start, end = self.study.get_source_dates('AwareDataSource')
-        self.assertIsNone(start)
-        self.assertIsNone(end)
 
 
 # ---------------------------------------------------------------------------
@@ -123,6 +107,11 @@ class ConsentModelTest(TestCase):
             description='desc',
             config_url='https://github.com/org/repo',
         )
+        self.source_config = StudySourceConfiguration.objects.create(
+            study=self.study,
+            source_type='aware',
+            status='required',
+        )
         self.study_participant = StudyParticipant.objects.create(
             participant=self.profile,
             study=self.study,
@@ -132,7 +121,8 @@ class ConsentModelTest(TestCase):
         consent = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=self.source_config,
+            source_type='aware',
             study_participant=self.study_participant,
         )
         expected = f"Consent of {self.user.username} for {self.study.title}"
@@ -154,6 +144,11 @@ class ConsentProfileDeletionTest(TestCase):
             description='desc',
             config_url='https://github.com/org/repo',
         )
+        self.source_config = StudySourceConfiguration.objects.create(
+            study=self.study,
+            source_type='aware',
+            status='required',
+        )
         self.study_participant = StudyParticipant.objects.create(
             participant=self.profile,
             study=self.study,
@@ -161,7 +156,8 @@ class ConsentProfileDeletionTest(TestCase):
         self.consent = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=self.source_config,
+            source_type='aware',
             study_participant=self.study_participant,
             is_complete=True,
             consent_text_accepted=True,
@@ -210,13 +206,19 @@ class ConsentProfileDeletionTest(TestCase):
             title='Second Study', description='desc',
             config_url='https://github.com/org/repo2',
         )
+        source_config2 = StudySourceConfiguration.objects.create(
+            study=study2,
+            source_type='json_url',
+            status='optional',
+        )
         sp2 = StudyParticipant.objects.create(
             participant=self.profile, study=study2,
         )
         consent2 = Consent.objects.create(
             participant=self.profile,
             study=study2,
-            source_type='JsonUrlDataSource',
+            source_configuration=source_config2,
+            source_type='json_url',
             study_participant=sp2,
         )
         self.profile.delete()
@@ -296,7 +298,7 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
         consent = Consent.objects.filter(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             is_optional=False,
         )
         self.assertTrue(consent.exists())
@@ -307,7 +309,7 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
         consent = Consent.objects.filter(
             participant=self.profile,
             study=self.study,
-            source_type='JsonUrlDataSource',
+            source_type='json_url',
             is_optional=True,
         )
         self.assertTrue(consent.exists())
@@ -359,10 +361,12 @@ class ConsentCheckboxViewTest(StudyTestMixin, TestCase):
 
     def setUp(self):
         super().setUp()
+        self.source_config = self.study.source_config_entries.get(source_type='aware')
         self.consent = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=self.source_config,
+            source_type='aware',
             consent_text_accepted=False,
             is_complete=False,
             study_participant=self.study_participant,
@@ -419,7 +423,7 @@ class ConsentCheckboxViewTest(StudyTestMixin, TestCase):
     def test_post_data_start_from_config(self, mock_template):
         StudySourceConfiguration.objects.update_or_create(
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             defaults={'status': 'required', 'data_start': timezone.make_aware(datetime(2024, 1, 1))},
         )
 
@@ -441,7 +445,7 @@ class ConsentCheckboxViewTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_post_data_start_fallback_to_consent_date(self, mock_template):
-        self.study.source_config_entries.filter(source_type='AwareDataSource').delete()
+        self.study.source_config_entries.filter(source_type='aware').delete()
 
         source = AwareDataSource.objects.create(
             profile=self.profile,
@@ -471,10 +475,12 @@ class SelectDataSourceViewTest(StudyTestMixin, TestCase):
 
     def setUp(self):
         super().setUp()
+        self.source_config = self.study.source_config_entries.get(source_type='aware')
         self.consent = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=self.source_config,
+            source_type='aware',
             consent_text_accepted=True,
             is_complete=False,
             study_participant=self.study_participant,
@@ -539,10 +545,12 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_routes_to_checkbox_when_text_not_accepted(self, mock_template):
+        source_config = self.study.source_config_entries.get(source_type='aware')
         Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=source_config,
+            source_type='aware',
             consent_text_accepted=False,
             is_complete=False,
             study_participant=self.study_participant,
@@ -554,10 +562,12 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_routes_to_create_flow_when_no_sources_exist(self, mock_template):
+        source_config = self.study.source_config_entries.get(source_type='aware')
         Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=source_config,
+            source_type='aware',
             consent_text_accepted=True,
             is_complete=False,
             study_participant=self.study_participant,
@@ -569,10 +579,12 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_routes_to_select_view_when_sources_exist(self, mock_template):
+        source_config = self.study.source_config_entries.get(source_type='aware')
         Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=source_config,
+            source_type='aware',
             consent_text_accepted=True,
             is_complete=False,
             study_participant=self.study_participant,
@@ -587,11 +599,48 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
         self.assertEqual(response.status_code, 200)
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
-    def test_consent_id_param_targets_specific_consent(self, mock_template):
+    def test_routes_to_select_view_filters_niimport_sources_by_configuration(self, mock_template):
+        # Need to create niimport config in the study
+        source_config = StudySourceConfiguration.objects.create(
+            study=self.study,
+            source_type='niimport',
+            status='optional',
+        )
         Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=source_config,
+            source_type='niimport',
+            consent_text_accepted=True,
+            is_complete=False,
+            study_participant=self.study_participant,
+        )
+        NiimportDataSource.objects.create(
+            profile=self.profile,
+            name='Matching TikTok Source',
+            status='active',
+            niimport_source_type='tiktok_portability',
+        )
+        NiimportDataSource.objects.create(
+            profile=self.profile,
+            name='Non-matching Google Source',
+            status='active',
+            niimport_source_type='google_portability',
+        )
+        url = reverse('consent_workflow')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Matching TikTok Source')
+        self.assertNotContains(response, 'Non-matching Google Source')
+
+    @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
+    def test_consent_id_param_targets_specific_consent(self, mock_template):
+        source_config = self.study.source_config_entries.get(source_type='aware')
+        Consent.objects.create(
+            participant=self.profile,
+            study=self.study,
+            source_configuration=source_config,
+            source_type='aware',
             consent_text_accepted=False,
             is_complete=False,
             study_participant=self.study_participant,
@@ -599,7 +648,8 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
         second_consent = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=source_config,
+            source_type='aware',
             consent_text_accepted=False,
             is_complete=False,
             study_participant=self.study_participant,
@@ -610,10 +660,12 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_optional_only_consents_redirect_to_dashboard(self, mock_template):
+        source_config = self.study.source_config_entries.get(source_type='json_url')
         Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='JsonUrlDataSource',
+            source_configuration=source_config,
+            source_type='json_url',
             consent_text_accepted=False,
             is_complete=False,
             is_optional=True,
@@ -633,6 +685,7 @@ class WithdrawFromStudyViewTest(StudyTestMixin, TestCase):
 
     def setUp(self):
         super().setUp()
+        self.source_config = self.study.source_config_entries.get(source_type='aware')
         self.source1 = AwareDataSource.objects.create(
             profile=self.profile,
             name='Withdraw Source 1',
@@ -646,7 +699,8 @@ class WithdrawFromStudyViewTest(StudyTestMixin, TestCase):
         self.consent1 = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=self.source_config,
+            source_type='aware',
             data_source=self.source1,
             is_complete=True,
             consent_date=timezone.now(),
@@ -655,7 +709,8 @@ class WithdrawFromStudyViewTest(StudyTestMixin, TestCase):
         self.consent2 = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=self.source_config,
+            source_type='aware',
             data_source=self.source2,
             is_complete=True,
             consent_date=timezone.now(),
@@ -681,10 +736,12 @@ class WithdrawFromStudyViewTest(StudyTestMixin, TestCase):
 
     def test_post_skips_already_revoked(self):
         revoked_time = timezone.now() - timezone.timedelta(days=1)
+        source_config = self.study.source_config_entries.get(source_type='aware')
         revoked_consent = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=source_config,
+            source_type='aware',
             is_complete=False,
             revocation_date=revoked_time,
             study_participant=self.study_participant,
@@ -720,6 +777,7 @@ class RevokeConsentViewTest(StudyTestMixin, TestCase):
 
     def setUp(self):
         super().setUp()
+        self.source_config = self.study.source_config_entries.get(source_type='aware')
         self.source = AwareDataSource.objects.create(
             profile=self.profile,
             name='Revoke Source',
@@ -728,7 +786,8 @@ class RevokeConsentViewTest(StudyTestMixin, TestCase):
         self.consent = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=self.source_config,
+            source_type='aware',
             data_source=self.source,
             is_complete=True,
             is_optional=True,
@@ -751,7 +810,7 @@ class RevokeConsentViewTest(StudyTestMixin, TestCase):
         new_consent = Consent.objects.filter(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             is_optional=True,
             revocation_date__isnull=True,
         ).first()
@@ -788,10 +847,12 @@ class StudyDetailViewTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_study_page_html', return_value=MOCK_STUDY_PAGE_HTML)
     def test_user_in_study_true_with_active_consent(self, mock_page):
+        source_config = self.study.source_config_entries.get(source_type='aware')
         Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=source_config,
+            source_type='aware',
             is_complete=True,
             consent_date=timezone.now(),
             study_participant=self.study_participant,
@@ -803,10 +864,12 @@ class StudyDetailViewTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_study_page_html', return_value=MOCK_STUDY_PAGE_HTML)
     def test_user_in_study_false_with_revoked_consent(self, mock_page):
+        source_config = self.study.source_config_entries.get(source_type='aware')
         Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=source_config,
+            source_type='aware',
             is_complete=False,
             revocation_date=timezone.now(),
             study_participant=self.study_participant,
@@ -829,10 +892,12 @@ class StudyDetailViewTest(StudyTestMixin, TestCase):
 class GetNextConsentHelperTest(StudyTestMixin, TestCase):
 
     def test_returns_specific_consent_by_id(self):
+        source_config = self.study.source_config_entries.get(source_type='aware')
         consent = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=source_config,
+            source_type='aware',
             is_complete=False,
             is_optional=False,
             study_participant=self.study_participant,
@@ -844,10 +909,12 @@ class GetNextConsentHelperTest(StudyTestMixin, TestCase):
         self.assertRaises(Http404, get_next_consent, self.profile, self.study, consent_id=99999)
 
     def test_returns_first_incomplete_required(self):
+        source_config = self.study.source_config_entries.get(source_type='aware')
         consent1 = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=source_config,
+            source_type='aware',
             is_complete=False,
             is_optional=False,
             study_participant=self.study_participant,
@@ -855,7 +922,8 @@ class GetNextConsentHelperTest(StudyTestMixin, TestCase):
         consent2 = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=source_config,
+            source_type='aware',
             is_complete=False,
             is_optional=False,
             study_participant=self.study_participant,
@@ -865,10 +933,12 @@ class GetNextConsentHelperTest(StudyTestMixin, TestCase):
         self.assertIn(result, [consent1, consent2])
 
     def test_returns_none_when_all_complete(self):
+        source_config = self.study.source_config_entries.get(source_type='aware')
         Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_configuration=source_config,
+            source_type='aware',
             is_complete=True,
             is_optional=False,
             consent_date=timezone.now(),
@@ -878,10 +948,12 @@ class GetNextConsentHelperTest(StudyTestMixin, TestCase):
         self.assertIsNone(result)
 
     def test_ignores_optional_consents(self):
+        source_config = self.study.source_config_entries.get(source_type='json_url')
         Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='JsonUrlDataSource',
+            source_configuration=source_config,
+            source_type='json_url',
             is_complete=False,
             is_optional=True,
             study_participant=self.study_participant,
@@ -893,7 +965,7 @@ class GetNextConsentHelperTest(StudyTestMixin, TestCase):
         Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             is_complete=False,
             is_optional=False,
             revocation_date=timezone.now(),
@@ -959,7 +1031,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         consent = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             data_source=source,
             is_complete=True,
             consent_date=timezone.now(),
@@ -979,7 +1051,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         # Config data_start (June 1) is later than consent_date (Jan 1), so fetch should use June 1
         StudySourceConfiguration.objects.update_or_create(
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             defaults={'status': 'required', 'data_start': timezone.make_aware(datetime(2024, 6, 1))},
         )
 
@@ -991,7 +1063,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         consent = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             data_source=source,
             is_complete=True,
             consent_date=timezone.make_aware(datetime(2024, 1, 1)),
@@ -1010,7 +1082,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         # Config data_end (Sep 1) should cap the end date passed to fetch_data
         StudySourceConfiguration.objects.update_or_create(
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             defaults={'status': 'required', 'data_end': timezone.make_aware(datetime(2024, 9, 1))},
         )
 
@@ -1022,7 +1094,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         consent = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             data_source=source,
             is_complete=True,
             consent_date=timezone.make_aware(datetime(2024, 1, 1)),
@@ -1041,7 +1113,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         # Changing the config's data_start should be reflected in subsequent API calls
         StudySourceConfiguration.objects.update_or_create(
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             defaults={'status': 'required', 'data_start': timezone.make_aware(datetime(2024, 6, 1))},
         )
 
@@ -1053,7 +1125,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         consent = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             data_source=source,
             is_complete=True,
             consent_date=timezone.make_aware(datetime(2024, 1, 1)),
@@ -1068,7 +1140,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
 
         StudySourceConfiguration.objects.update_or_create(
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             defaults={'status': 'required', 'data_start': timezone.make_aware(datetime(2024, 8, 1))},
         )
 
@@ -1083,7 +1155,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         # so fetch_data should receive the narrower query-param window
         StudySourceConfiguration.objects.update_or_create(
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             defaults={
                 'status': 'required',
                 'data_start': timezone.make_aware(datetime(2024, 1, 1)),
@@ -1099,7 +1171,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         consent = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             data_source=source,
             is_complete=True,
             consent_date=timezone.make_aware(datetime(2024, 1, 1)),
@@ -1126,7 +1198,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         consent = Consent.objects.create(
             participant=self.profile,
             study=self.study,
-            source_type='AwareDataSource',
+            source_type='aware',
             data_source=source,
             is_complete=True,
             consent_date=consent_start,

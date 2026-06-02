@@ -3,7 +3,7 @@ from django.test import override_settings
 from django.urls import reverse
 from users.models import Profile
 from rest_framework.authtoken.models import Token
-from studies.models import Study, Consent
+from studies.models import Study, Consent, StudySourceConfiguration
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.urls import path
@@ -302,12 +302,8 @@ class HomeViewExtendedTest(BaseTestCase):
         self.assertNotEqual(response.status_code, 302)
 
     def test_home_revoked_consent_shows_study_detail(self):
-        Consent.objects.create(
-            participant=self.profile,
-            study=self.study,
-            consent_date=timezone.now(),
-            revocation_date=timezone.now()
-        )
+        source_config = StudySourceConfiguration.objects.create(study=self.study, source_type='aware', status='required')
+        Consent.objects.create(participant=self.profile, study=self.study, source_configuration=source_config, consent_date=timezone.now(), revocation_date=timezone.now())
         self.client.login(username='homeuser', password='pass')
         response = self.client.get('/')
         # Revoked consent should NOT trigger redirect to dashboard
@@ -362,13 +358,8 @@ class ResearcherDashboardExtendedTest(TestCase):
 
         part_user = User.objects.create_user(username='statpart', password='pass')
         part_profile = Profile.objects.create(user=part_user, user_type='participant')
-        Consent.objects.create(
-            participant=part_profile,
-            study=study,
-            consent_date=timezone.now(),
-            source_type='SomeSource',
-            is_complete=True
-        )
+        source_config = StudySourceConfiguration.objects.create(study=study, source_type='aware', status='required')
+        Consent.objects.create(participant=part_profile, study=study, source_configuration=source_config, consent_date=timezone.now(), source_type='SomeSource', is_complete=True)
 
         self.client.login(username='statres', password='pass')
         response = self.client.get(reverse('researcher_dashboard'))
@@ -386,12 +377,8 @@ class ParticipantDetailTest(TestCase):
 
         self.part_user = User.objects.create_user(username='detpart', password='pass')
         self.part_profile = Profile.objects.create(user=self.part_user, user_type='participant')
-        self.consent = Consent.objects.create(
-            participant=self.part_profile,
-            study=self.study,
-            consent_date=timezone.now(),
-            source_type='SomeSource'
-        )
+        self.consent = source_config = StudySourceConfiguration.objects.create(study=self.study, source_type='aware', status='required')
+        Consent.objects.create(participant=self.part_profile, study=self.study, source_configuration=source_config, consent_date=timezone.now(), source_type='SomeSource')
         self.url = reverse('participant_detail', args=[self.study.id, self.part_profile.id])
 
     def test_participant_detail_requires_login(self):

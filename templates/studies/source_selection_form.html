@@ -13,5 +13,5 @@
 <form method="post">
     {% csrf_token %}
     <input type="hidden" name="action" value="create">
-    <button type="submit">Create New {{ consent.source_type }}</button>
+    <button type="submit">Create New {{ source_type_label|default:consent.source_type }}</button>
 </form>

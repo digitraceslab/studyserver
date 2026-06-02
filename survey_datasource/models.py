@@ -10,7 +10,6 @@ class SurveyDataSource(DataSource):
     as a data type and each question response as a row of data.
     """
     SOURCE_TYPE = "survey"
-    FORM_CLASS = "SurveyDataSourceForm"
     
     display_type = "Survey"
     

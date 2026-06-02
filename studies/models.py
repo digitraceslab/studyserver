@@ -80,15 +80,6 @@ class Study(models.Model):
         # raw urls also should work directly
         return self.config_url
 
-    def get_source_dates(self, source_type):
-        """Return (data_start, data_end) for a source type."""
-        source_configuration = self.source_config_entries.filter(
-            source_type=source_type
-        ).first()
-        if source_configuration:
-            return source_configuration.data_start, source_configuration.data_end
-        return None, None
-
     def __str__(self):
         return self.title
 
@@ -132,6 +123,19 @@ class StudySourceConfiguration(models.Model):
     def __str__(self):
         return f"{self.source_type} ({self.status})"
 
+    def get_data_source_class(self):
+        return DataSource.get_class_for_type(self.source_type)
+
+    def matches_data_source(self, data_source):
+        model_cls = self.get_data_source_class()
+        if not model_cls:
+            return False
+
+        real_source = data_source.get_real_instance()
+        if not isinstance(real_source, model_cls):
+            return False
+        return real_source._matches_configuration(self.configuration or {})
+
 
 class StudyParticipant(models.Model):
     participant = models.ForeignKey(
@@ -163,6 +167,13 @@ class Consent(models.Model):
         limit_choices_to={'user_type': 'participant'}
     )
     study = models.ForeignKey(Study, on_delete=models.CASCADE, related_name='consents')
+    source_configuration = models.ForeignKey(
+        StudySourceConfiguration,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='consents',
+    )
     data_source = models.ForeignKey(
         DataSource, 
         on_delete=models.SET_NULL,

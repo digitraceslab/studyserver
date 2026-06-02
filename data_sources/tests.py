@@ -5,13 +5,14 @@ from django.contrib.auth.models import User
 from .models import AwareDataSource, JsonUrlDataSource, NiimportDataSource
 from .models.base import DataSource
 from django.core.exceptions import ValidationError
-from studies.models import Study, Consent
+from studies.models import Study, Consent, StudySourceConfiguration
 from django.utils import timezone
 from users.models import Profile
 from django import forms
 import uuid
 import tempfile
 import os
+from datetime import date
 from django.test import override_settings
 import requests
 from data_sources.models import portability_client
@@ -319,7 +320,13 @@ class JsonUrlDataSourceTest(TestCase):
     def test_fetch_enriches_and_count(self, mock_get):
         # Create a study and an active consent linking this source
         study = Study.objects.create(title='S', description='d', config_url='http://example.com')
-        Consent.objects.create(participant=self.profile, study=study, data_source=self.source, source_type='JsonUrlDataSource', is_complete=True, consent_date=timezone.now())
+        source_config = StudySourceConfiguration.objects.create(
+            study=study, source_type='json_url', status='required'
+        )
+        Consent.objects.create(
+            participant=self.profile, study=study, source_configuration=source_config,
+            data_source=self.source, source_type='json_url', is_complete=True, consent_date=timezone.now()
+        )
 
         mock_resp = mock_get.return_value
         mock_resp.raise_for_status.return_value = None
@@ -524,9 +531,18 @@ class PortabilityModelTestMixin:
     def test_get_setup_url_creates_donation_if_missing(self, mock_create):
         token = uuid.uuid4()
         mock_create.return_value = {'id': 1, 'token': str(token)}
-        source = self._make_source()
+        source = self._make_source(
+            data_start=date(2024, 1, 1),
+            data_end=date(2024, 6, 30),
+            configuration={'requested_data_types': 'activity,posts'},
+        )
         url = source.get_setup_url()
-        mock_create.assert_called_once()
+        mock_create.assert_called_once_with(
+            source.NIIMPORT_SOURCE_TYPE,
+            data_start_date=date(2024, 1, 1),
+            data_end_date=date(2024, 6, 30),
+            requested_data_types='activity,posts',
+        )
         self.assertEqual(url, f'http://portability/donate/{token}/')
 
     # -- get_data_types ------------------------------------------------------

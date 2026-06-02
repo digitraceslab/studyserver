@@ -4,7 +4,6 @@ import logging
 from django.conf import settings
 from django.db import models
 
-from studies.models import StudySourceConfiguration
 from .base import DataSource
 from . import portability_client
 
@@ -14,7 +13,6 @@ logger = logging.getLogger(__name__)
 class NiimportDataSource(DataSource):
     """Concrete base for data sources that proxy to a Niimport server."""
     SOURCE_TYPE = "niimport"
-    FORM_CLASS = "NiimportDataSourceForm"
     LEGACY_CLASS_NAMES = (
         'NiimportDataSource',
         'TikTokPortabilityDataSource',
@@ -68,24 +66,16 @@ class NiimportDataSource(DataSource):
             return "Missing portability data type"
 
     def _get_study_config(self):
-        """Look up study configuration for this source via its linked consent."""
-        source_type = self.SOURCE_TYPE
-        consent = self.consents.select_related('study').first()
-        if not consent:
-            return {}
-        study = consent.study
+        """Build donation kwargs from values stored on this datasource."""
         kwargs = {}
-        data_start, data_end = study.get_source_dates(source_type)
+        data_start, data_end = self.data_start, self.data_end
         if data_start:
-            kwargs['data_start_date'] = data_start.date()
+            kwargs['data_start_date'] = data_start
         if data_end:
-            kwargs['data_end_date'] = data_end.date()
-        source_config = StudySourceConfiguration.objects.filter(
-            study=study,
-            source_type=source_type
-        ).first()
-        if source_config and source_config.requested_data_types:
-            kwargs['requested_data_types'] = source_config.requested_data_types
+            kwargs['data_end_date'] = data_end
+        requested_data_types = (self.configuration or {}).get('requested_data_types')
+        if requested_data_types:
+            kwargs['requested_data_types'] = requested_data_types
         return kwargs
 
     def _create_donation(self):
