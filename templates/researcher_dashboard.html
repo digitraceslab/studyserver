@@ -44,7 +44,7 @@
         
         <h3>Actions</h3>
         <ul>
-            <li><a href="{% url 'study_detail' study_data.study.id %}">View Study Page</a></li>
+            <li><a href="{% url 'study_detail' %}">View Study Page</a></li>
             <li><a href="/admin/studies/study/{{ study_data.study.id }}/change/">Edit Study in Admin</a></li>
             <li><a href="{% url 'study_data_api' %}">Access Data API</a></li>
         </ul>

@@ -291,7 +291,7 @@ class StudyParticipantTest(TestCase):
 class JoinStudyViewTest(StudyTestMixin, TestCase):
 
     def test_creates_required_consents(self):
-        url = reverse('join_study', args=[self.study.id])
+        url = reverse('join_study')
         self.client.get(url)
         consent = Consent.objects.filter(
             participant=self.profile,
@@ -302,7 +302,7 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
         self.assertTrue(consent.exists())
 
     def test_creates_optional_consents(self):
-        url = reverse('join_study', args=[self.study.id])
+        url = reverse('join_study')
         self.client.get(url)
         consent = Consent.objects.filter(
             participant=self.profile,
@@ -313,14 +313,14 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
         self.assertTrue(consent.exists())
 
     def test_redirects_to_consent_workflow(self):
-        url = reverse('join_study', args=[self.study.id])
+        url = reverse('join_study')
         response = self.client.get(url)
-        expected_url = reverse('consent_workflow', args=[self.study.id])
+        expected_url = reverse('consent_workflow')
         self.assertRedirects(response, expected_url, fetch_redirect_response=False)
 
     def test_requires_login(self):
         self.client.logout()
-        url = reverse('join_study', args=[self.study.id])
+        url = reverse('join_study')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 302)
         self.assertIn('/login', response['Location'])
@@ -331,7 +331,7 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_creates_study_participant(self):
-        url = reverse('join_study', args=[self.study.id])
+        url = reverse('join_study')
         self.client.get(url)
         sp = StudyParticipant.objects.filter(
             participant=self.profile,
@@ -341,7 +341,7 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
         self.assertIsNotNone(sp.first().pseudo_id)
 
     def test_consent_has_study_participant(self):
-        url = reverse('join_study', args=[self.study.id])
+        url = reverse('join_study')
         self.client.get(url)
         consent = Consent.objects.filter(
             participant=self.profile,
@@ -370,7 +370,7 @@ class ConsentCheckboxViewTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_get_renders_consent_form(self, mock_template):
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'consent-form')
@@ -378,14 +378,14 @@ class ConsentCheckboxViewTest(StudyTestMixin, TestCase):
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_post_saves_consent_text_accepted_to_db(self, mock_template):
         """REGRESSION TEST: POST with accept_consent must persist consent_text_accepted=True to DB."""
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         self.client.post(url, {'accept_consent': True})
         refreshed = Consent.objects.get(pk=self.consent.pk)
         self.assertTrue(refreshed.consent_text_accepted)
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_post_missing_checkbox_does_not_save(self, mock_template):
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         response = self.client.post(url, {})
         self.assertEqual(response.status_code, 200)
         refreshed = Consent.objects.get(pk=self.consent.pk)
@@ -393,7 +393,7 @@ class ConsentCheckboxViewTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_post_redirects_to_workflow_with_consent_id(self, mock_template):
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         response = self.client.post(url, {'accept_consent': True})
         self.assertEqual(response.status_code, 302)
         self.assertIn(str(self.consent.id), response['Location'])
@@ -408,7 +408,7 @@ class ConsentCheckboxViewTest(StudyTestMixin, TestCase):
         self.consent.data_source = source
         self.consent.save()
 
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         self.client.post(url, {'accept_consent': True})
 
         refreshed = Consent.objects.get(pk=self.consent.pk)
@@ -431,7 +431,7 @@ class ConsentCheckboxViewTest(StudyTestMixin, TestCase):
         self.consent.data_source = source
         self.consent.save()
 
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         self.client.post(url, {'accept_consent': True})
 
         refreshed = Consent.objects.get(pk=self.consent.pk)
@@ -451,7 +451,7 @@ class ConsentCheckboxViewTest(StudyTestMixin, TestCase):
         self.consent.data_source = source
         self.consent.save()
 
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         self.client.post(url, {'accept_consent': True})
 
         refreshed = Consent.objects.get(pk=self.consent.pk)
@@ -487,13 +487,13 @@ class SelectDataSourceViewTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_get_renders_selection_form(self, mock_template):
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_post_select_links_data_source(self, mock_template):
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         self.client.post(url, {'action': 'select', 'source_id': self.source.id})
         refreshed = Consent.objects.get(pk=self.consent.pk)
         self.assertEqual(refreshed.data_source, self.source)
@@ -502,15 +502,15 @@ class SelectDataSourceViewTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_post_select_redirects_to_workflow(self, mock_template):
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         response = self.client.post(url, {'action': 'select', 'source_id': self.source.id})
         self.assertEqual(response.status_code, 302)
-        expected_url = reverse('consent_workflow', args=[self.study.id])
+        expected_url = reverse('consent_workflow')
         self.assertIn(expected_url, response['Location'])
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_post_create_redirects_to_add_data_source(self, mock_template):
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         response = self.client.post(url, {'action': 'create'})
         self.assertEqual(response.status_code, 302)
         self.assertIn('/data-sources/add/', response['Location'])
@@ -518,7 +518,7 @@ class SelectDataSourceViewTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_post_empty_source_id_does_not_complete(self, mock_template):
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         self.client.post(url, {'action': 'select', 'source_id': ''})
         refreshed = Consent.objects.get(pk=self.consent.pk)
         self.assertFalse(refreshed.is_complete)
@@ -532,7 +532,7 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_redirects_to_dashboard_when_no_incomplete_consents(self, mock_template):
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 302)
         self.assertIn('dashboard', response['Location'])
@@ -547,7 +547,7 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
             is_complete=False,
             study_participant=self.study_participant,
         )
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'consent-form')
@@ -562,7 +562,7 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
             is_complete=False,
             study_participant=self.study_participant,
         )
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 302)
         self.assertIn('/data-sources/add/', response['Location'])
@@ -582,7 +582,7 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
             name='Existing Source',
             status='active',
         )
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
@@ -604,7 +604,7 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
             is_complete=False,
             study_participant=self.study_participant,
         )
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         response = self.client.get(url, {'consent_id': second_consent.id})
         self.assertEqual(response.status_code, 200)
 
@@ -619,7 +619,7 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
             is_optional=True,
             study_participant=self.study_participant,
         )
-        url = reverse('consent_workflow', args=[self.study.id])
+        url = reverse('consent_workflow')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 302)
         self.assertIn('dashboard', response['Location'])
@@ -663,12 +663,12 @@ class WithdrawFromStudyViewTest(StudyTestMixin, TestCase):
         )
 
     def test_get_renders_confirmation(self):
-        url = reverse('withdraw_from_study', args=[self.study.id])
+        url = reverse('withdraw_from_study')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_post_revokes_all_active_consents(self):
-        url = reverse('withdraw_from_study', args=[self.study.id])
+        url = reverse('withdraw_from_study')
         self.client.post(url)
         self.consent1.refresh_from_db()
         self.consent2.refresh_from_db()
@@ -689,7 +689,7 @@ class WithdrawFromStudyViewTest(StudyTestMixin, TestCase):
             revocation_date=revoked_time,
             study_participant=self.study_participant,
         )
-        url = reverse('withdraw_from_study', args=[self.study.id])
+        url = reverse('withdraw_from_study')
         self.client.post(url)
         revoked_consent.refresh_from_db()
         # The revocation_date should still be the original, not updated
@@ -699,14 +699,14 @@ class WithdrawFromStudyViewTest(StudyTestMixin, TestCase):
         )
 
     def test_post_redirects_to_dashboard(self):
-        url = reverse('withdraw_from_study', args=[self.study.id])
+        url = reverse('withdraw_from_study')
         response = self.client.post(url)
         self.assertEqual(response.status_code, 302)
         self.assertIn('dashboard', response['Location'])
 
     def test_requires_login(self):
         self.client.logout()
-        url = reverse('withdraw_from_study', args=[self.study.id])
+        url = reverse('withdraw_from_study')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 302)
         self.assertIn('/login', response['Location'])
@@ -782,7 +782,7 @@ class StudyDetailViewTest(StudyTestMixin, TestCase):
     @patch('studies.services.get_study_page_html', return_value=MOCK_STUDY_PAGE_HTML)
     def test_renders_for_anonymous_user(self, mock_page):
         self.client.logout()
-        url = reverse('study_detail', args=[self.study.id])
+        url = reverse('study_detail')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
@@ -796,7 +796,7 @@ class StudyDetailViewTest(StudyTestMixin, TestCase):
             consent_date=timezone.now(),
             study_participant=self.study_participant,
         )
-        url = reverse('study_detail', args=[self.study.id])
+        url = reverse('study_detail')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.study.title)
@@ -811,15 +811,15 @@ class StudyDetailViewTest(StudyTestMixin, TestCase):
             revocation_date=timezone.now(),
             study_participant=self.study_participant,
         )
-        url = reverse('study_detail', args=[self.study.id])
+        url = reverse('study_detail')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     @patch('studies.services.get_study_page_html', return_value=MOCK_STUDY_PAGE_HTML)
-    def test_nonexistent_study_404(self, mock_page):
-        url = reverse('study_detail', args=[99999])
+    def test_study_detail_loads(self, mock_page):
+        url = reverse('study_detail')
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 200)
 
 
 # ---------------------------------------------------------------------------

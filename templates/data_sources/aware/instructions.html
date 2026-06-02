@@ -6,8 +6,8 @@
 
 <h3>Setup AWARE Data Source: {{ instructions_context.source.name }}</h3>
 
-{% if study_id %}
-    <a href="{% url 'consent_workflow' study_id %}">Back to Join Study</a>
+{% if consent_id %}
+    <a href="{% url 'consent_workflow' %}?consent_id={{ consent_id }}">Back to Join Study</a>
     <br>
 {% endif %}
 

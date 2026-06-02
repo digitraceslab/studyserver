@@ -2,9 +2,9 @@
 
 You have enrolled in {{ study.title }}.
 <ul>
-    <li> <a href="{% url 'study_detail' study.id %}">See the Study Page</a> </li>
+    <li> <a href="{% url 'study_detail' %}">See the Study Page</a> </li>
     <li>
-        <a href="{% url 'withdraw_from_study' study.id %}">Withdraw from the study.</a>
+        <a href="{% url 'withdraw_from_study' %}">Withdraw from the study.</a>
     </li>
 </ul>
 
@@ -25,7 +25,7 @@ You have enrolled in {{ study.title }}.
 {% for item in data.incomplete_consents %}
 <div>
     <h3>Consent Required for {{ item.type_name }}</h3>
-    <a href="{% url 'consent_workflow' study.id %}?consent_id={{ item.consent.id }}">
+    <a href="{% url 'consent_workflow' %}?consent_id={{ item.consent.id }}">
         <button>Continue Consent Workflow</button>
     </a>
 </div>
@@ -56,7 +56,7 @@ You have enrolled in {{ study.title }}.
             {% else %}
                 <li>
                     Setup {{ opt_item.type_name }} 
-                    <a href="{% url 'consent_workflow' study.id %}?consent_id={{ opt_item.consent.id }}">here</a>
+                    <a href="{% url 'consent_workflow' %}?consent_id={{ opt_item.consent.id }}">here</a>
                 </li>
             {% endif %}
         {% endfor %}

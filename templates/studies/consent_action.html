@@ -63,7 +63,7 @@
     <div>
         {% if consent.selection_form.fields.source_id.choices|length > 1 %}
             <h5>Use Existing Source</h5>
-            <form method="post" action="{% url 'consent_workflow' study.id %}">
+            <form method="post" action="{% url 'consent_workflow' %}">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="select">
                 {{ consent.selection_form.source_id }}
@@ -84,7 +84,7 @@
     {# No consent yet - show consent form #}
     <div>
         <p><strong>Please read and accept the
-        <a href="{% url 'consent_workflow' study.id %}">
+        <a href="{% url 'consent_workflow' %}">
             consent form
         </a>
         </strong></p>

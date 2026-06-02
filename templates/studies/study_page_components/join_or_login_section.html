@@ -2,7 +2,7 @@
     {% if user_in_study %}
         <p>You are currently enrolled in this study.</p>
     {% else %}
-    <a href="{% url 'join_study' study.id %}">
+    <a href="{% url 'join_study' %}">
         <button>Join this Study</button>
     </a>
     {% endif %}

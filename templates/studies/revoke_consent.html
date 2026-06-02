@@ -9,7 +9,7 @@
     <form method="post">
         {% csrf_token %}
         <button type="submit">Yes, Revoke Consent</button>
-        <a href="{% url 'study_detail' study.id %}">Cancel</a>
+        <a href="{% url 'study_detail' %}">Cancel</a>
     </form>
 
 {% endblock %}

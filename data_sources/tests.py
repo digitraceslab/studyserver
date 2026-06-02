@@ -175,7 +175,7 @@ class DbConnectorTest(TestCase):
         self.client.login(username='testuser', password='testpass')
 
     def test_auto_create_data_source_with_only_name_field(self):
-        response = self.client.get(reverse('add_data_source', args=['Aware']))
+        response = self.client.get(reverse('add_data_source', args=['aware']))
         self.assertEqual(response.status_code, 302)
         source = AwareDataSource.objects.filter(profile=self.profile).latest('id')
         expected_url = reverse('instructions', args=[source.id])
@@ -188,13 +188,13 @@ class DbConnectorTest(TestCase):
     def test_render_form_when_extra_fields(self):
         # Patch the helper that decides whether the form has only the name
         with patch('data_sources.views.form_has_only_name_field', return_value=False):
-            response = self.client.get(reverse('add_data_source', args=['Aware']))
+            response = self.client.get(reverse('add_data_source', args=['aware']))
             self.assertEqual(response.status_code, 200)
             self.assertTemplateUsed(response, 'data_sources/add_data_source.html')
             self.assertContains(response, 'name')
 
     def test_create_data_source_via_post(self):
-        response = self.client.post(reverse('add_data_source', args=['Aware']), {'name': 'My New Source'})
+        response = self.client.post(reverse('add_data_source', args=['aware']), {'name': 'My New Source'})
         self.assertEqual(response.status_code, 302)
         source = AwareDataSource.objects.filter(profile=self.profile).latest('id')
         expected_url = reverse('instructions', args=[source.id])
@@ -209,7 +209,7 @@ class DbConnectorTest(TestCase):
             'name': 'My JSON Source',
             'url': 'https://example.com/data.json'
         }
-        response = self.client.post(reverse('add_data_source', args=['JsonUrl']), post_data)
+        response = self.client.post(reverse('add_data_source', args=['json_url']), post_data)
         self.assertEqual(response.status_code, 302)
 
         source = JsonUrlDataSource.objects.filter(profile=self.profile, name='My JSON Source').latest('id')
@@ -348,7 +348,7 @@ class NiimportDataSourceTest(TestCase):
     def test_create_niimport_source_redirects_to_portability(self, mock_create):
         mock_create.return_value = {'id': 1, 'token': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'status': 'pending'}
         self.client.login(username='testuser', password='testpass')
-        response = self.client.get(reverse('add_data_source', args=['niimportPortability']))
+        response = self.client.get(reverse('add_data_source', args=['niimport']))
         self.assertEqual(response.status_code, 302)
         self.assertIn('/donate/', response.url)
         mock_create.assert_called_once_with('niimport_portability')
@@ -697,13 +697,13 @@ class PortabilityViewCreationRollbackTest(TestCase):
     @patch('data_sources.models.portability_client.create_donation',
            side_effect=Exception('portability server unreachable'))
     def test_niimport_creation_failure_redirects_to_dashboard(self, _mock):
-        response = self.client.get(reverse('add_data_source', args=['NiimportPortability']))
+        response = self.client.get(reverse('add_data_source', args=['niimport']))
         self.assertRedirects(response, reverse('dashboard'))
 
     @patch('data_sources.models.portability_client.create_donation',
            side_effect=Exception('portability server unreachable'))
     def test_niimport_creation_failure_rolls_back_source(self, _mock):
-        self.client.get(reverse('add_data_source', args=['niimportPortability']))
+        self.client.get(reverse('add_data_source', args=['niimport']))
         self.assertFalse(
             NiimportDataSource.objects.filter(profile=self.profile).exists()
         )
@@ -711,7 +711,7 @@ class PortabilityViewCreationRollbackTest(TestCase):
     @patch('data_sources.models.portability_client.create_donation',
            side_effect=Exception('portability server unreachable'))
     def test_tiktok_creation_failure_redirects_to_dashboard(self, _mock):
-        response = self.client.get(reverse('add_data_source', args=['TikTokPortability']))
+        response = self.client.get(reverse('add_data_source', args=['niimport']))
         self.assertRedirects(response, reverse('dashboard'))
 
 

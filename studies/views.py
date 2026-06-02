@@ -23,10 +23,18 @@ from .forms import ConsentAcceptanceForm, DataSourceSelectionForm
 from . import services
 
 
+def get_study():
+    study = Study.objects.first()
+    if study is None:
+        from django.http import Http404
+        raise Http404("No study configured.")
+    return study
+
+
 
 @login_required
-def join_study(request, study_id):
-    study = get_object_or_404(Study, pk=study_id)
+def join_study(request):
+    study = get_study()
     profile = request.user.profile
 
     study_participant, _ = StudyParticipant.objects.get_or_create(
@@ -52,12 +60,12 @@ def join_study(request, study_id):
         )
         
     messages.info(request, f"You have started the enrollment process for '{study.title}'. Please complete the required steps.")
-    return redirect('consent_workflow', study_id=study.id)
+    return redirect('consent_workflow')
 
 
 @login_required
-def withdraw_from_study(request, study_id):
-    study = get_object_or_404(Study, id=study_id)
+def withdraw_from_study(request):
+    study = get_study()
     profile = request.user.profile
 
     if request.method == 'POST':
@@ -85,7 +93,7 @@ def revoke_consent(request, consent_id):
 
     if not consent.is_optional:
         messages.info(request, "This consent is mandatory for the study. To withdraw, please use the withdrawal page.")
-        return redirect('withdraw_from_study', study_id=study.id)
+        return redirect('withdraw_from_study')
 
     if request.method == 'POST':
         consent.data_source = None
@@ -107,7 +115,7 @@ def revoke_consent(request, consent_id):
 
 
 def study_detail(request):
-    study = Study.objects.first()
+    study = get_study()
     html_content = study.study_page_html
     if not html_content:
         html_content = services.get_study_page_html(study.raw_content_base_url)
@@ -165,7 +173,7 @@ def consent_checkbox_view(request, consent, study):
                 source_start, _ = study.get_source_dates(consent.source_type)
                 consent.data_start = source_start or consent.consent_date
             consent.save()
-            return redirect(f"{reverse('consent_workflow', args=[study.id])}?consent_id={consent.id}")
+            return redirect(f"{reverse('consent_workflow')}?consent_id={consent.id}")
     else:
         form = ConsentAcceptanceForm()
 
@@ -212,7 +220,7 @@ def select_data_source_view(request, consent, profile, study):
                     source_start, _ = study.get_source_dates(consent.source_type)
                     consent.data_start = source_start or consent.consent_date
                     consent.save()
-                    return redirect('consent_workflow', study_id=study.id)
+                    return redirect('consent_workflow')
         elif action == 'create':
             base_url = reverse('add_data_source', args=[consent.source_type.replace('DataSource', '')])
             query_params = urlencode({'consent_id': consent.id})
@@ -235,8 +243,8 @@ def select_data_source_view(request, consent, profile, study):
     })
 
 @login_required
-def consent_workflow(request, study_id):
-    study = get_object_or_404(Study, pk=study_id)
+def consent_workflow(request):
+    study = get_study()
     profile = request.user.profile
     consent_id = request.GET.get('consent_id')
     consent = get_next_consent(profile, study, consent_id)
