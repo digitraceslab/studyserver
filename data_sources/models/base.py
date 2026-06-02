@@ -33,10 +33,10 @@ class DataSource(PolymorphicModel):
         for slug, klass in cls._data_source_types.items():
             if klass.__name__ == source_type_str:
                 return slug
-            # Match by legacy class names declared on subclasses
-            for slug, klass in cls._data_source_types.items():
-                if source_type_str in getattr(klass, 'LEGACY_CLASS_NAMES', ()):
-                    return slug
+        # Match by legacy class names declared on subclasses
+        for slug, klass in cls._data_source_types.items():
+            if source_type_str in getattr(klass, 'LEGACY_CLASS_NAMES', ()):
+                return slug
         return None
 
     @classmethod
