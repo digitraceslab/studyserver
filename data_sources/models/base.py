@@ -22,7 +22,23 @@ class DataSource(PolymorphicModel):
     @classmethod
     def get_class_for_type(cls, source_type):
         return cls._data_source_types.get(source_type)
-    
+
+    @classmethod
+    def get_source_type_slug(cls, source_type_str):
+        """Resolve a stored source_type string (class name or slug) to its SOURCE_TYPE slug."""
+        # Already a known slug
+        if source_type_str in cls._data_source_types:
+            return source_type_str
+        # Match by exact class name (e.g., 'AwareDataSource' → 'aware')
+        for slug, klass in cls._data_source_types.items():
+            if klass.__name__ == source_type_str:
+                return slug
+            # Match by legacy class names declared on subclasses
+            for slug, klass in cls._data_source_types.items():
+                if source_type_str in getattr(klass, 'LEGACY_CLASS_NAMES', ()):
+                    return slug
+        return None
+
     @classmethod
     def get_form_class_for_type(cls, source_type):
         return cls._data_source_forms.get(source_type)

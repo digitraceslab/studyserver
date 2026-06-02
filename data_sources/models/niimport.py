@@ -15,6 +15,12 @@ class NiimportDataSource(DataSource):
     """Concrete base for data sources that proxy to a Niimport server."""
     SOURCE_TYPE = "niimport"
     FORM_CLASS = "NiimportDataSourceForm"
+    LEGACY_CLASS_NAMES = (
+        'NiimportDataSource',
+        'TikTokPortabilityDataSource',
+        'GooglePortabilityDataSource',
+        'TikTokExportDataSource',
+    )
 
     PROCESSING_STATUS_CHOICES = (
         ('pending', 'Pending'),

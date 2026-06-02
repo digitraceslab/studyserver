@@ -21,6 +21,7 @@ import base64
 from .models import Study, Consent, StudyParticipant
 from .forms import ConsentAcceptanceForm, DataSourceSelectionForm
 from . import services
+from data_sources.models import DataSource
 
 
 def get_study():
@@ -194,7 +195,11 @@ def consent_checkbox_view(request, consent, study):
 
 
 def create_data_source_flow(consent):
-    base_url = reverse('add_data_source', args=[consent.source_type.replace('DataSource', '')])
+    slug = DataSource.get_source_type_slug(consent.source_type)
+    if not slug:
+        from django.http import Http404
+        raise Http404(f"Unknown data source type: {consent.source_type}")
+    base_url = reverse('add_data_source', args=[slug])
     query_params = urlencode({'consent_id': consent.id})
     return redirect(f'{base_url}?{query_params}')
 
@@ -203,8 +208,10 @@ def select_data_source_view(request, consent, profile, study):
     html_template = services.get_consent_template(study, consent.source_type)
     template = engines['django'].from_string(html_template)
 
+    slug = DataSource.get_source_type_slug(consent.source_type)
+    model_cls = DataSource.get_class_for_type(slug) if slug else None
     available_sources = profile.data_sources.filter(
-        polymorphic_ctype__model=consent.source_type.lower(),
+        polymorphic_ctype__model=model_cls.__name__.lower() if model_cls else consent.source_type.lower(),
     )
 
     if request.method == 'POST':
@@ -222,7 +229,8 @@ def select_data_source_view(request, consent, profile, study):
                     consent.save()
                     return redirect('consent_workflow')
         elif action == 'create':
-            base_url = reverse('add_data_source', args=[consent.source_type.replace('DataSource', '')])
+            slug = DataSource.get_source_type_slug(consent.source_type)
+            base_url = reverse('add_data_source', args=[slug])
             query_params = urlencode({'consent_id': consent.id})
             return redirect(f'{base_url}?{query_params}')
     else:
@@ -258,8 +266,10 @@ def consent_workflow(request):
         return consent_checkbox_view(request, consent, study)
     
     # step 2: select or create data source
+    slug = DataSource.get_source_type_slug(consent.source_type)
+    model_cls = DataSource.get_class_for_type(slug) if slug else None
     available_sources = profile.data_sources.filter(
-        polymorphic_ctype__model=consent.source_type.lower(),
+        polymorphic_ctype__model=model_cls.__name__.lower() if model_cls else consent.source_type.lower(),
     )
     if available_sources.count() == 0:
         return create_data_source_flow(consent)
