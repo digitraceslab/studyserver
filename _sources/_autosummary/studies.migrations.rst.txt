@@ -45,3 +45,4 @@ studies.migrations
    0033_consent_source_configuration
    0034_consent_snapshot
    0035_normalize_consent_source_type
+   0036_studysourceconfiguration_consent_template_html

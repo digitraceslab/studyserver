@@ -4,6 +4,12 @@ studies.tests
 .. automodule:: studies.tests
 
    
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      get_source_config
+   
    .. rubric:: Classes
 
    .. autosummary::
@@ -11,6 +17,7 @@ studies.tests
       ConsentCheckboxViewTest
       ConsentModelTest
       ConsentProfileDeletionTest
+      ConsentTemplateServiceTest
       ConsentWorkflowOrchestratorTest
       GetNextConsentHelperTest
       JoinStudyViewTest
