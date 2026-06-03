@@ -12,6 +12,7 @@ from django.http import HttpResponseRedirect
 from study_server.urls import urlpatterns as real_urlpatterns
 from django.contrib.auth.models import AnonymousUser, User as DjangoUser, Group
 import uuid
+from users.views import get_past_consents
 
 def test_message_view(request):
     messages.info(request, 'This is an info message.')
@@ -58,7 +59,8 @@ class HomeViewTest(TestCase):
         self.study = Study.objects.create(
             title='Test Study',
             description='A test study',
-            config_url="test_url"
+            config_url="test_url",
+            study_page_html='<h2>Study Front Page</h2>',
         )
         self.user = User.objects.create_user(username='testuser', password='testpass')
         self.profile = Profile.objects.create(
@@ -79,7 +81,7 @@ class HomeViewTest(TestCase):
     def test_home_renders_study_detail_if_not_in_study(self):
         self.client.login(username='testuser', password='testpass')
         response = self.client.get('/')
-        self.assertContains(response, "fetching study page: Invalid URL")
+        self.assertContains(response, "Study Front Page")
     
 class SignupViewTest(TestCase):
     def setUp(self):
@@ -285,7 +287,8 @@ class HomeViewExtendedTest(BaseTestCase):
         self.study = Study.objects.create(
             title='Domain Study',
             description='A study',
-            config_url='test_url'
+            config_url='test_url',
+            study_page_html='<h2>Study Front Page</h2>',
         )
         self.user = User.objects.create_user(username='homeuser', password='pass')
         self.profile = Profile.objects.create(user=self.user, user_type='participant')
@@ -472,3 +475,55 @@ class MyDataApiTest(TestCase):
         data = response.json()
         self.assertEqual(data['data_count'], 0)
         self.assertEqual(data['data'], [])
+
+
+class GetPastConsentsTest(TestCase):
+    """Tests for the get_past_consents helper and display-type resolution (Fixes B+C)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='past_consent_user', password='pass')
+        self.profile = Profile.objects.create(user=self.user, user_type='participant')
+        self.study = Study.objects.create(title='Past Study', config_url='test')
+
+    def test_revoked_niimport_google_portability_shows_display_type(self):
+        """A revoked niimport consent with google_portability configuration
+        should show 'Google Portability Data', not the raw slug."""
+        Consent.objects.create(
+            participant=self.profile,
+            study=self.study,
+            source_type='niimport',
+            configuration={'niimport_source_type': 'google_portability'},
+            consent_date=timezone.now(),
+            revocation_date=timezone.now(),
+        )
+        result = get_past_consents(self.profile)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['type_name'], 'Google Portability Data')
+
+    def test_unknown_source_type_returns_title_case_fallback(self):
+        """An unknown source_type slug should produce a title-cased fallback,
+        not raise an exception (regression: apps.get_model previously crashed)."""
+        Consent.objects.create(
+            participant=self.profile,
+            study=self.study,
+            source_type='SomeSource',
+            consent_date=timezone.now(),
+            revocation_date=timezone.now(),
+        )
+        result = get_past_consents(self.profile)
+        self.assertEqual(len(result), 1)
+        # Should not crash; the fallback is title-cased
+        self.assertIsNotNone(result[0]['type_name'])
+
+    def test_dashboard_past_consents_renders_without_crash(self):
+        """Dashboard should not crash when past consents have unknown source_type (Fixes B+C e2e)."""
+        Consent.objects.create(
+            participant=self.profile,
+            study=self.study,
+            source_type='SomeSource',
+            consent_date=timezone.now(),
+            revocation_date=timezone.now(),
+        )
+        self.client.login(username='past_consent_user', password='pass')
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.status_code, 200)

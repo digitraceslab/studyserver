@@ -188,6 +188,9 @@ TIKTOK_CLIENT_SECRET = env('TIKTOK_CLIENT_SECRET', default='')
 PORTABILITY_SERVER_URL = env('PORTABILITY_SERVER_URL', default='http://localhost:8001')
 PORTABILITY_SERVER_TOKEN = env('PORTABILITY_SERVER_TOKEN', default='')
 
+# Block real external network calls (portability HTTP, AWARE DB) during tests.
+TEST_RUNNER = 'study_server.test_runner.NoNetworkTestRunner'
+
 
 # Processing task automation
 CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://localhost:6379/0')

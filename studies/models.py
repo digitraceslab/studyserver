@@ -197,8 +197,37 @@ class Consent(models.Model):
         null=True, blank=True,
         help_text="Start of the data collection period. May predate consent_date."
     )
+    data_end = models.DateTimeField(
+        null=True, blank=True,
+        help_text="End of the data collection period. May be null for ongoing collection."
+    )
+    requested_data_types = models.TextField(blank=True, default='')
+    configuration = models.JSONField(blank=True, default=dict)
     revocation_date = models.DateTimeField(null=True, blank=True)
-    
+
+    def accept_configuration(self):
+        """Snapshot the consented parameters at the binding moment (consent form submit)."""
+        self.consent_text_accepted = True
+        if not self.consent_date:
+            self.consent_date = timezone.now()
+        cfg = self.source_configuration
+        if cfg:
+            self.source_type = cfg.source_type
+            self.configuration = dict(cfg.configuration or {})
+            self.requested_data_types = cfg.requested_data_types or ''
+            self.data_end = cfg.data_end
+            self.data_start = cfg.data_start or self.consent_date
+        else:
+            self.data_start = self.data_start or self.consent_date
+
+    def complete_with_source(self, data_source):
+        """Link the data source and mark complete. Params already snapshotted at acceptance."""
+        self.data_source = data_source
+        self.is_complete = True
+        if not self.consent_date:
+            self.consent_date = timezone.now()
+        self.save()
+
     def __str__(self):
         if self.participant:
             name = self.participant.user.username

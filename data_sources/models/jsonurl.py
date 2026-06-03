@@ -11,6 +11,10 @@ class JsonUrlDataSource(DataSource):
     @property
     def display_type(self):
         """Returns a user-friendly name for the data source type."""
+        return self.display_type_for_configuration(self.configuration)
+
+    @classmethod
+    def display_type_for_configuration(cls, configuration):
         return "JSON URL Data"
     
     def get_data_types(self):

@@ -24,20 +24,9 @@ class DataSource(PolymorphicModel):
         return cls._data_source_types.get(source_type)
 
     @classmethod
-    def get_source_type_slug(cls, source_type_str):
-        """Resolve a stored source_type string (class name or slug) to its SOURCE_TYPE slug."""
-        # Already a known slug
-        if source_type_str in cls._data_source_types:
-            return source_type_str
-        # Match by exact class name (e.g., 'AwareDataSource' → 'aware')
-        for slug, klass in cls._data_source_types.items():
-            if klass.__name__ == source_type_str:
-                return slug
-        # Match by legacy class names declared on subclasses
-        for slug, klass in cls._data_source_types.items():
-            if source_type_str in getattr(klass, 'LEGACY_CLASS_NAMES', ()):
-                return slug
-        return None
+    def registered_source_types(cls):
+        """Return the registered SOURCE_TYPE slugs (the canonical source-type identifiers)."""
+        return sorted(cls._data_source_types)
 
     @classmethod
     def get_form_class_for_type(cls, source_type):
@@ -100,6 +89,19 @@ class DataSource(PolymorphicModel):
         if source_type:
             return source_type.replace('_', ' ').title()
         return "Data Source"
+
+    @classmethod
+    def display_type_for_source_type(cls, source_type, configuration=None):
+        """Resolve a stored source_type slug (+ optional configuration) to a display name.
+
+        Delegates to the target class's ``display_type_for_configuration`` (the single
+        source of truth for display names). Falls back to a title-cased slug when the
+        source_type is unknown.
+        """
+        target = cls.get_class_for_type(source_type)
+        if not target:
+            return source_type.replace('_', ' ').title() if isinstance(source_type, str) else str(source_type)
+        return target.display_type_for_configuration(configuration or {})
 
     def _matches_configuration(self, configuration):
         """Return True when all provided configuration keys match this source."""

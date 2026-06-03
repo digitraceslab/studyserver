@@ -180,13 +180,11 @@ def consent_checkbox_view(request, consent, study):
     if request.method == 'POST':
         form = ConsentAcceptanceForm(request.POST)
         if form.is_valid():
-            consent.consent_text_accepted = True
+            consent.accept_configuration()
             if consent.data_source:
-                consent.is_complete = True
-                consent.consent_date = timezone.now()
-                source_start = consent.source_configuration.data_start if consent.source_configuration else None
-                consent.data_start = source_start or consent.consent_date
-            consent.save()
+                consent.complete_with_source(consent.data_source)
+            else:
+                consent.save()
             return redirect(f"{reverse('consent_workflow')}?consent_id={consent.id}")
     else:
         form = ConsentAcceptanceForm()
@@ -261,12 +259,7 @@ def select_data_source_view(request, consent, profile, study):
             if form.is_valid() and form.cleaned_data['source_id']:
                 source = profile.data_sources.filter(id=form.cleaned_data['source_id']).first()
                 if source:
-                    consent.data_source = source
-                    consent.is_complete = True
-                    consent.consent_date = timezone.now()
-                    source_start = consent.source_configuration.data_start if consent.source_configuration else None
-                    consent.data_start = source_start or consent.consent_date
-                    consent.save()
+                    consent.complete_with_source(source)
                     return redirect('consent_workflow')
         elif action == 'create':
             if not consent.source_configuration:
@@ -393,8 +386,8 @@ def study_data_api(request):
 
         consent_end = consent.revocation_date or timezone.now()
 
-        type_start = consent.source_configuration.data_start if consent.source_configuration else None
-        type_end = consent.source_configuration.data_end if consent.source_configuration else None
+        type_start = consent.data_start
+        type_end = consent.data_end
 
         effective_start = type_start or consent_start
         start_candidates = [_make_timezone_aware(d) for d in [effective_start, start_date] if d is not None]
@@ -410,7 +403,9 @@ def study_data_api(request):
         )
         for row in data:
             row["data_type"] = data_type
-            row["source_type"] = consent.source_configuration.source_type if consent.source_configuration else consent.source_type
+            row["source_type"] = consent.source_type
+            # For niimport, the variant (google/tiktok/...) lives in the snapshot; expose it.
+            row["origin"] = (consent.configuration or {}).get('niimport_source_type')
             row["participant_id"] = str(consent.study_participant.pseudo_id) if consent.study_participant else None
             all_data.append(_clean_row(row))
 

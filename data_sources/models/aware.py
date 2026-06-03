@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django.contrib import messages
 import qrcode
 from .base import DataSource
-from studies.models import Consent, StudySourceConfiguration
+from studies.models import Consent
 from . import db_connector
 import uuid
 import qrcode
@@ -35,8 +35,12 @@ class AwareDataSource(DataSource):
 
     @property
     def display_type(self):
+        return self.display_type_for_configuration(self.configuration)
+
+    @classmethod
+    def display_type_for_configuration(cls, configuration):
         return "AWARE Mobile Data"
-    
+
     def get_instructions_card(self, request, consent_id=None, study_id=None):
         mobile_setup_url = request.build_absolute_uri(
             reverse(
@@ -147,16 +151,14 @@ class AwareDataSource(DataSource):
                     {"setting": "device_label", "value": self.device_label},
                 ]
             }
-            for study in studies:
-                source_config = StudySourceConfiguration.objects.filter(
-                    study=study,
-                    source_type='AwareDataSource'
-                ).first()
-                study_config = source_config.configuration
+            # Merge each consent's own snapshotted configuration (the authoritative
+            # record of what the participant agreed to).
+            # Orphan/personal/testing sources have no consent and no configuration.
+            for consent in active_consents:
+                study_config = consent.configuration or {}
                 config_json['questions'].extend(study_config.get('questions', []))
                 config_json['schedules'].extend(study_config.get('schedules', []))
-                sensors = study_config.get('sensors', [])
-                config_json['sensors'].extend(sensors)
+                config_json['sensors'].extend(study_config.get('sensors', []))
             # Deduplicate sensors by "setting" key, keeping the last occurrence
             seen = {}
             for sensor in config_json['sensors']:

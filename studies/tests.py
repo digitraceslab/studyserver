@@ -128,6 +128,60 @@ class ConsentModelTest(TestCase):
         expected = f"Consent of {self.user.username} for {self.study.title}"
         self.assertEqual(str(consent), expected)
 
+    def test_accept_configuration_snapshots_params(self):
+        """accept_configuration copies all four fields and sets consent_date."""
+        config_data = {'niimport_source_type': 'google_portability'}
+        data_end = timezone.make_aware(datetime(2025, 12, 31))
+        self.source_config.configuration = config_data
+        self.source_config.requested_data_types = 'activity,posts'
+        self.source_config.data_end = data_end
+        self.source_config.data_start = timezone.make_aware(datetime(2024, 1, 1))
+        self.source_config.save()
+
+        consent = Consent.objects.create(
+            participant=self.profile,
+            study=self.study,
+            source_configuration=self.source_config,
+            source_type='aware',
+            study_participant=self.study_participant,
+        )
+        consent.accept_configuration()
+        consent.save()
+
+        consent.refresh_from_db()
+        self.assertEqual(consent.configuration, config_data)
+        self.assertEqual(consent.requested_data_types, 'activity,posts')
+        self.assertEqual(consent.data_end, data_end)
+        self.assertEqual(consent.data_start.year, 2024)
+        self.assertIsNotNone(consent.consent_date)
+        self.assertTrue(consent.consent_text_accepted)
+
+    def test_editing_config_after_consent_does_not_change_consent(self):
+        """Mutating the StudySourceConfiguration after snapshotting must not affect the consent."""
+        original_data_end = timezone.make_aware(datetime(2025, 6, 30))
+        self.source_config.data_end = original_data_end
+        self.source_config.configuration = {'key': 'original'}
+        self.source_config.save()
+
+        consent = Consent.objects.create(
+            participant=self.profile,
+            study=self.study,
+            source_configuration=self.source_config,
+            source_type='aware',
+            study_participant=self.study_participant,
+        )
+        consent.accept_configuration()
+        consent.save()
+
+        # Mutate the config
+        self.source_config.data_end = timezone.make_aware(datetime(2026, 1, 1))
+        self.source_config.configuration = {'key': 'changed'}
+        self.source_config.save()
+
+        consent.refresh_from_db()
+        self.assertEqual(consent.data_end, original_data_end)
+        self.assertEqual(consent.configuration, {'key': 'original'})
+
 
 # ---------------------------------------------------------------------------
 # 2b. ConsentProfileDeletionTest
@@ -388,6 +442,7 @@ class ConsentCheckboxViewTest(StudyTestMixin, TestCase):
         self.client.post(url, {'accept_consent': True})
         refreshed = Consent.objects.get(pk=self.consent.pk)
         self.assertTrue(refreshed.consent_text_accepted)
+        self.assertIsNotNone(refreshed.consent_date)
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_post_missing_checkbox_does_not_save(self, mock_template):
@@ -428,6 +483,8 @@ class ConsentCheckboxViewTest(StudyTestMixin, TestCase):
             source_type='aware',
             defaults={'status': 'required', 'data_start': timezone.make_aware(datetime(2024, 1, 1))},
         )
+        # refresh consent so source_configuration FK sees updated config
+        self.consent.refresh_from_db()
 
         source = AwareDataSource.objects.create(
             profile=self.profile,
@@ -444,6 +501,7 @@ class ConsentCheckboxViewTest(StudyTestMixin, TestCase):
         self.assertIsNotNone(refreshed.data_start)
         self.assertEqual(refreshed.data_start.year, 2024)
         self.assertEqual(refreshed.data_start.month, 1)
+        self.assertIsNotNone(refreshed.consent_date)
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_post_data_start_fallback_to_consent_date(self, mock_template):
@@ -466,6 +524,8 @@ class ConsentCheckboxViewTest(StudyTestMixin, TestCase):
             refreshed.data_start.replace(microsecond=0),
             refreshed.consent_date.replace(microsecond=0),
         )
+        # consent_date is set by accept_configuration
+        self.assertIsNotNone(refreshed.consent_date)
 
 
 # ---------------------------------------------------------------------------
@@ -1040,6 +1100,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
             source_configuration=StudySourceConfiguration.objects.get(study=self.study, source_type='aware'),
             is_complete=True,
             consent_date=timezone.now(),
+            data_start=timezone.now(),
             study_participant=self.study_participant,
         )
         self.client.login(username='researcher', password='testpass')
@@ -1049,17 +1110,12 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         self.assertGreater(data['data_count'], 0)
         for row in data['data']:
             self.assertEqual(row['participant_id'], str(self.study_participant.pseudo_id))
+            self.assertEqual(row['source_type'], 'aware')
 
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery'])
     def test_config_data_start_limits_fetched_data(self, mock_types, mock_fetch):
-        # Config data_start (June 1) is later than consent_date (Jan 1), so fetch should use June 1
-        StudySourceConfiguration.objects.update_or_create(
-            study=self.study,
-            source_type='aware',
-            defaults={'status': 'required', 'data_start': timezone.make_aware(datetime(2024, 6, 1))},
-        )
-
+        # Consent snapshot data_start (June 1) is later than consent_date (Jan 1), so fetch should use June 1
         source = AwareDataSource.objects.create(
             profile=self.profile,
             name='Config Start Test Source',
@@ -1073,6 +1129,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
             source_configuration=StudySourceConfiguration.objects.get(study=self.study, source_type='aware'),
             is_complete=True,
             consent_date=timezone.make_aware(datetime(2024, 1, 1)),
+            data_start=timezone.make_aware(datetime(2024, 6, 1)),
             study_participant=self.study_participant,
         )
         self.client.login(username='researcher', password='testpass')
@@ -1085,13 +1142,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery'])
     def test_config_data_end_limits_fetched_data(self, mock_types, mock_fetch):
-        # Config data_end (Sep 1) should cap the end date passed to fetch_data
-        StudySourceConfiguration.objects.update_or_create(
-            study=self.study,
-            source_type='aware',
-            defaults={'status': 'required', 'data_end': timezone.make_aware(datetime(2024, 9, 1))},
-        )
-
+        # Consent snapshot data_end (Sep 1) should cap the end date passed to fetch_data
         source = AwareDataSource.objects.create(
             profile=self.profile,
             name='Config End Test Source',
@@ -1105,6 +1156,8 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
             source_configuration=StudySourceConfiguration.objects.get(study=self.study, source_type='aware'),
             is_complete=True,
             consent_date=timezone.make_aware(datetime(2024, 1, 1)),
+            data_start=timezone.make_aware(datetime(2024, 1, 1)),
+            data_end=timezone.make_aware(datetime(2024, 9, 1)),
             study_participant=self.study_participant,
         )
         self.client.login(username='researcher', password='testpass')
@@ -1116,13 +1169,14 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
 
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery'])
-    def test_config_dates_override_when_changed(self, mock_types, mock_fetch):
-        # Changing the config's data_start should be reflected in subsequent API calls
-        StudySourceConfiguration.objects.update_or_create(
+    def test_editing_config_does_not_change_consent_window(self, mock_types, mock_fetch):
+        # Changing the config's data_start AFTER consent must NOT affect subsequent API calls:
+        # the consent snapshot is the authoritative record.
+        source_config = StudySourceConfiguration.objects.update_or_create(
             study=self.study,
             source_type='aware',
             defaults={'status': 'required', 'data_start': timezone.make_aware(datetime(2024, 6, 1))},
-        )
+        )[0]
 
         source = AwareDataSource.objects.create(
             profile=self.profile,
@@ -1134,9 +1188,10 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
             study=self.study,
             source_type='aware',
             data_source=source,
-            source_configuration=StudySourceConfiguration.objects.get(study=self.study, source_type='aware'),
+            source_configuration=source_config,
             is_complete=True,
             consent_date=timezone.make_aware(datetime(2024, 1, 1)),
+            data_start=timezone.make_aware(datetime(2024, 6, 1)),
             study_participant=self.study_participant,
         )
         self.client.login(username='researcher', password='testpass')
@@ -1146,31 +1201,20 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         _, kwargs = mock_fetch.call_args
         self.assertEqual(kwargs['start_date'].date(), datetime(2024, 6, 1).date())
 
-        StudySourceConfiguration.objects.update_or_create(
-            study=self.study,
-            source_type='aware',
-            defaults={'status': 'required', 'data_start': timezone.make_aware(datetime(2024, 8, 1))},
-        )
+        # Now edit the config to a different date — the consent snapshot must stay unchanged
+        source_config.data_start = timezone.make_aware(datetime(2024, 8, 1))
+        source_config.save()
 
         self.client.get(url, {'data_type': 'battery'})
         _, kwargs = mock_fetch.call_args
-        self.assertEqual(kwargs['start_date'].date(), datetime(2024, 8, 1).date())
+        # Still uses the original snapshotted June 1, not the edited August 1
+        self.assertEqual(kwargs['start_date'].date(), datetime(2024, 6, 1).date())
 
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery'])
     def test_query_param_narrows_config_window(self, mock_types, mock_fetch):
-        # Query params (March 1 - June 1) are narrower than config (Jan 1 - Dec 31),
+        # Query params (March 1 - June 1) are narrower than consent snapshot (Jan 1 - Dec 31),
         # so fetch_data should receive the narrower query-param window
-        StudySourceConfiguration.objects.update_or_create(
-            study=self.study,
-            source_type='aware',
-            defaults={
-                'status': 'required',
-                'data_start': timezone.make_aware(datetime(2024, 1, 1)),
-                'data_end': timezone.make_aware(datetime(2024, 12, 31)),
-            },
-        )
-
         source = AwareDataSource.objects.create(
             profile=self.profile,
             name='Query Param Narrow Test Source',
@@ -1184,6 +1228,8 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
             source_configuration=StudySourceConfiguration.objects.get(study=self.study, source_type='aware'),
             is_complete=True,
             consent_date=timezone.make_aware(datetime(2024, 1, 1)),
+            data_start=timezone.make_aware(datetime(2024, 1, 1)),
+            data_end=timezone.make_aware(datetime(2024, 12, 31)),
             study_participant=self.study_participant,
         )
         self.client.login(username='researcher', password='testpass')

@@ -4,7 +4,6 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import Group
-from django.apps import apps
 from django.contrib.auth import login
 from django.contrib.auth.forms import AuthenticationForm
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -17,7 +16,7 @@ from users.models import Profile
 from studies.models import Study, Consent, StudyParticipant
 from .forms import CustomUserCreationForm
 from studies.views import study_detail
-from data_sources.models import get_display_type_from_source_type
+from data_sources.models import DataSource
 
 
 
@@ -120,12 +119,7 @@ def get_past_consents(profile):
     )
     result = []
     for consent in past_consents:
-        model_name = consent.source_type
-        try:
-            ModelClass = apps.get_model('data_sources', model_name)
-            display_type = ModelClass.display_type.fget(None)
-        except (LookupError, AttributeError):
-            display_type = consent.source_type
+        display_type = DataSource.display_type_for_source_type(consent.source_type, consent.configuration)
         result.append({
             'consent': consent,
             'type_name': display_type,
@@ -160,7 +154,7 @@ def get_active_studies_data(profile, request):
         for consent in consents:
             consent_data = {
                 'consent': consent,
-                'type_name': get_display_type_from_source_type(consent.source_type),
+                'type_name': DataSource.display_type_for_source_type(consent.source_type, consent.configuration),
             }
             if consent.data_source:
                 source = consent.data_source.get_real_instance()

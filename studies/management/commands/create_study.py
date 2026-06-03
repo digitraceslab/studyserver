@@ -10,7 +10,9 @@ from users.models import Profile
 
 
 def get_available_source_types():
-    return [cls.__name__ for cls in DataSource.__subclasses__()]
+    # Use the registered SOURCE_TYPE slugs (stored verbatim in
+    # StudySourceConfiguration.source_type), not class names.
+    return DataSource.registered_source_types()
 
 
 class Command(BaseCommand):

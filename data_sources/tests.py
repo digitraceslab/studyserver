@@ -12,7 +12,7 @@ from django import forms
 import uuid
 import tempfile
 import os
-from datetime import date
+from datetime import date, datetime
 from django.test import override_settings
 import requests
 from data_sources.models import portability_client
@@ -570,7 +570,8 @@ class PortabilityModelTestMixin:
     @patch('data_sources.models.portability_client.get_data', side_effect=Exception('network error'))
     def test_get_data_types_exception_returns_empty(self, _mock):
         source = self._make_source(donation_id=42)
-        self.assertEqual(source.get_data_types(), [])
+        with self.assertLogs('data_sources.models.niimport', level='WARNING'):
+            self.assertEqual(source.get_data_types(), [])
 
     # -- fetch_data ----------------------------------------------------------
 
@@ -600,7 +601,8 @@ class PortabilityModelTestMixin:
     @patch('data_sources.models.portability_client.get_data', side_effect=Exception('boom'))
     def test_fetch_data_exception_returns_empty(self, _mock):
         source = self._make_source(donation_id=7)
-        self.assertEqual(source.fetch_data('activity'), [])
+        with self.assertLogs('data_sources.models.niimport', level='WARNING'):
+            self.assertEqual(source.fetch_data('activity'), [])
 
     # -- count_rows ----------------------------------------------------------
 
@@ -620,7 +622,8 @@ class PortabilityModelTestMixin:
     @patch('data_sources.models.portability_client.get_data', side_effect=Exception('boom'))
     def test_count_rows_exception_returns_zero(self, _mock):
         source = self._make_source(donation_id=7)
-        self.assertEqual(source.count_rows('activity'), 0)
+        with self.assertLogs('data_sources.models.niimport', level='WARNING'):
+            self.assertEqual(source.count_rows('activity'), 0)
 
     # -- revoke_before_delete ------------------------------------------------
 
@@ -639,8 +642,9 @@ class PortabilityModelTestMixin:
     @patch('data_sources.models.portability_client.delete_donation', side_effect=Exception('server down'))
     def test_revoke_before_delete_swallows_exception(self, _mock):
         source = self._make_source(donation_id=5)
-        # Should not raise
-        source.revoke_before_delete()
+        # Should not raise; the error is logged (captured here so it doesn't pollute output).
+        with self.assertLogs('data_sources.models.niimport', level='WARNING'):
+            source.revoke_before_delete()
 
     # -- _process_data -------------------------------------------------------
 
@@ -694,8 +698,9 @@ class PortabilityModelTestMixin:
     @patch('data_sources.models.portability_client.get_donation', side_effect=Exception('timeout'))
     def test_process_data_swallows_exception(self, _mock):
         source = self._make_source(donation_id=10)
-        # Should not raise
-        source._process_data()
+        # Should not raise; the error is logged (captured here so it doesn't pollute output).
+        with self.assertLogs('data_sources.models.niimport', level='WARNING'):
+            source._process_data()
 
 
 # ---------------------------------------------------------------------------
@@ -782,3 +787,154 @@ class PortabilityViewDeleteTest(TestCase):
         self.assertFalse(
             NiimportDataSource.objects.filter(id=source.id).exists()
         )
+
+
+# ---------------------------------------------------------------------------
+# New tests added for consent-snapshot + bug-fix plan
+# ---------------------------------------------------------------------------
+
+class NiimportDisplayTypeForConfigurationTest(TestCase):
+    """Fix B: classmethod display_type_for_configuration maps config correctly."""
+
+    def test_google_portability(self):
+        self.assertEqual(
+            NiimportDataSource.display_type_for_configuration({'niimport_source_type': 'google_portability'}),
+            'Google Portability Data',
+        )
+
+    def test_tiktok_portability(self):
+        self.assertEqual(
+            NiimportDataSource.display_type_for_configuration({'niimport_source_type': 'tiktok_portability'}),
+            'TikTok Portability Data',
+        )
+
+    def test_tiktok_export(self):
+        self.assertEqual(
+            NiimportDataSource.display_type_for_configuration({'niimport_source_type': 'tiktok_export'}),
+            'TikTok Export Data',
+        )
+
+    def test_unknown_returns_fallback(self):
+        self.assertEqual(
+            NiimportDataSource.display_type_for_configuration({'niimport_source_type': 'unknown'}),
+            'Missing portability data type',
+        )
+
+    def test_empty_config_returns_fallback(self):
+        self.assertEqual(
+            NiimportDataSource.display_type_for_configuration({}),
+            'Missing portability data type',
+        )
+
+
+class AddDataSourceCopiesConsentParamsTest(TestCase):
+    """
+    Fix 1e: When creating a new DataSource with a consent_id, the new source
+    should copy data_start/data_end/configuration from the consent snapshot
+    rather than from the StudySourceConfiguration.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='consent_copy_user', password='testpass')
+        self.profile = Profile.objects.create(user=self.user)
+        self.client.login(username='consent_copy_user', password='testpass')
+        self.study = Study.objects.create(title='Consent Copy Study', config_url='http://example.com')
+        # Config has one set of dates
+        self.source_config = StudySourceConfiguration.objects.create(
+            study=self.study,
+            source_type='json_url',
+            status='required',
+            data_start=timezone.make_aware(datetime(2024, 1, 1)),
+            data_end=timezone.make_aware(datetime(2024, 12, 31)),
+        )
+        # Consent snapshot has a DIFFERENT (narrower) window
+        self.consent = Consent.objects.create(
+            participant=self.profile,
+            study=self.study,
+            source_configuration=self.source_config,
+            source_type='json_url',
+            consent_text_accepted=True,
+            data_start=timezone.make_aware(datetime(2024, 3, 1)),
+            data_end=timezone.make_aware(datetime(2024, 9, 30)),
+            configuration={},
+        )
+
+    def test_new_source_copies_params_from_consent(self):
+        url = reverse('add_data_source', args=['json_url'])
+        response = self.client.post(
+            f"{url}?consent_id={self.consent.id}&source_configuration_id={self.source_config.id}",
+            {
+                'name': 'My JSON Source',
+                'url': 'https://example.com/data.json',
+            },
+        )
+        source = JsonUrlDataSource.objects.filter(profile=self.profile).latest('id')
+        # Must use consent's dates, not config's
+        self.assertEqual(source.data_start, date(2024, 3, 1))
+        self.assertEqual(source.data_end, date(2024, 9, 30))
+
+
+class AwareConfigEndpointTest(TestCase):
+    """Fix A: config token endpoint must handle missing source config gracefully."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='aware_cfg_user', password='testpass')
+        self.profile = Profile.objects.create(user=self.user)
+        self.study = Study.objects.create(
+            title='Aware Config Study', description='desc',
+            config_url='http://example.com',
+            contact_name='Jane Doe',
+            contact_email='jane@example.com',
+        )
+        self.source_config = StudySourceConfiguration.objects.create(
+            study=self.study,
+            source_type='aware',
+            status='required',
+            configuration={
+                'questions': [{'id': 'q1', 'text': 'How are you?'}],
+                'schedules': [{'id': 's1', 'name': 'Daily'}],
+                'sensors': [{'setting': 'accelerometer', 'value': True}],
+            },
+        )
+        self.aware_source = AwareDataSource.objects.create(
+            profile=self.profile,
+            name='Aware Config Test Source',
+            status='active',
+        )
+        self.consent = Consent.objects.create(
+            participant=self.profile,
+            study=self.study,
+            source_configuration=self.source_config,
+            source_type='aware',
+            data_source=self.aware_source,
+            is_complete=True,
+            consent_date=timezone.now(),
+            # The AWARE config endpoint now reads the consent's own snapshot
+            # (what accept_configuration copies at consent time), not the live config.
+            configuration=self.source_config.configuration,
+        )
+
+    def test_config_endpoint_returns_200_and_merged_json(self):
+        url = reverse('datasource_token_view', kwargs={
+            'token': self.aware_source.config_token,
+            'view_type': 'config',
+        })
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('questions', data)
+        self.assertIn('schedules', data)
+        self.assertIn('sensors', data)
+        # The study-specific questions should be merged in
+        self.assertTrue(any(q.get('id') == 'q1' for q in data['questions']))
+
+    def test_config_endpoint_no_aware_config_does_not_crash(self):
+        """If there is no StudySourceConfiguration with source_type='aware', the endpoint
+        should still return 200 without raising AttributeError."""
+        self.source_config.delete()
+        url = reverse('datasource_token_view', kwargs={
+            'token': self.aware_source.config_token,
+            'view_type': 'config',
+        })
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)

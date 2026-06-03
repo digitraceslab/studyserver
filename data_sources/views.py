@@ -39,12 +39,7 @@ def link_consent_to_source(consent_id, data_source, profile):
         participant=profile
     ).first()
     if consent:
-        consent.data_source = data_source
-        consent.is_complete = True
-        consent.consent_date = timezone.now()
-        source_start = consent.source_configuration.data_start if consent.source_configuration else None
-        consent.data_start = source_start or consent.consent_date
-        consent.save()
+        consent.complete_with_source(data_source)
 
 
 @login_required
@@ -54,10 +49,12 @@ def select_data_source_type(request):
     for model in all_models:
         if model._meta.proxy:
              continue
-        if issubclass(model, DataSource) and model is not DataSource:
-            type_name = model.__name__.replace('DataSource', '')
-            source_types.append(type_name)
-            
+        if issubclass(model, DataSource) and model is not DataSource and model.SOURCE_TYPE:
+            source_types.append({
+                'slug': model.SOURCE_TYPE,
+                'label': model.SOURCE_TYPE.replace('_', ' ').title(),
+            })
+
     return render(request, 'data_sources/select_source_type.html', {'types': source_types})
 
 
@@ -113,16 +110,14 @@ def add_data_source(request, source_type):
     if form.is_valid():
         new_source = form.save(commit=False)
         new_source.profile = request.user.profile
-        new_source.configuration = dict(form_configuration)
-        if source_configuration:
-            new_source.data_start = (
-                source_configuration.data_start.date() if source_configuration.data_start else None
-            )
-            new_source.data_end = (
-                source_configuration.data_end.date() if source_configuration.data_end else None
-            )
-            if source_configuration.requested_data_types:
-                new_source.configuration['requested_data_types'] = source_configuration.requested_data_types
+        consent = Consent.objects.filter(id=consent_id, participant=request.user.profile).first() if consent_id else None
+        param_source = consent or source_configuration
+        new_source.configuration = dict(consent.configuration) if consent else dict(form_configuration)
+        if param_source:
+            new_source.data_start = param_source.data_start.date() if param_source.data_start else None
+            new_source.data_end = param_source.data_end.date() if param_source.data_end else None
+            if param_source.requested_data_types:
+                new_source.configuration['requested_data_types'] = param_source.requested_data_types
         if not new_source.requires_setup and not new_source.requires_confirmation:
             new_source.status = 'active'
         new_source.save()

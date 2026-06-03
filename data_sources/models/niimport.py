@@ -13,12 +13,6 @@ logger = logging.getLogger(__name__)
 class NiimportDataSource(DataSource):
     """Concrete base for data sources that proxy to a Niimport server."""
     SOURCE_TYPE = "niimport"
-    LEGACY_CLASS_NAMES = (
-        'NiimportDataSource',
-        'TikTokPortabilityDataSource',
-        'GooglePortabilityDataSource',
-        'TikTokExportDataSource',
-    )
 
     PROCESSING_STATUS_CHOICES = (
         ('pending', 'Pending'),
@@ -54,6 +48,15 @@ class NiimportDataSource(DataSource):
     def NIIMPORT_SOURCE_TYPE(self):
         return self.niimport_source_type
 
+    @classmethod
+    def display_type_for_configuration(cls, configuration):
+        mapping = {
+            'google_portability': "Google Portability Data",
+            'tiktok_portability': "TikTok Portability Data",
+            'tiktok_export': "TikTok Export Data",
+        }
+        return mapping.get((configuration or {}).get('niimport_source_type'), "Missing portability data type")
+
     @property
     def display_type(self):
         if self.NIIMPORT_SOURCE_TYPE == "google_portability":
@@ -61,7 +64,7 @@ class NiimportDataSource(DataSource):
         elif self.NIIMPORT_SOURCE_TYPE == "tiktok_portability":
             return "TikTok Portability Data"
         elif self.NIIMPORT_SOURCE_TYPE == "tiktok_export":
-            return "TikTok Export Data" 
+            return "TikTok Export Data"
         else:
             return "Missing portability data type"
 
