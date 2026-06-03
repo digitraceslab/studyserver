@@ -8,7 +8,9 @@ data\_sources.tests
 
    .. autosummary::
    
+      AddDataSourceCopiesConsentParamsTest
       AddDataSourceViewTest
+      AwareConfigEndpointTest
       AwareDataSourceTest
       DataSourceModelTest
       DataSourceTest
@@ -16,6 +18,7 @@ data\_sources.tests
       DbConnectorTest
       JsonUrlDataSourceTest
       NiimportDataSourceTest
+      NiimportDisplayTypeForConfigurationTest
       NiimportPortabilityModelTest
       PortabilityClientTest
       PortabilityModelTestMixin
