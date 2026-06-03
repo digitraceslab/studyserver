@@ -167,9 +167,8 @@ class AwareDataSource(DataSource):
             return JsonResponse(config_json)
         
         elif view_type == "client_get_study_info":
-            consent = Consent.objects.filter(
-                participant=self.profile,
-                data_source_id=self.id,
+            # Find the active consent that links to this data source (reverse FK).
+            consent = self.consents.filter(
                 is_complete=True,
                 revocation_date__isnull=True
             ).first()

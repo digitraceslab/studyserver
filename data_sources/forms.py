@@ -48,8 +48,8 @@ class NiimportStudySourceConfigurationForm(forms.ModelForm):
     
     class Meta:
         model = StudySourceConfiguration
-        fields = ['study', 'source_type', 'status', 'requested_data_types', 'configuration']
-    
+        fields = ['study', 'source_type', 'status', 'requested_data_types', 'configuration', 'consent_template_html']
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Pre-populate niimport_source_type from configuration if present
@@ -58,9 +58,10 @@ class NiimportStudySourceConfigurationForm(forms.ModelForm):
     
     def save(self, commit=True):
         instance = super().save(commit=False)
-        # Store niimport_source_type in configuration JSON
+        # Store niimport_source_type in configuration JSON, preserving any other keys.
         instance.configuration = {
-            'niimport_source_type': self.cleaned_data.get('niimport_source_type')
+            **(instance.configuration or {}),
+            'niimport_source_type': self.cleaned_data.get('niimport_source_type'),
         }
         if commit:
             instance.save()
@@ -82,4 +83,7 @@ class DataFilterForm(forms.Form):
 DataSource.register_form_class(JsonUrlDataSource.SOURCE_TYPE, JsonUrlDataSourceForm)
 DataSource.register_form_class(AwareDataSource.SOURCE_TYPE, AwareDataSourceForm)
 DataSource.register_form_class(NiimportDataSource.SOURCE_TYPE, NiimportDataSourceForm)
+
+# StudySourceConfiguration admin forms that add source-type-specific config fields.
+DataSource.register_config_form_class(NiimportDataSource.SOURCE_TYPE, NiimportStudySourceConfigurationForm)
 

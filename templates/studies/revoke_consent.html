@@ -2,9 +2,9 @@
 
 {% block content %}
 
-    <h2>Revoke Consent for {{ consent.name }}</h2>
+    <h2>Revoke Consent for {{ consent.data_source.display_type|default:consent.source_type }}</h2>
 
-    <p>Are you sure you want to revoke your consent for {{ consent.name }} in the study "{{ study.title }}"?</p>
+    <p>Are you sure you want to revoke your consent for {{ consent.data_source.display_type|default:consent.source_type }} in the study "{{ study.title }}"?</p>
 
     <form method="post">
         {% csrf_token %}

@@ -73,7 +73,7 @@
         {% endif %}
         
         <h5>Create New {{ source_type_label|default:consent.source_type }}</h5>
-        <form method="post" action="{% url 'consent_workflow' study.id %}">
+        <form method="post" action="{% url 'consent_workflow' %}">
             {% csrf_token %}
             <input type="hidden" name="action" value="create">
             <button type="submit" style="padding: 8px 16px;">Create New {{ source_type_label|default:consent.source_type }}</button>

@@ -43,24 +43,32 @@ def join_study(request):
         study=study,
     )
 
-    for source_configuration in study.source_config_entries.filter(status='required'):
+    def ensure_consent(source_configuration, is_optional):
+        # Idempotent: don't duplicate an active consent if the participant
+        # re-enters the join flow. Revoked consents are ignored so a participant
+        # who withdrew can re-join and get a fresh consent.
+        already = Consent.objects.filter(
+            participant=profile,
+            study=study,
+            source_configuration=source_configuration,
+            revocation_date__isnull=True,
+        ).exists()
+        if already:
+            return
         Consent.objects.create(
             participant=profile,
             study=study,
             source_configuration=source_configuration,
             source_type=source_configuration.source_type,
+            is_optional=is_optional,
             study_participant=study_participant,
         )
 
+    for source_configuration in study.source_config_entries.filter(status='required'):
+        ensure_consent(source_configuration, is_optional=False)
+
     for source_configuration in study.source_config_entries.filter(status='optional'):
-        Consent.objects.create(
-            participant=profile,
-            study=study,
-            source_configuration=source_configuration,
-            source_type=source_configuration.source_type,
-            is_optional=True,
-            study_participant=study_participant,
-        )
+        ensure_consent(source_configuration, is_optional=True)
         
     messages.info(request, f"You have started the enrollment process for '{study.title}'. Please complete the required steps.")
     return redirect('consent_workflow')
@@ -165,7 +173,7 @@ def get_next_consent(profile, study, consent_id=None):
 
 def consent_checkbox_view(request, consent, study):
     source_type = consent.source_configuration.source_type if consent.source_configuration else consent.source_type
-    html_template = services.get_consent_template(study, source_type)
+    html_template = services.get_consent_template(study, source_type, consent.source_configuration)
     template = engines['django'].from_string(html_template)
     source_configuration = consent.source_configuration
     if source_configuration:
@@ -220,25 +228,22 @@ def create_data_source_flow(consent):
 
 
 def get_existing_sources_for_consent(profile, consent):
-    source_configuration = consent.source_configuration
-    if not source_configuration:
-        return []
-
-    model_cls = source_configuration.get_data_source_class()
+    model_cls = DataSource.get_class_for_type(consent.source_type)
     if not model_cls:
         return []
 
     sources = profile.data_sources.filter(
         polymorphic_ctype__model=model_cls.__name__.lower(),
     )
-    if source_configuration.configuration:
-        sources = [source for source in sources if source_configuration.matches_data_source(source)]
-    return list(sources)
+    # Match against the consent's snapshotted configuration (what the participant
+    # agreed to). _matches_configuration returns True for empty config, so this
+    # safely disambiguates multiple sources of the same type (e.g. niimport variants).
+    return [source for source in sources if source._matches_configuration(consent.configuration or {})]
 
 
 def select_data_source_view(request, consent, profile, study):
     source_type = consent.source_configuration.source_type if consent.source_configuration else consent.source_type
-    html_template = services.get_consent_template(study, source_type)
+    html_template = services.get_consent_template(study, source_type, consent.source_configuration)
     template = engines['django'].from_string(html_template)
     source_configuration = consent.source_configuration
     if source_configuration:
@@ -258,9 +263,13 @@ def select_data_source_view(request, consent, profile, study):
             form = DataSourceSelectionForm(request.POST, available_sources=available_sources)
             if form.is_valid() and form.cleaned_data['source_id']:
                 source = profile.data_sources.filter(id=form.cleaned_data['source_id']).first()
-                if source:
+                # Re-validate against the matched set: a POSTed source_id must
+                # actually match this consent's configuration, not just belong to
+                # the participant.
+                if source and any(source.id == candidate.id for candidate in available_sources):
                     consent.complete_with_source(source)
                     return redirect('consent_workflow')
+                messages.error(request, "That data source does not match what this consent requires.")
         elif action == 'create':
             if not consent.source_configuration:
                 from django.http import Http404
@@ -328,6 +337,18 @@ def _make_timezone_aware(dt):
         return timezone.make_aware(dt)
     return dt
 
+def _allowed_data_types(consent):
+    """Data types the participant consented to share, or None when unrestricted.
+
+    ``requested_data_types`` is a comma-separated snapshot taken at consent time;
+    an empty value means no restriction (all of the source's types).
+    """
+    raw = (consent.requested_data_types or '').strip()
+    if not raw:
+        return None
+    return {t.strip() for t in raw.split(',') if t.strip()}
+
+
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -349,13 +370,18 @@ def study_data_api(request):
         data_source__status='active'
     ).select_related('data_source', 'study_participant')
 
-    # Collect all available data types across consents
+    # Collect all available data types across consents, restricted to what each
+    # participant consented to share (requested_data_types snapshot).
     all_data_types = set()
     for consent in active_consents:
         if not consent.data_source:
             continue
         source = consent.data_source.get_real_instance()
-        all_data_types.update(source.get_data_types())
+        available = set(source.get_data_types())
+        allowed = _allowed_data_types(consent)
+        if allowed is not None:
+            available &= allowed
+        all_data_types.update(available)
 
     if not data_type:
         return JsonResponse({
@@ -378,6 +404,11 @@ def study_data_api(request):
         data_types = source.get_data_types()
 
         if data_type not in data_types:
+            continue
+
+        # Never return a data type the participant did not consent to share.
+        allowed = _allowed_data_types(consent)
+        if allowed is not None and data_type not in allowed:
             continue
 
         consent_start = consent.data_start or consent.consent_date

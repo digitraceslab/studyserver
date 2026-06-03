@@ -44,29 +44,31 @@ class NiimportDataSource(DataSource):
     requires_setup = True
     requires_confirmation = False
 
+    # Human-readable label per portability variant. Single source of truth for
+    # both the instance display (keyed off the db column) and the config-space
+    # resolver (keyed off StudySourceConfiguration.configuration).
+    DISPLAY_NAMES = {
+        'google_portability': "Google Portability Data",
+        'tiktok_portability': "TikTok Portability Data",
+        'tiktok_export': "TikTok Export Data",
+    }
+
     @property
     def NIIMPORT_SOURCE_TYPE(self):
         return self.niimport_source_type
 
     @classmethod
     def display_type_for_configuration(cls, configuration):
-        mapping = {
-            'google_portability': "Google Portability Data",
-            'tiktok_portability': "TikTok Portability Data",
-            'tiktok_export': "TikTok Export Data",
-        }
-        return mapping.get((configuration or {}).get('niimport_source_type'), "Missing portability data type")
+        # Config-space resolver: a StudySourceConfiguration has no db column, so the
+        # variant is read from its configuration JSON.
+        variant = (configuration or {}).get('niimport_source_type')
+        return cls.DISPLAY_NAMES.get(variant, "Missing portability data type")
 
     @property
     def display_type(self):
-        if self.NIIMPORT_SOURCE_TYPE == "google_portability":
-            return "Google Portability Data"
-        elif self.NIIMPORT_SOURCE_TYPE == "tiktok_portability":
-            return "TikTok Portability Data"
-        elif self.NIIMPORT_SOURCE_TYPE == "tiktok_export":
-            return "TikTok Export Data"
-        else:
-            return "Missing portability data type"
+        # For a live source the niimport_source_type db column is authoritative;
+        # the variant is never read from self.configuration.
+        return self.DISPLAY_NAMES.get(self.niimport_source_type, "Missing portability data type")
 
     def _get_study_config(self):
         """Build donation kwargs from values stored on this datasource."""

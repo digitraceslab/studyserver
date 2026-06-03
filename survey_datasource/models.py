@@ -10,9 +10,15 @@ class SurveyDataSource(DataSource):
     as a data type and each question response as a row of data.
     """
     SOURCE_TYPE = "survey"
-    
-    display_type = "Survey"
-    
+
+    @classmethod
+    def display_type_for_configuration(cls, configuration):
+        return "Survey"
+
+    @property
+    def display_type(self):
+        return self.display_type_for_configuration(self.configuration)
+
     class Meta:
         verbose_name = "Survey Data Source"
         verbose_name_plural = "Survey Data Sources"

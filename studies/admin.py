@@ -7,6 +7,7 @@ from django.urls import reverse
 from django_ace import AceWidget
 from .models import Study, Consent, StudyParticipant, StudySourceConfiguration
 from .forms import StudyAdminForm, SourceConfigurationInlineForm
+from data_sources.models import DataSource
 
 
 class PrettyJSONFormField(forms.JSONField):
@@ -102,24 +103,28 @@ class StudySourceConfigurationAdmin(admin.ModelAdmin):
     list_display = ('study', 'source_type', 'status')
     readonly_fields = ('study',)
     can_delete = False
-    fields = ('study', 'source_type', 'status', 'requested_data_types', 'configuration')
+    fields = ('study', 'source_type', 'status', 'requested_data_types', 'configuration', 'consent_template_html')
     formfield_overrides = {
         models.JSONField: {'form_class': PrettyJSONFormField},
     }
 
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == 'consent_template_html':
+            kwargs['widget'] = AceWidget(mode='html', theme='monokai', width='100%', height='300px')
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
     def get_fields(self, request, obj=None):
-        if obj and obj.source_type == 'niimport':
-            return ('study', 'source_type', 'status', 'requested_data_types', 'niimport_source_type', 'configuration')
+        # A source type may register a config form that adds type-specific fields
+        # (e.g. niimport's variant selector). Use the form's field list when present.
+        config_form = DataSource.get_config_form_class_for_type(obj.source_type) if obj else None
+        if config_form:
+            return list(config_form.base_fields)
         return super().get_fields(request, obj)
 
     def get_form(self, request, obj=None, **kwargs):
-        # Select form based on source_type
-        if obj and obj.source_type:
-            source_type = obj.source_type
-            if source_type == 'niimport':
-                from data_sources.forms import NiimportStudySourceConfigurationForm
-                kwargs['form'] = NiimportStudySourceConfigurationForm
-        
+        config_form = DataSource.get_config_form_class_for_type(obj.source_type) if obj else None
+        if config_form:
+            kwargs['form'] = config_form
         return super().get_form(request, obj, **kwargs)
 
 

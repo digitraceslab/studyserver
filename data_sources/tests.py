@@ -279,9 +279,9 @@ class AwareDataSourceTest(TestCase):
             name='Test Aware Source'
         )
 
-    def test_str_model_name_and_display_type(self):
+    def test_str_and_display_type(self):
         self.assertEqual(str(self.source), 'Test Aware Source (testuser)')
-        self.assertEqual(self.source.model_name, 'AwareDataSource')
+        self.assertEqual(type(self.source).__name__, 'AwareDataSource')
         self.assertEqual(self.source.display_type, 'AWARE Mobile Data')
 
     def test_process_returns_no_consent(self):

@@ -56,18 +56,6 @@ class Study(models.Model):
     )
 
     @property
-    def required_data_sources(self):
-        if self.pk and self.source_config_entries.exists():
-            return list(self.source_config_entries.filter(status='required').values_list('source_type', flat=True))
-        return []
-
-    @property
-    def optional_data_sources(self):
-        if self.pk and self.source_config_entries.exists():
-            return list(self.source_config_entries.filter(status='optional').values_list('source_type', flat=True))
-        return []
-
-    @property
     def raw_content_base_url(self):
         """ Convert a repo URL to its raw content base URL for some known services. """
         if not self.config_url:
@@ -114,6 +102,12 @@ class StudySourceConfiguration(models.Model):
         blank=True,
         default=dict,
         help_text="Source configuration. Specific to the source type.",
+    )
+    consent_template_html = models.TextField(
+        blank=True,
+        default='',
+        help_text="Consent text shown to the participant for this source. "
+                  "Overrides the repo-fetched consent_<source_type>.html when set.",
     )
 
     class Meta:

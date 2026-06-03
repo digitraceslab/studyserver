@@ -30,10 +30,15 @@ def _get_default_consent_template():
     with open(template_path, 'r') as f:
         return f.read()
 
-def get_consent_template(study, source_type):
+def get_consent_template(study, source_type, source_configuration=None):
+    # A per-source-configuration consent template, when set by the researcher,
+    # takes precedence over the repo-fetched template.
+    if source_configuration is not None and source_configuration.consent_template_html:
+        return source_configuration.consent_template_html
+
     if not study.raw_content_base_url:
         return _get_default_consent_template()
-    
+
     template_url = f"{study.raw_content_base_url}/consent_{source_type.lower()}.html"
 
     cache_key = f'consent_template_{study.id}_{source_type}'

@@ -9,8 +9,12 @@ from users.models import Profile
 class DataSource(PolymorphicModel):
     SOURCE_TYPE = None  # Subclasses must set this
     FORM_CLASS = None  # Subclasses can set this to specify a custom form for setup
+    # Subclasses can set this to a StudySourceConfiguration ModelForm that adds
+    # source-type-specific configuration fields to the admin (e.g. niimport's variant).
+    CONFIG_FORM_CLASS = None
     _data_source_types = {}
     _data_source_forms = {}
+    _data_source_config_forms = {}
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -18,7 +22,9 @@ class DataSource(PolymorphicModel):
             DataSource._data_source_types[cls.SOURCE_TYPE] = cls
         if cls.FORM_CLASS:
             DataSource._data_source_forms[cls.SOURCE_TYPE] = cls.FORM_CLASS
-    
+        if cls.CONFIG_FORM_CLASS:
+            DataSource._data_source_config_forms[cls.SOURCE_TYPE] = cls.CONFIG_FORM_CLASS
+
     @classmethod
     def get_class_for_type(cls, source_type):
         return cls._data_source_types.get(source_type)
@@ -35,6 +41,15 @@ class DataSource(PolymorphicModel):
     @classmethod
     def register_form_class(cls, source_type, form_class):
         cls._data_source_forms[source_type] = form_class
+
+    @classmethod
+    def get_config_form_class_for_type(cls, source_type):
+        """Return the StudySourceConfiguration admin form for this source type, if any."""
+        return cls._data_source_config_forms.get(source_type)
+
+    @classmethod
+    def register_config_form_class(cls, source_type, form_class):
+        cls._data_source_config_forms[source_type] = form_class
 
 
     status = models.CharField(
@@ -72,11 +87,6 @@ class DataSource(PolymorphicModel):
                         "Contact the administrator if you believe this is an error."
                     )
         super().save(*args, **kwargs)
-
-    @property
-    def model_name(self):
-        """Returns the simple class name of the real instance."""
-        return self.get_real_instance().__class__.__name__
 
     @property
     def display_type(self):
