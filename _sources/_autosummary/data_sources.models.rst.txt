@@ -14,5 +14,6 @@ data\_sources.models
    base
    db_connector
    jsonurl
+   model_registration
    niimport
    portability_client

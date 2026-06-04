@@ -1,0 +1,14 @@
+data\_sources.models.model\_registration
+========================================
+
+.. automodule:: data_sources.models.model_registration
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      datasourceadmin
+      datasourceconfigform
+      datasourceform
+   
