@@ -1,21 +1,25 @@
 from django import forms
 from .models import JsonUrlDataSource, AwareDataSource, NiimportDataSource
 from .models.base import DataSource
+from .models.model_registration import datasourceform, datasourceconfigform
 
 # StudySourceConfiguration forms for datasource-specific configuration
 from studies.models import StudySourceConfiguration
 
 
+@datasourceform(JsonUrlDataSource)
 class JsonUrlDataSourceForm(forms.ModelForm):
     class Meta:
         model = JsonUrlDataSource
         fields = ['name', 'url']
 
+@datasourceform(AwareDataSource)
 class AwareDataSourceForm(forms.ModelForm):
     class Meta:
         model = AwareDataSource
         fields = ['name']
 
+@datasourceform(NiimportDataSource)
 class NiimportDataSourceForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.configuration = kwargs.pop('configuration', {}) or {}
@@ -38,6 +42,7 @@ class NiimportDataSourceForm(forms.ModelForm):
         return instance
 
 
+@datasourceconfigform(NiimportDataSource)
 class NiimportStudySourceConfigurationForm(forms.ModelForm):
     """Form for StudySourceConfiguration when source_type is NiimportDataSource."""
     niimport_source_type = forms.ChoiceField(
@@ -77,13 +82,4 @@ class DataFilterForm(forms.Form):
         data_type_choices = kwargs.pop('data_type_choices', [])
         super().__init__(*args, **kwargs)
         self.fields['data_type'].choices = [(dt, dt.title()) for dt in data_type_choices]
-
-
-# Register forms centrally here to avoid model -> form circular imports.
-DataSource.register_form_class(JsonUrlDataSource.SOURCE_TYPE, JsonUrlDataSourceForm)
-DataSource.register_form_class(AwareDataSource.SOURCE_TYPE, AwareDataSourceForm)
-DataSource.register_form_class(NiimportDataSource.SOURCE_TYPE, NiimportDataSourceForm)
-
-# StudySourceConfiguration admin forms that add source-type-specific config fields.
-DataSource.register_config_form_class(NiimportDataSource.SOURCE_TYPE, NiimportStudySourceConfigurationForm)
 

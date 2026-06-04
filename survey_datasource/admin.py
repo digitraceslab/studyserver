@@ -2,9 +2,11 @@ from django.contrib import admin
 from polymorphic.admin import PolymorphicChildModelAdmin
 
 from data_sources.models import DataSource
+from data_sources.models.model_registration import datasourceadmin
 from survey_datasource.models import SurveyDataSource
 
-# Register your models here.
+
+@datasourceadmin(SurveyDataSource)
 @admin.register(SurveyDataSource)
 class SurveyDataSourceAdmin(PolymorphicChildModelAdmin):
     base_model = DataSource
@@ -13,6 +15,4 @@ class SurveyDataSourceAdmin(PolymorphicChildModelAdmin):
     list_display = ('name', 'device_id', 'profile')
     search_fields = ['name', 'device_id', 'profile__user__username']
 
-
-DataSource.register_admin_child_model(SurveyDataSource)
 
