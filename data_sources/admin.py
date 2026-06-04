@@ -23,11 +23,19 @@ class NiimportDataSourceAdmin(PolymorphicChildModelAdmin):
     base_model = DataSource
     show_in_index = True
     readonly_fields = COMMON_READ_ONLY_FIELDS + ('donation_id', 'donation_token',)
+
+
+# Explicit child registrations for the polymorphic parent admin.
+DataSource.register_admin_child_model(JsonUrlDataSource)
+DataSource.register_admin_child_model(AwareDataSource)
+DataSource.register_admin_child_model(NiimportDataSource)
     
 
 @admin.register(DataSource)
 class DataSourceAdmin(PolymorphicParentModelAdmin):
     base_model = DataSource
-    child_models = (JsonUrlDataSource, AwareDataSource, NiimportDataSource)
+
+    def get_child_models(self):
+        return DataSource.get_registered_admin_child_models()
 
 

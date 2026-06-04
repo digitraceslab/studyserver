@@ -15,6 +15,7 @@ class DataSource(PolymorphicModel):
     _data_source_types = {}
     _data_source_forms = {}
     _data_source_config_forms = {}
+    _data_source_admin_child_models = []
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -50,6 +51,23 @@ class DataSource(PolymorphicModel):
     @classmethod
     def register_config_form_class(cls, source_type, form_class):
         cls._data_source_config_forms[source_type] = form_class
+
+    @classmethod
+    def register_admin_child_model(cls, model_class):
+        """Register a model class for PolymorphicParentModelAdmin child routing."""
+        if not isinstance(model_class, type) or not issubclass(model_class, DataSource):
+            raise TypeError("admin child model must be a DataSource subclass")
+        if model_class is DataSource:
+            raise ValueError("base DataSource cannot be registered as a child model")
+        if model_class._meta.abstract:
+            raise ValueError("abstract DataSource models cannot be registered")
+        if model_class not in cls._data_source_admin_child_models:
+            cls._data_source_admin_child_models.append(model_class)
+
+    @classmethod
+    def get_registered_admin_child_models(cls):
+        """Return registered PolymorphicParentModelAdmin child models."""
+        return tuple(cls._data_source_admin_child_models)
 
 
     status = models.CharField(
