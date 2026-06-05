@@ -5,7 +5,7 @@ from django import forms
 from django.utils.html import format_html
 from django.urls import reverse
 from django_ace import AceWidget
-from .models import Study, Consent, StudyParticipant, StudySourceConfiguration
+from .models import Study, Consent, StudyParticipant, StudySourceConfiguration, StudyAsset
 from .forms import StudyAdminForm, SourceConfigurationInlineForm
 from data_sources.models import DataSource
 
@@ -81,6 +81,14 @@ class ConsentAdmin(admin.ModelAdmin):
             return "Not linked"
         source = obj.data_source.get_real_instance()
         return f"{source.name} ({source.status})"
+
+
+class StudyAssetInline(admin.TabularInline):
+    model = StudyAsset
+    extra = 1
+    fields = ['name', 'file']
+    verbose_name = 'Study Asset'
+    verbose_name_plural = 'Study Assets'
 
 
 class SourceConfigurationInline(admin.TabularInline):
@@ -202,7 +210,7 @@ class StudyAdmin(admin.ModelAdmin):
     form = StudyAdminForm
     list_display = ('title',)
     filter_horizontal = ('researchers',)
-    inlines = [SourceConfigurationInline, ConsentInline]
+    inlines = [StudyAssetInline, SourceConfigurationInline, ConsentInline]
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if db_field.name == 'study_page_html':
             kwargs['widget'] = AceWidget(mode='html', theme='monokai', width='100%', height='300px')

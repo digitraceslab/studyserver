@@ -68,8 +68,55 @@ class Study(models.Model):
         # raw urls also should work directly
         return self.config_url
 
+    def get_asset_url(self, asset_name):
+        """Get the URL for a named asset (e.g., 'study_logo.png').
+        
+        Returns the URL of the uploaded asset if available, otherwise returns
+        the repository-based URL. Returns None if neither is available.
+        """
+        try:
+            asset = self.assets.get(name=asset_name)
+            return asset.file.url
+        except StudyAsset.DoesNotExist:
+            if self.raw_content_base_url:
+                return f"{self.raw_content_base_url}{asset_name}"
+        return None
+
+    def get_assets_dict(self):
+        """Get all assets as a dictionary mapping name to URL."""
+        assets_dict = {}
+        for asset in self.assets.all():
+            assets_dict[asset.name] = asset.file.url
+        return assets_dict
+
     def __str__(self):
         return self.title
+
+
+class StudyAsset(models.Model):
+    """Static assets (images, etc.) for a study that can be referenced in study templates."""
+    
+    study = models.ForeignKey(
+        Study,
+        on_delete=models.CASCADE,
+        related_name='assets',
+    )
+    name = models.CharField(
+        max_length=255,
+        help_text="Asset filename (e.g., 'study_logo.png'). Use this name to reference the asset in your study HTML."
+    )
+    file = models.FileField(
+        upload_to='study_assets/',
+        help_text="Upload the asset file. Images, PDFs, etc."
+    )
+    
+    class Meta:
+        unique_together = ('study', 'name')
+        verbose_name = 'Study Asset'
+        verbose_name_plural = 'Study Assets'
+    
+    def __str__(self):
+        return f"{self.study.title} - {self.name}"
 
 
 class StudySourceConfiguration(models.Model):

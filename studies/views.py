@@ -147,7 +147,8 @@ def study_detail(request):
         'user': request.user,
         'user_in_study': user_in_study,
         'config_repository': study.raw_content_base_url,
-        'join_or_login_section': "studies/study_page_components/join_or_login_section.html"
+        'join_or_login_section': "studies/study_page_components/join_or_login_section.html",
+        'assets': study.get_assets_dict(),
     }
     return render(request, 'studies/study_detail_wrapper.html', {'study_page_content': template.render(context)})
 
