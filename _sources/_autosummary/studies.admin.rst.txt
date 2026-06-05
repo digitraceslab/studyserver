@@ -13,6 +13,7 @@ studies.admin
       PrettyJSONFormField
       SourceConfigurationInline
       StudyAdmin
+      StudyAssetInline
       StudyParticipantAdmin
       StudySourceConfigurationAdmin
    

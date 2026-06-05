@@ -10,6 +10,7 @@ studies.models
    
       Consent
       Study
+      StudyAsset
       StudyParticipant
       StudySourceConfiguration
    

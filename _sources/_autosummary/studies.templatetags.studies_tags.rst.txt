@@ -1,0 +1,13 @@
+studies.templatetags.studies\_tags
+==================================
+
+.. automodule:: studies.templatetags.studies_tags
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      asset_url
+      get_asset
+   

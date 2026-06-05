@@ -1,0 +1,13 @@
+studies.templatetags
+====================
+
+.. automodule:: studies.templatetags
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   studies_tags

@@ -17,6 +17,7 @@
    migrations
    models
    services
+   templatetags
    tests
    urls
    views

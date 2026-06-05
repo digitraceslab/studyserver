@@ -46,3 +46,4 @@ studies.migrations
    0034_consent_snapshot
    0035_normalize_consent_source_type
    0036_studysourceconfiguration_consent_template_html
+   0037_studyasset
