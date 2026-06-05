@@ -116,8 +116,7 @@ def add_data_source(request, source_type):
         if param_source:
             new_source.data_start = param_source.data_start.date() if param_source.data_start else None
             new_source.data_end = param_source.data_end.date() if param_source.data_end else None
-            if param_source.requested_data_types:
-                new_source.configuration['requested_data_types'] = param_source.requested_data_types
+            new_source.configuration['requested_data_types'] = param_source.requested_data_types
         if not new_source.requires_setup and not new_source.requires_confirmation:
             new_source.status = 'active'
         new_source.save()

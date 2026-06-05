@@ -79,7 +79,11 @@ class NiimportDataSource(DataSource):
         if data_end:
             kwargs['data_end_date'] = data_end
         requested_data_types = (self.configuration or {}).get('requested_data_types')
-        if requested_data_types:
+        if requested_data_types is not None:
+            if isinstance(requested_data_types, str):
+                requested_data_types = [
+                    item.strip() for item in requested_data_types.split(',') if item.strip()
+                ]
             kwargs['requested_data_types'] = requested_data_types
         return kwargs
 

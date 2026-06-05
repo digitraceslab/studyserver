@@ -25,7 +25,7 @@ def create_donation(source_type, data_start_date=None, data_end_date=None,
         payload["data_start_date"] = str(data_start_date)
     if data_end_date:
         payload["data_end_date"] = str(data_end_date)
-    if requested_data_types:
+    if requested_data_types is not None:
         payload["requested_data_types"] = requested_data_types
     response = requests.post(
         f"{_base_url()}/", json=payload, headers=_headers(), timeout=REQUEST_TIMEOUT
