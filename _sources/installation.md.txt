@@ -14,9 +14,23 @@ pip install gunicorn
 
 python manage.py collectstatic
 python manage.py migrate
+
+# Create media directories for study assets
+mkdir -p media/study_assets/
+sudo chown -R www-data:www-data media/
+sudo chmod -R 775 media/
 ```
 
-Create `/etc/systemd/system/gunicorn.service` with
+## Django Configuration for File Uploads
+
+Ensure your `study_server/settings.py` includes:
+
+```python
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+```
+
+## Nginx Configuration
 
 ```
 [Unit]
@@ -58,6 +72,11 @@ server {
     location = /favicon.ico { access_log off; log_not_found off; }
     location /static/ {
         root /home/USERNAME/studyserver;
+    }
+    location /media/ {
+        alias /home/USERNAME/studyserver/media/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
     }
 
     location / {
