@@ -110,9 +110,9 @@ class SourceConfigurationInline(admin.TabularInline):
 class StudySourceConfigurationAdmin(admin.ModelAdmin):
     form = StudySourceConfigurationForm
     list_display = ('study', 'source_type', 'status')
-    readonly_fields = ('study',)
+    readonly_fields = ()
     can_delete = False
-    fields = ('study', 'source_type', 'status', 'requested_data_types', 'configuration', 'consent_template_html')
+    fields = ('source_type', 'status', 'requested_data_types', 'configuration', 'consent_template_html')
     formfield_overrides = {
         models.JSONField: {'form_class': PrettyJSONFormField},
     }
@@ -127,7 +127,7 @@ class StudySourceConfigurationAdmin(admin.ModelAdmin):
         # (e.g. niimport's variant selector). Use the form's field list when present.
         config_form = DataSource.get_config_form_class_for_type(obj.source_type) if obj else None
         if config_form:
-            return list(config_form.base_fields)
+            return [field for field in config_form.base_fields if field != 'study']
         return super().get_fields(request, obj)
 
     def get_form(self, request, obj=None, **kwargs):
@@ -135,6 +135,12 @@ class StudySourceConfigurationAdmin(admin.ModelAdmin):
         if config_form:
             kwargs['form'] = config_form
         return super().get_form(request, obj, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        # Standalone source configuration add/edit is scoped to the single-study setup.
+        if not obj.study_id:
+            obj.study = Study.objects.first()
+        super().save_model(request, obj, form, change)
 
 
 class ConsentInline(admin.TabularInline):
