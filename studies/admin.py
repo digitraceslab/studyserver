@@ -6,7 +6,7 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django_ace import AceWidget
 from .models import Study, Consent, StudyParticipant, StudySourceConfiguration, StudyAsset
-from .forms import StudyAdminForm, SourceConfigurationInlineForm
+from .forms import StudyAdminForm, SourceConfigurationInlineForm, StudySourceConfigurationForm
 from data_sources.models import DataSource
 
 
@@ -108,6 +108,7 @@ class SourceConfigurationInline(admin.TabularInline):
 
 @admin.register(StudySourceConfiguration)
 class StudySourceConfigurationAdmin(admin.ModelAdmin):
+    form = StudySourceConfigurationForm
     list_display = ('study', 'source_type', 'status')
     readonly_fields = ('study',)
     can_delete = False

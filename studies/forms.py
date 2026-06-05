@@ -51,9 +51,20 @@ class SourceConfigurationInlineForm(forms.ModelForm):
 
 
 class StudySourceConfigurationForm(forms.ModelForm):
+    source_type = forms.ChoiceField(choices=[])
+
     class Meta:
         model = StudySourceConfiguration
         fields = ['study', 'source_type', 'status', 'requested_data_types', 'configuration']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        choices = get_data_source_type_choices()
+        if self.instance.pk and self.instance.source_type:
+            existing = self.instance.source_type
+            if not any(c[0] == existing for c in choices):
+                choices = [(existing, existing)] + choices
+        self.fields['source_type'].choices = choices
 
 
 class ConsentAcceptanceForm(forms.Form):
