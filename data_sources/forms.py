@@ -49,6 +49,11 @@ class NiimportStudySourceConfigurationForm(forms.ModelForm):
         choices=NiimportDataSource.NIIMPORT_SOURCE_TYPE_CHOICES,
         required=True,
         label='Portability source type',
+    )       
+    niimport_server_url = forms.URLField(
+        required=True,
+        label='Niimport server URL',
+        help_text="The URL of the Niimport server",
     )
     
     class Meta:
@@ -60,6 +65,7 @@ class NiimportStudySourceConfigurationForm(forms.ModelForm):
         # Pre-populate niimport_source_type from configuration if present
         if self.instance and self.instance.configuration:
             self.fields['niimport_source_type'].initial = self.instance.configuration.get('niimport_source_type')
+            self.fields['niimport_server_url'].initial = self.instance.configuration.get('niimport_server_url')
     
     def save(self, commit=True):
         instance = super().save(commit=False)
@@ -67,6 +73,7 @@ class NiimportStudySourceConfigurationForm(forms.ModelForm):
         instance.configuration = {
             **(instance.configuration or {}),
             'niimport_source_type': self.cleaned_data.get('niimport_source_type'),
+            'niimport_server_url': self.cleaned_data.get('niimport_server_url'),
         }
         if commit:
             instance.save()

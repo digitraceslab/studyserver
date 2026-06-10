@@ -245,7 +245,6 @@ def researcher_dashboard(request):
 
             participants.append({
                 'id': profile.id,
-                'email': profile.user.email,
                 'required_complete': required_complete,
                 'required_total': required_total,
                 'optional_complete': optional_complete,

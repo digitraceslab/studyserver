@@ -10,6 +10,20 @@ def setup_researcher_group(sender, **kwargs):
         'view_study',
         'change_study',
         'view_consent',
+        'view_studysourceconfiguration',
+        'change_studysourceconfiguration',
+        'delete_studysourceconfiguration',
+        'add_studysourceconfiguration',
+        'add_survey',
+        'change_survey',
+        'view_survey',
+        'add_question',
+        'change_question',
+        'view_question',
+        'delete_question',
+        'add_category',
+        'change_category',
+        'view_category',
     ]
 
     perms = Permission.objects.filter(codename__in=required_permissions)

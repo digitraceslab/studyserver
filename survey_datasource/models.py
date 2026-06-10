@@ -23,9 +23,6 @@ class SurveyDataSource(DataSource):
         verbose_name = "Survey Data Source"
         verbose_name_plural = "Survey Data Sources"
 
-    def get_setup_url(self):
-        return f"/survey_datasource/{self.id}/setup/"
-
     def show_link(self):
         """Show a link to the next incomplete survey for this user, if any."""
         surveys = Survey.objects.all()

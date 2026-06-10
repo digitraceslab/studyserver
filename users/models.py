@@ -21,6 +21,7 @@ class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES)
 
+
     def delete(self, *args, **kwargs):
         for ds in self.data_sources.all():
             ds.get_real_instance().delete()
