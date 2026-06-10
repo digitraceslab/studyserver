@@ -369,7 +369,7 @@ def study_data_api(request):
         is_complete=True,
         revocation_date__isnull=True,
         data_source__status='active'
-    ).select_related('data_source', 'study_participant')
+    ).select_related('data_source', 'study_participant').order_by('id')
 
     # Collect all available data types across consents, restricted to what each
     # participant consented to share (requested_data_types snapshot).
@@ -390,14 +390,25 @@ def study_data_api(request):
             'data_types': sorted(all_data_types),
         })
 
-    start_date_param = request.GET.get('start_date')
-    end_date_param = request.GET.get('end_date')
-    output_format = request.GET.get('format', 'json')
+    try:
+        output_format = request.GET.get('format', 'json')
+        limit = int(request.GET.get('limit', 10000))
+        offset = int(request.GET.get('offset', 0))
 
-    start_date = _parse_date(start_date_param)
-    end_date = _parse_date(end_date_param)
+        start_date_param = request.GET.get('start_date')
+        end_date_param = request.GET.get('end_date')
+        start_date = _parse_date(start_date_param)
+        end_date = _parse_date(end_date_param)
+    except:
+        return JsonResponse({'error': 'Invalid query parameters'}, status=400)
+
+    if offset < 0 or limit < 1:
+        return JsonResponse({'error': 'Invalid limit or offset'}, status=400)
+    if limit > 10000:
+        return JsonResponse({'error': 'Maximum limit is 10000'}, status=400)
 
     all_data = []
+    full_count = 0
     for consent in active_consents:
         if not consent.data_source:
             continue
@@ -428,11 +439,31 @@ def study_data_api(request):
         end_candidates = [_make_timezone_aware(d) for d in [type_end, consent_end, end_date] if d is not None]
         interval_end = min(end_candidates) if end_candidates else None
 
-        data = source.fetch_data(
+        count = source.count_rows(
             data_type=data_type,
             start_date=interval_start,
             end_date=interval_end
         )
+        full_count += count
+
+        if limit <= 0:
+            continue
+
+        if offset > count:
+            # This source is completely skipped
+            offset -= count
+            if offset < 0:
+                offset = 0
+            continue
+
+        data = source.fetch_data(
+            data_type=data_type,
+            start_date=interval_start,
+            end_date=interval_end,
+            limit=limit,
+            offset=offset,
+        )
+        limit -= len(data)
         for row in data:
             row["data_type"] = data_type
             row["source_type"] = consent.source_type
@@ -441,12 +472,14 @@ def study_data_api(request):
             row["participant_id"] = str(consent.study_participant.pseudo_id) if consent.study_participant else None
             all_data.append(_clean_row(row))
 
+        offset = 0
+
     if output_format == 'csv':
         return data_to_csv_response(all_data, "study_data.csv")
     else:
         return JsonResponse({
             'study': study.title,
-            'data_count': len(all_data),
+            'data_count': full_count,
             'data_types': [data_type],
             'data': all_data
         })
