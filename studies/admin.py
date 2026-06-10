@@ -20,13 +20,12 @@ class PrettyJSONFormField(forms.JSONField):
 
 @admin.register(StudyParticipant)
 class StudyParticipantAdmin(admin.ModelAdmin):
-    list_display = ('study', 'participant_display', 'pseudo_id')
+    list_display = ('study', 'pseudo_id')
+    fields = ('study', 'pseudo_id')
     readonly_fields = ('pseudo_id',)
 
     @admin.display(description='Participant')
     def participant_display(self, obj):
-        if obj.participant:
-            return obj.participant.user.username
         return f"[deleted-{obj.pseudo_id}]"
 
 
