@@ -15,4 +15,5 @@ users.models
    .. autosummary::
    
       Profile
+      ProtectedIdentifier
    

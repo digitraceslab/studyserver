@@ -26,6 +26,8 @@ users.tests
       MyDataApiTest
       ParticipantDetailTest
       ProfileModelTest
+      ProtectedIdentifierDashboardTest
+      ProtectedIdentifierModelTest
       ResearcherDashboardExtendedTest
       ResearcherDashboardViewTest
       SignupResearcherExtendedTest
@@ -33,4 +35,5 @@ users.tests
       SignupViewExtendedTest
       SignupViewTest
       StaticPagesTest
+      UpdateProtectedIdentifiersViewTest
    

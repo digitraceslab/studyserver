@@ -4,3 +4,9 @@ users.admin
 .. automodule:: users.admin
 
    
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      ProtectedIdentifierAdmin
+   

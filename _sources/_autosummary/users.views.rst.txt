@@ -23,4 +23,5 @@ users.views
       signup
       signup_researcher
       terms_of_service
+      update_protected_identifiers
    
