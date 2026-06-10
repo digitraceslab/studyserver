@@ -1,0 +1,25 @@
+<h2>Protected identifiers</h2>
+<p>
+    List identifiers that should be removed from the data. These could be usernames, email addresses,
+    phone number or any other identifiers you want to ensure are not included in the data. These
+    identifiers are replaced with a random string in the data.
+</p>
+
+<form method="post" action="{% url 'update_protected_identifiers' %}">
+    {% csrf_token %}
+    <div id="identifier-list">
+        {% for identifier in protected_identifiers %}
+        <div class="identifier-row">
+            <input type="text" name="identifier" value="{{ identifier.value }}">
+            <button type="button" class="btn" onclick="this.parentElement.remove()">Remove</button>
+        </div>
+        {% endfor %}
+    </div>
+    <button type="button" class="btn" onclick="
+        var row = document.createElement('div');
+        row.className = 'identifier-row';
+        row.innerHTML = '<input type=\'text\' name=\'identifier\' value=\'\'> <button type=\'button\' class=\'btn\' onclick=\'this.parentElement.remove()\'>Remove</button>';
+        document.getElementById('identifier-list').appendChild(row);
+    ">+ Add identifier</button>
+    <button type="submit" class="btn">Save</button>
+</form>

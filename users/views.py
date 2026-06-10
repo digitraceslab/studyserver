@@ -12,7 +12,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.authtoken.models import Token
 
 from study_server.utils import data_to_csv_response
-from users.models import Profile
+from django.db import transaction
+from users.models import Profile, ProtectedIdentifier
 from studies.models import Study, Consent, StudyParticipant
 from .forms import CustomUserCreationForm
 from studies.views import study_detail
@@ -197,6 +198,7 @@ def dashboard(request):
     context = {}
     context['past_consents'] = get_past_consents(request.user.profile)
     context['studies_data'] = get_active_studies_data(request.user.profile, request)
+    context['protected_identifiers'] = request.user.profile.protected_identifiers.order_by('id')
 
     card_template, card_context = get_next_instructions_card(request, context['studies_data'])
     if card_template and card_context:
@@ -204,6 +206,34 @@ def dashboard(request):
         context['instructions_context'] = card_context
     
     return render(request, 'dashboard.html', context)
+
+
+@login_required
+def update_protected_identifiers(request):
+    if request.method != 'POST':
+        return redirect('dashboard')
+
+    if request.user.profile.user_type == 'researcher':
+        return redirect('researcher_dashboard')
+
+    raw_values = request.POST.getlist('identifier')
+    seen = set()
+    unique_values = []
+    for v in raw_values:
+        stripped = v.strip()
+        if stripped and stripped not in seen:
+            seen.add(stripped)
+            unique_values.append(stripped)
+
+    profile = request.user.profile
+    with transaction.atomic():
+        profile.protected_identifiers.all().delete()
+        ProtectedIdentifier.objects.bulk_create([
+            ProtectedIdentifier(profile=profile, value=v) for v in unique_values
+        ])
+
+    messages.success(request, "Protected identifiers updated.")
+    return redirect('dashboard')
 
 
 @login_required

@@ -13,6 +13,7 @@ from study_server.urls import urlpatterns as real_urlpatterns
 from django.contrib.auth.models import AnonymousUser, User as DjangoUser, Group
 import uuid
 from users.views import get_past_consents
+from users.models import ProtectedIdentifier
 
 def test_message_view(request):
     messages.info(request, 'This is an info message.')
@@ -475,6 +476,159 @@ class MyDataApiTest(TestCase):
         data = response.json()
         self.assertEqual(data['data_count'], 0)
         self.assertEqual(data['data'], [])
+
+
+class ProtectedIdentifierModelTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='piuser', password='pass')
+        self.profile = Profile.objects.create(user=self.user, user_type='participant')
+
+    def test_create_identifier(self):
+        pi = ProtectedIdentifier.objects.create(profile=self.profile, value='test@example.com')
+        self.assertEqual(str(pi), 'piuser: test@example.com')
+
+    def test_replacement_auto_generated(self):
+        pi = ProtectedIdentifier.objects.create(profile=self.profile, value='auto@example.com')
+        self.assertTrue(pi.replacement.startswith('<'))
+        self.assertTrue(pi.replacement.endswith('>'))
+        self.assertLessEqual(len(pi.replacement), 10)
+
+    def test_replacement_unique_per_instance(self):
+        pi1 = ProtectedIdentifier.objects.create(profile=self.profile, value='a@example.com')
+        other_user = User.objects.create_user(username='piuser_r2', password='pass')
+        other_profile = Profile.objects.create(user=other_user, user_type='participant')
+        pi2 = ProtectedIdentifier.objects.create(profile=other_profile, value='b@example.com')
+        # Replacements are randomly generated; with 8 random chars the collision probability
+        # is negligible — assert they are not both the same static value.
+        self.assertRegex(pi1.replacement, r'^<[A-Za-z0-9]{8}>$')
+        self.assertRegex(pi2.replacement, r'^<[A-Za-z0-9]{8}>$')
+
+    def test_unique_together_enforced(self):
+        ProtectedIdentifier.objects.create(profile=self.profile, value='duplicate@example.com')
+        from django.db import IntegrityError
+        with self.assertRaises(IntegrityError):
+            ProtectedIdentifier.objects.create(profile=self.profile, value='duplicate@example.com')
+
+    def test_same_value_different_profiles_allowed(self):
+        other_user = User.objects.create_user(username='piuser2', password='pass')
+        other_profile = Profile.objects.create(user=other_user, user_type='participant')
+        ProtectedIdentifier.objects.create(profile=self.profile, value='shared@example.com')
+        # Should not raise
+        ProtectedIdentifier.objects.create(profile=other_profile, value='shared@example.com')
+        self.assertEqual(ProtectedIdentifier.objects.filter(value='shared@example.com').count(), 2)
+
+
+class ProtectedIdentifierDashboardTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='dashpi', password='pass')
+        self.profile = Profile.objects.create(user=self.user, user_type='participant')
+        self.client.login(username='dashpi', password='pass')
+
+    def test_dashboard_context_contains_identifiers(self):
+        ProtectedIdentifier.objects.create(profile=self.profile, value='myemail@example.com')
+        ProtectedIdentifier.objects.create(profile=self.profile, value='555-1234')
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.status_code, 200)
+        identifiers = list(response.context['protected_identifiers'])
+        self.assertEqual(len(identifiers), 2)
+        values = [pi.value for pi in identifiers]
+        self.assertIn('myemail@example.com', values)
+        self.assertIn('555-1234', values)
+
+    def test_dashboard_context_empty_when_no_identifiers(self):
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context['protected_identifiers']), [])
+
+    def test_dashboard_renders_identifier_values(self):
+        ProtectedIdentifier.objects.create(profile=self.profile, value='visible@example.com')
+        response = self.client.get(reverse('dashboard'))
+        self.assertContains(response, 'visible@example.com')
+
+
+class UpdateProtectedIdentifiersViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='upident', password='pass')
+        self.profile = Profile.objects.create(user=self.user, user_type='participant')
+        self.url = reverse('update_protected_identifiers')
+        self.client.login(username='upident', password='pass')
+
+    def test_login_required(self):
+        self.client.logout()
+        response = self.client.post(self.url, {'identifier': ['foo@example.com']})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('login', response.url)
+
+    def test_get_redirects_without_changes(self):
+        ProtectedIdentifier.objects.create(profile=self.profile, value='existing@example.com')
+        response = self.client.get(self.url)
+        self.assertRedirects(response, reverse('dashboard'))
+        # Existing identifiers must not be modified
+        self.assertEqual(ProtectedIdentifier.objects.filter(profile=self.profile).count(), 1)
+
+    def test_post_adds_identifiers(self):
+        response = self.client.post(self.url, {
+            'identifier': ['email@example.com', '555-9876']
+        })
+        self.assertRedirects(response, reverse('dashboard'))
+        values = list(
+            ProtectedIdentifier.objects.filter(profile=self.profile).values_list('value', flat=True)
+        )
+        self.assertIn('email@example.com', values)
+        self.assertIn('555-9876', values)
+
+    def test_post_replaces_existing_identifiers(self):
+        ProtectedIdentifier.objects.create(profile=self.profile, value='old@example.com')
+        self.client.post(self.url, {'identifier': ['new@example.com']})
+        values = list(
+            ProtectedIdentifier.objects.filter(profile=self.profile).values_list('value', flat=True)
+        )
+        self.assertEqual(values, ['new@example.com'])
+        self.assertNotIn('old@example.com', values)
+
+    def test_post_removes_all_when_empty_list(self):
+        ProtectedIdentifier.objects.create(profile=self.profile, value='gone@example.com')
+        self.client.post(self.url, {})
+        self.assertEqual(ProtectedIdentifier.objects.filter(profile=self.profile).count(), 0)
+
+    def test_post_strips_whitespace(self):
+        self.client.post(self.url, {'identifier': ['  spaced@example.com  ']})
+        self.assertTrue(
+            ProtectedIdentifier.objects.filter(profile=self.profile, value='spaced@example.com').exists()
+        )
+
+    def test_post_skips_empty_entries(self):
+        self.client.post(self.url, {'identifier': ['', '   ', 'valid@example.com']})
+        values = list(
+            ProtectedIdentifier.objects.filter(profile=self.profile).values_list('value', flat=True)
+        )
+        self.assertEqual(values, ['valid@example.com'])
+
+    def test_post_deduplicates_preserving_order(self):
+        self.client.post(self.url, {
+            'identifier': ['a@example.com', 'b@example.com', 'a@example.com']
+        })
+        pis = list(
+            ProtectedIdentifier.objects.filter(profile=self.profile).order_by('id').values_list('value', flat=True)
+        )
+        self.assertEqual(pis, ['a@example.com', 'b@example.com'])
+
+    def test_success_message_shown(self):
+        response = self.client.post(self.url, {'identifier': ['msg@example.com']}, follow=True)
+        messages_list = list(response.context['messages'])
+        self.assertTrue(any('updated' in str(m).lower() for m in messages_list))
+
+    def test_researcher_redirected_away(self):
+        res_user = User.objects.create_user(username='resupident', password='pass')
+        Profile.objects.create(user=res_user, user_type='researcher')
+        self.client.login(username='resupident', password='pass')
+        response = self.client.post(self.url, {'identifier': ['hack@example.com']})
+        self.assertRedirects(response, reverse('researcher_dashboard'))
+        # No identifiers should have been created
+        res_profile = Profile.objects.get(user=res_user)
+        self.assertEqual(ProtectedIdentifier.objects.filter(profile=res_profile).count(), 0)
 
 
 class GetPastConsentsTest(TestCase):
