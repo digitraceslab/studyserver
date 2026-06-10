@@ -9,6 +9,7 @@ def setup_researcher_group(sender, **kwargs):
     required_permissions = [
         'view_study',
         'change_study',
+        'view_studyparticipant',
         'view_consent',
         'view_studysourceconfiguration',
         'change_studysourceconfiguration',
