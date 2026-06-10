@@ -1142,9 +1142,10 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 404)
 
+    @patch.object(AwareDataSource, 'count_rows', return_value=1)
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery'])
-    def test_data_rows_include_participant_id(self, mock_types, mock_fetch):
+    def test_data_rows_include_participant_id(self, mock_types, mock_fetch, mock_count):
         source = AwareDataSource.objects.create(
             profile=self.profile,
             name='API Test Source',
@@ -1170,9 +1171,10 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
             self.assertEqual(row['participant_id'], str(self.study_participant.pseudo_id))
             self.assertEqual(row['source_type'], 'aware')
 
+    @patch.object(AwareDataSource, 'count_rows', return_value=1)
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery', 'location'])
-    def test_unrequested_data_type_is_not_returned(self, mock_types, mock_fetch):
+    def test_unrequested_data_type_is_not_returned(self, mock_types, mock_fetch, mock_count):
         # Participant consented only to 'battery'; 'location' must not be downloadable.
         source = AwareDataSource.objects.create(
             profile=self.profile, name='Restricted Source', status='active',
@@ -1211,9 +1213,10 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         response = self.client.get(url)
         self.assertEqual(response.json()['data_types'], ['battery'])
 
+    @patch.object(AwareDataSource, 'count_rows', return_value=1)
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery'])
-    def test_config_data_start_limits_fetched_data(self, mock_types, mock_fetch):
+    def test_config_data_start_limits_fetched_data(self, mock_types, mock_fetch, mock_count):
         # Consent snapshot data_start (June 1) is later than consent_date (Jan 1), so fetch should use June 1
         source = AwareDataSource.objects.create(
             profile=self.profile,
@@ -1238,9 +1241,10 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         _, kwargs = mock_fetch.call_args
         self.assertEqual(kwargs['start_date'].date(), datetime(2024, 6, 1).date())
 
+    @patch.object(AwareDataSource, 'count_rows', return_value=1)
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery'])
-    def test_config_data_end_limits_fetched_data(self, mock_types, mock_fetch):
+    def test_config_data_end_limits_fetched_data(self, mock_types, mock_fetch, mock_count):
         # Consent snapshot data_end (Sep 1) should cap the end date passed to fetch_data
         source = AwareDataSource.objects.create(
             profile=self.profile,
@@ -1266,9 +1270,10 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         _, kwargs = mock_fetch.call_args
         self.assertEqual(kwargs['end_date'].date(), datetime(2024, 9, 1).date())
 
+    @patch.object(AwareDataSource, 'count_rows', return_value=1)
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery'])
-    def test_editing_config_does_not_change_consent_window(self, mock_types, mock_fetch):
+    def test_editing_config_does_not_change_consent_window(self, mock_types, mock_fetch, mock_count):
         # Changing the config's data_start AFTER consent must NOT affect subsequent API calls:
         # the consent snapshot is the authoritative record.
         source_config = StudySourceConfiguration.objects.update_or_create(
@@ -1309,9 +1314,10 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         # Still uses the original snapshotted June 1, not the edited August 1
         self.assertEqual(kwargs['start_date'].date(), datetime(2024, 6, 1).date())
 
+    @patch.object(AwareDataSource, 'count_rows', return_value=1)
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery'])
-    def test_query_param_narrows_config_window(self, mock_types, mock_fetch):
+    def test_query_param_narrows_config_window(self, mock_types, mock_fetch, mock_count):
         # Query params (March 1 - June 1) are narrower than consent snapshot (Jan 1 - Dec 31),
         # so fetch_data should receive the narrower query-param window
         source = AwareDataSource.objects.create(
@@ -1339,9 +1345,10 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         self.assertEqual(kwargs['start_date'].date(), datetime(2024, 3, 1).date())
         self.assertEqual(kwargs['end_date'].date(), datetime(2024, 6, 1).date())
 
+    @patch.object(AwareDataSource, 'count_rows', return_value=1)
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery'])
-    def test_no_config_dates_falls_back_to_consent(self, mock_types, mock_fetch):
+    def test_no_config_dates_falls_back_to_consent(self, mock_types, mock_fetch, mock_count):
         # Without source_configurations, fetch_data should receive the consent's data_start
         source = AwareDataSource.objects.create(
             profile=self.profile,
