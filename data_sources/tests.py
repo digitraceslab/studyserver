@@ -547,7 +547,7 @@ class PortabilityModelTestMixin:
             source.NIIMPORT_SOURCE_TYPE,
             data_start_date=date(2024, 1, 1),
             data_end_date=date(2024, 6, 30),
-            requested_data_types='activity,posts',
+            requested_data_types=['activity', 'posts'],
         )
         self.assertEqual(url, f'http://portability/donate/{token}/')
 
