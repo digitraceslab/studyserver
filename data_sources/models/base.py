@@ -162,6 +162,16 @@ class DataSource(PolymorphicModel):
         """Revoke any permissions and delete the source."""
         pass
 
+    def supports_deletion(self):
+        """Whether researchers can mark this source's data deletable. Default: no."""
+        return False
+
+    def latest_timestamp(self, data_type, start_date=None, end_date=None):
+        """Newest row timestamp (Unix time in milliseconds) physically available at the
+        source for ``data_type``, or None when unknown / no data. Overridden by sources
+        that support deletion."""
+        return None
+
     def mark_deletable(self, data_type, through):
         """Signal to the underlying source that data of ``data_type`` up to the
         Unix-ms timestamp ``through`` has been downloaded and may be deleted.

@@ -545,28 +545,32 @@ def study_data_api(request):
             offset=offset,
         )
 
+        # fetch_data may return a non-list (e.g. an error dict); skip processing.
+        if not isinstance(data, list):
+            offset = 0
+            continue
+
         # Update the downloaded_through watermark for this (data_source, data_type).
-        if isinstance(data, list):
-            max_ts = None
-            for r in data:
-                ts_raw = r.get("timestamp")
-                if ts_raw is None:
-                    continue
-                try:
-                    ts = int(ts_raw)
-                except (TypeError, ValueError):
-                    continue
-                if max_ts is None or ts > max_ts:
-                    max_ts = ts
-            if max_ts is not None:
-                wm, _ = DeletableWatermark.objects.get_or_create(
-                    data_source=consent.data_source, data_type=data_type
-                )
-                with transaction.atomic():
-                    wm = DeletableWatermark.objects.select_for_update().get(pk=wm.pk)
-                    if wm.downloaded_through is None or max_ts > wm.downloaded_through:
-                        wm.downloaded_through = max_ts
-                        wm.save(update_fields=["downloaded_through", "updated_at"])
+        max_ts = None
+        for r in data:
+            ts_raw = r.get("timestamp")
+            if ts_raw is None:
+                continue
+            try:
+                ts = int(ts_raw)
+            except (TypeError, ValueError):
+                continue
+            if max_ts is None or ts > max_ts:
+                max_ts = ts
+        if max_ts is not None:
+            wm, _ = DeletableWatermark.objects.get_or_create(
+                data_source=consent.data_source, data_type=data_type
+            )
+            with transaction.atomic():
+                wm = DeletableWatermark.objects.select_for_update().get(pk=wm.pk)
+                if wm.downloaded_through is None or max_ts > wm.downloaded_through:
+                    wm.downloaded_through = max_ts
+                    wm.save(update_fields=["downloaded_through", "updated_at"])
 
         limit -= len(data)
         for row in data:
@@ -612,6 +616,14 @@ def mark_data_deletable(request):
     if not data_type:
         return JsonResponse({"error": "data_type is required"}, status=400)
 
+    through_raw = request.data.get('through', None)
+    if through_raw is None or through_raw == '':
+        return JsonResponse({'error': 'through is required'}, status=400)
+    try:
+        through = int(through_raw)
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'through must be an integer (Unix ms)'}, status=400)
+
     active_consents = (
         Consent.objects.filter(
             study=study,
@@ -644,17 +656,23 @@ def mark_data_deletable(request):
         )
         source_type = consent.source_type
 
-        try:
-            wm = DeletableWatermark.objects.get(
-                data_source=consent.data_source, data_type=data_type
+        if not source.supports_deletion():
+            results.append(
+                {
+                    "participant_id": participant_id,
+                    "source_type": source_type,
+                    "marked": False,
+                    "reason": "source does not support deletion",
+                }
             )
-        except DeletableWatermark.DoesNotExist:
-            wm = None
+            continue
 
-        downloaded = wm.downloaded_through if wm else None
-        current_deletable = wm.deletable_through if wm else None
+        wm = DeletableWatermark.objects.filter(
+            data_source=consent.data_source, data_type=data_type
+        ).first()
+        D = wm.downloaded_through if wm else None
 
-        if downloaded is None:
+        if D is None:
             results.append(
                 {
                     "participant_id": participant_id,
@@ -665,19 +683,31 @@ def mark_data_deletable(request):
             )
             continue
 
-        if current_deletable is not None and downloaded <= current_deletable:
+        if D < through:
             results.append(
                 {
                     "participant_id": participant_id,
                     "source_type": source_type,
                     "marked": False,
-                    "reason": "no new data since last mark",
+                    "reason": "data not downloaded through cutoff",
+                }
+            )
+            continue
+
+        M = source.latest_timestamp(data_type)
+        if M is None or M <= through:
+            results.append(
+                {
+                    "participant_id": participant_id,
+                    "source_type": source_type,
+                    "marked": False,
+                    "reason": "no data newer than cutoff",
                 }
             )
             continue
 
         try:
-            source.mark_deletable(data_type, through=downloaded)
+            source.mark_deletable(data_type, through=through)
         except Exception as e:
             results.append(
                 {
@@ -692,7 +722,7 @@ def mark_data_deletable(request):
 
         with transaction.atomic():
             wm_locked = DeletableWatermark.objects.select_for_update().get(pk=wm.pk)
-            wm_locked.deletable_through = downloaded
+            wm_locked.deletable_through = through
             wm_locked.save(update_fields=["deletable_through", "updated_at"])
 
         results.append(
@@ -700,7 +730,7 @@ def mark_data_deletable(request):
                 "participant_id": participant_id,
                 "source_type": source_type,
                 "marked": True,
-                "deletable_through": downloaded,
+                "deletable_through": through,
             }
         )
 

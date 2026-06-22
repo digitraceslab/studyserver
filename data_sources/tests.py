@@ -994,3 +994,16 @@ class AwareConfigEndpointTest(TestCase):
         })
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
+
+
+class BaseDataSourceMarkDeletableTest(TestCase):
+    """Verify that the base DataSource.mark_deletable hook is a no-op."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='hook_user', password='p')
+        self.profile = Profile.objects.create(user=self.user)
+        self.base = DataSource.objects.create(profile=self.profile, name='Base Source')
+
+    def test_mark_deletable_returns_none(self):
+        result = self.base.mark_deletable('battery', 1234567890000)
+        self.assertIsNone(result)

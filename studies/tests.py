@@ -1481,3 +1481,387 @@ class StudyAdminTest(TestCase):
         response = self.client.get(url)
         # Django admin returns 302 (redirect to admin index) for objects not in queryset
         self.assertNotEqual(response.status_code, 200)
+
+
+# ---------------------------------------------------------------------------
+# 14. StudyDataApiWatermarkTest
+# ---------------------------------------------------------------------------
+
+class StudyDataApiWatermarkTest(StudyTestMixin, TestCase):
+    """Tests for the download watermark tracking in study_data_api."""
+
+    def setUp(self):
+        super().setUp()
+        import uuid
+        from rest_framework.test import APIClient
+        self.api_client = APIClient()
+        self.api_client.force_authenticate(user=self.researcher_user)
+
+        self.source = AwareDataSource.objects.create(
+            profile=self.profile,
+            name='watermark-aware-src',
+            status='active',
+            device_id=uuid.uuid4(),
+        )
+        self.consent = Consent.objects.create(
+            participant=self.profile,
+            study=self.study,
+            source_configuration=get_source_config(self.study, 'aware'),
+            data_source=self.source,
+            source_type='aware',
+            is_complete=True,
+            consent_date=timezone.now(),
+            data_start=timezone.make_aware(datetime(2020, 1, 1)),
+            study_participant=self.study_participant,
+        )
+
+    def test_download_creates_watermark_with_max_timestamp(self):
+        from data_sources.models import DeletableWatermark
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'count_rows', return_value=2), \
+             patch.object(AwareDataSource, 'fetch_data', return_value=[
+                 {'timestamp': 1000}, {'timestamp': 3000}
+             ]):
+            resp = self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
+        self.assertEqual(resp.status_code, 200)
+        wm = DeletableWatermark.objects.get(data_source=self.source, data_type='battery')
+        self.assertEqual(wm.downloaded_through, 3000)
+
+    def test_second_download_with_higher_max_advances_watermark(self):
+        from data_sources.models import DeletableWatermark
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'count_rows', return_value=1), \
+             patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 3000}]):
+            self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
+
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'count_rows', return_value=1), \
+             patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 5000}]):
+            self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
+
+        wm = DeletableWatermark.objects.get(data_source=self.source, data_type='battery')
+        self.assertEqual(wm.downloaded_through, 5000)
+
+    def test_second_download_with_lower_max_does_not_lower_watermark(self):
+        from data_sources.models import DeletableWatermark
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'count_rows', return_value=1), \
+             patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 5000}]):
+            self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
+
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'count_rows', return_value=1), \
+             patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 2000}]):
+            self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
+
+        wm = DeletableWatermark.objects.get(data_source=self.source, data_type='battery')
+        self.assertEqual(wm.downloaded_through, 5000)
+
+    def test_rows_without_timestamp_create_no_watermark(self):
+        from data_sources.models import DeletableWatermark
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'count_rows', return_value=2), \
+             patch.object(AwareDataSource, 'fetch_data', return_value=[
+                 {'value': 42}, {'value': 99}
+             ]):
+            resp = self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(
+            DeletableWatermark.objects.filter(data_source=self.source, data_type='battery').exists()
+        )
+
+    def test_fetch_data_returning_dict_creates_no_watermark_and_returns_200(self):
+        from data_sources.models import DeletableWatermark
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'count_rows', return_value=1), \
+             patch.object(AwareDataSource, 'fetch_data', return_value={'error': 'db unavailable'}):
+            resp = self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(
+            DeletableWatermark.objects.filter(data_source=self.source, data_type='battery').exists()
+        )
+
+    def test_watermark_is_keyed_per_data_type(self):
+        from data_sources.models import DeletableWatermark
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery', 'location']), \
+             patch.object(AwareDataSource, 'count_rows', return_value=1), \
+             patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 7000}]):
+            self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
+
+        self.assertTrue(
+            DeletableWatermark.objects.filter(data_source=self.source, data_type='battery').exists()
+        )
+        self.assertFalse(
+            DeletableWatermark.objects.filter(data_source=self.source, data_type='location').exists()
+        )
+
+
+# ---------------------------------------------------------------------------
+# 15. MarkDataDeletableTest
+# ---------------------------------------------------------------------------
+
+class MarkDataDeletableTest(StudyTestMixin, TestCase):
+    """Tests for the mark_data_deletable POST endpoint."""
+
+    def setUp(self):
+        super().setUp()
+        import uuid
+        from rest_framework.test import APIClient
+        from data_sources.models import DeletableWatermark
+
+        self.api_client = APIClient()
+        self.api_client.force_authenticate(user=self.researcher_user)
+
+        self.source = AwareDataSource.objects.create(
+            profile=self.profile,
+            name='deletable-aware-src',
+            status='active',
+            device_id=uuid.uuid4(),
+        )
+        self.consent = Consent.objects.create(
+            participant=self.profile,
+            study=self.study,
+            source_configuration=get_source_config(self.study, 'aware'),
+            data_source=self.source,
+            source_type='aware',
+            is_complete=True,
+            consent_date=timezone.now(),
+            data_start=timezone.make_aware(datetime(2020, 1, 1)),
+            study_participant=self.study_participant,
+        )
+        # Pre-create a watermark with a known downloaded_through value.
+        self.watermark = DeletableWatermark.objects.create(
+            data_source=self.source,
+            data_type='battery',
+            downloaded_through=5000,
+        )
+
+    # setUp creates: self.watermark with downloaded_through=5000, deletable_through=None.
+    # Happy-path values used throughout: D=5000 (downloaded_through), through=3000,
+    # M=5000 (latest_timestamp).  D >= through and M > through → success.
+
+    def _post(self, data_type='battery', through=3000, client=None):
+        c = client or self.api_client
+        return c.post(
+            reverse('mark_data_deletable'),
+            {'data_type': data_type, 'through': through},
+            format='json',
+        )
+
+    # ------------------------------------------------------------------
+    # 1. Happy path: marked True, DB row updated to supplied through.
+    # ------------------------------------------------------------------
+    def test_marks_deletable_through_and_returns_marked_true(self):
+        from data_sources.models import DeletableWatermark
+        # D=5000, through=3000, M=5000 → D>=through, M>through → success
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'latest_timestamp', return_value=5000), \
+             patch.object(AwareDataSource, 'mark_deletable'):
+            resp = self._post(through=3000)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['marked_count'], 1)
+        result = data['results'][0]
+        self.assertTrue(result['marked'])
+        self.assertEqual(result['deletable_through'], 3000)
+
+        self.watermark.refresh_from_db()
+        self.assertEqual(self.watermark.deletable_through, 3000)
+
+    # ------------------------------------------------------------------
+    # 2. through == existing deletable_through is now allowed (old guard removed).
+    # ------------------------------------------------------------------
+    def test_through_equal_to_existing_deletable_through_still_marks_true(self):
+        self.watermark.deletable_through = 3000
+        self.watermark.save()
+        # D=5000, through=3000, M=5000 → previously guarded; now succeeds.
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'latest_timestamp', return_value=5000), \
+             patch.object(AwareDataSource, 'mark_deletable'):
+            resp = self._post(through=3000)
+        self.assertEqual(resp.status_code, 200)
+        result = resp.json()['results'][0]
+        self.assertTrue(result['marked'])
+        self.assertEqual(result['deletable_through'], 3000)
+
+    # ------------------------------------------------------------------
+    # 3. Missing through → 400.
+    # ------------------------------------------------------------------
+    def test_missing_through_returns_400(self):
+        resp = self.api_client.post(
+            reverse('mark_data_deletable'),
+            {'data_type': 'battery'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json().get('error'), 'through is required')
+
+    # ------------------------------------------------------------------
+    # 4. Non-integer through → 400.
+    # ------------------------------------------------------------------
+    def test_non_integer_through_returns_400(self):
+        resp = self.api_client.post(
+            reverse('mark_data_deletable'),
+            {'data_type': 'battery', 'through': 'abc'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json().get('error'), 'through must be an integer (Unix ms)')
+
+    # ------------------------------------------------------------------
+    # 5. Missing data_type → 400 (unchanged).
+    # ------------------------------------------------------------------
+    def test_missing_data_type_returns_400(self):
+        resp = self.api_client.post(
+            reverse('mark_data_deletable'),
+            {'through': 3000},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json().get('error'), 'data_type is required')
+
+    # ------------------------------------------------------------------
+    # 6. D < through → 'data not downloaded through cutoff'.
+    # ------------------------------------------------------------------
+    def test_downloaded_through_less_than_through_returns_not_downloaded_reason(self):
+        # D=2000 < through=3000 → not downloaded through cutoff
+        self.watermark.downloaded_through = 2000
+        self.watermark.save()
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']):
+            resp = self._post(through=3000)
+        self.assertEqual(resp.status_code, 200)
+        result = resp.json()['results'][0]
+        self.assertFalse(result['marked'])
+        self.assertEqual(result['reason'], 'data not downloaded through cutoff')
+
+    # ------------------------------------------------------------------
+    # 7. M <= through (M == through, closed boundary) → 'no data newer than cutoff'.
+    # ------------------------------------------------------------------
+    def test_latest_timestamp_equal_to_through_returns_no_newer_data_reason(self):
+        # D=5000, through=5000, M=5000 → M <= through → no data newer than cutoff
+        self.watermark.downloaded_through = 5000
+        self.watermark.save()
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'latest_timestamp', return_value=5000):
+            resp = self._post(through=5000)
+        self.assertEqual(resp.status_code, 200)
+        result = resp.json()['results'][0]
+        self.assertFalse(result['marked'])
+        self.assertEqual(result['reason'], 'no data newer than cutoff')
+
+    # ------------------------------------------------------------------
+    # 8. M is None → 'no data newer than cutoff'.
+    # ------------------------------------------------------------------
+    def test_latest_timestamp_none_returns_no_newer_data_reason(self):
+        # D=5000, through=3000, M=None → no data newer than cutoff
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'latest_timestamp', return_value=None):
+            resp = self._post(through=3000)
+        self.assertEqual(resp.status_code, 200)
+        result = resp.json()['results'][0]
+        self.assertFalse(result['marked'])
+        self.assertEqual(result['reason'], 'no data newer than cutoff')
+
+    # ------------------------------------------------------------------
+    # 9a. No watermark row at all → 'no downloaded data'.
+    # ------------------------------------------------------------------
+    def test_no_watermark_at_all_returns_no_downloaded_data_reason(self):
+        self.watermark.delete()
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']):
+            resp = self._post(through=3000)
+        self.assertEqual(resp.status_code, 200)
+        result = resp.json()['results'][0]
+        self.assertFalse(result['marked'])
+        self.assertEqual(result['reason'], 'no downloaded data')
+
+    # ------------------------------------------------------------------
+    # 9b. Watermark exists but downloaded_through is None → 'no downloaded data'.
+    # ------------------------------------------------------------------
+    def test_downloaded_through_none_returns_no_downloaded_data_reason(self):
+        self.watermark.downloaded_through = None
+        self.watermark.save()
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']):
+            resp = self._post(through=3000)
+        self.assertEqual(resp.status_code, 200)
+        result = resp.json()['results'][0]
+        self.assertFalse(result['marked'])
+        self.assertEqual(result['reason'], 'no downloaded data')
+
+    # ------------------------------------------------------------------
+    # 10. supports_deletion() returns False → 'source does not support deletion'.
+    # ------------------------------------------------------------------
+    def test_source_not_supporting_deletion_returns_appropriate_reason(self):
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'supports_deletion', return_value=False), \
+             patch.object(AwareDataSource, 'latest_timestamp') as mock_latest, \
+             patch.object(AwareDataSource, 'mark_deletable') as mock_mark:
+            resp = self._post(through=3000)
+        self.assertEqual(resp.status_code, 200)
+        result = resp.json()['results'][0]
+        self.assertFalse(result['marked'])
+        self.assertEqual(result['reason'], 'source does not support deletion')
+        # latest_timestamp and mark_deletable must not be consulted.
+        mock_latest.assert_not_called()
+        mock_mark.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # 11. Hook called with correct args on success.
+    # ------------------------------------------------------------------
+    def test_mark_deletable_hook_called_with_correct_args(self):
+        # D=5000, through=3000, M=5000
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'latest_timestamp', return_value=5000), \
+             patch.object(AwareDataSource, 'mark_deletable') as mock_mark:
+            resp = self._post(through=3000)
+        self.assertEqual(resp.status_code, 200)
+        mock_mark.assert_called_once_with('battery', through=3000)
+
+    # ------------------------------------------------------------------
+    # 12. Hook raises → 'source error'; watermark deletable_through unchanged.
+    # ------------------------------------------------------------------
+    def test_hook_raises_returns_source_error_and_watermark_unchanged(self):
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'latest_timestamp', return_value=5000), \
+             patch.object(AwareDataSource, 'mark_deletable', side_effect=Exception('boom')):
+            resp = self._post(through=3000)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        result = data['results'][0]
+        self.assertFalse(result['marked'])
+        self.assertEqual(result['reason'], 'source error')
+        self.assertIn('boom', result.get('detail', ''))
+
+        # Watermark deletable_through must NOT have been set.
+        self.watermark.refresh_from_db()
+        self.assertIsNone(self.watermark.deletable_through)
+
+    # ------------------------------------------------------------------
+    # 13. Non-researcher → 403.
+    # ------------------------------------------------------------------
+    def test_non_researcher_gets_403(self):
+        from rest_framework.test import APIClient
+        client = APIClient()
+        client.force_authenticate(user=self.user)  # participant, not researcher
+        resp = self._post(client=client)
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.json().get('error'), 'Unauthorized')
+
+    # ------------------------------------------------------------------
+    # 14. requested_data_types restriction skips a disallowed consent.
+    # ------------------------------------------------------------------
+    def test_allowed_data_types_restriction_skips_disallowed_consent(self):
+        """A consent with requested_data_types set must not expose a non-consented type."""
+        # Restrict this consent to 'location' only; a 'battery' request must skip it.
+        self.consent.requested_data_types = 'location'
+        self.consent.save()
+
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery', 'location']), \
+             patch.object(AwareDataSource, 'latest_timestamp', return_value=5000), \
+             patch.object(AwareDataSource, 'mark_deletable') as mock_mark:
+            resp = self._post(data_type='battery', through=3000)
+
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        # The consent is skipped, so results should be empty and mark_deletable not called.
+        self.assertEqual(data['results'], [])
+        mock_mark.assert_not_called()

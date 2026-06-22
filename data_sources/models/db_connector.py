@@ -117,7 +117,7 @@ def _run_aware_table_query(cursor, base_select, table_name, id_column, id_values
     if not id_values:
         return []
 
-    is_count = str(base_select).strip().upper().startswith("SELECT COUNT")
+    is_aggregate = str(base_select).strip().upper().startswith(("SELECT COUNT", "SELECT MAX"))
     id_placeholders = ",".join(["%s"] * len(id_values))
     query_str = (
         f"{base_select} FROM `{table_name}` "
@@ -132,7 +132,7 @@ def _run_aware_table_query(cursor, base_select, table_name, id_column, id_values
         query_str += " AND timestamp <= %s"
         params.append(int(end_date.timestamp() * 1000))
 
-    if not is_count:
+    if not is_aggregate:
         query_str += " ORDER BY timestamp DESC"
         if limit is not None:
             try:
@@ -233,4 +233,19 @@ def get_aware_count(device_label, table_name='battery', start_date=None, end_dat
     if not rows:
         return 0
     return rows[0].get('row_count', 0)
+
+
+def get_aware_max_timestamp(device_label, table_name='battery', start_date=None, end_date=None):
+    """Return the newest row timestamp (Unix ms) for the given AWARE data_type, or None.
+
+    Queries MAX(timestamp) in the transformed table for the device_label and optional
+    time range. Returns None when there is no data.
+    """
+    rows = query_aware_data(
+        "SELECT MAX(timestamp) as max_ts", device_label, table_name, None, start_date, end_date, 0
+    )
+    if not rows:
+        return None
+    value = rows[0].get('max_ts')
+    return int(value) if value is not None else None
 

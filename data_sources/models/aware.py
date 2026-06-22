@@ -213,3 +213,11 @@ class AwareDataSource(DataSource):
         if self.status == 'active' and self.device_id:
             return db_connector.get_aware_count(self.device_label, data_type, start_date, end_date)
         return 0
+
+    def supports_deletion(self):
+        return True
+
+    def latest_timestamp(self, data_type, start_date=None, end_date=None):
+        if self.status == 'active' and self.device_id:
+            return db_connector.get_aware_max_timestamp(self.device_label, data_type, start_date, end_date)
+        return None
