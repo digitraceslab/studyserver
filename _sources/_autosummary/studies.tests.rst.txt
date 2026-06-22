@@ -8,6 +8,7 @@ studies.tests
 
    .. autosummary::
    
+      expected_ms
       get_source_config
    
    .. rubric:: Classes
@@ -21,10 +22,12 @@ studies.tests
       ConsentWorkflowOrchestratorTest
       GetNextConsentHelperTest
       JoinStudyViewTest
+      MarkDataDeletableTest
       RevokeConsentViewTest
       SelectDataSourceViewTest
       StudyAdminTest
       StudyDataApiTest
+      StudyDataApiWatermarkTest
       StudyDetailViewTest
       StudyModelTest
       StudyParticipantTest

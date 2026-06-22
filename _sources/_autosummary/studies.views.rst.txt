@@ -20,5 +20,6 @@ studies.views
       select_data_source_view
       study_data_api
       study_detail
+      study_participants_api
       withdraw_from_study
    

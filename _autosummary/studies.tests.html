@@ -38,7 +38,10 @@
 <p class="rubric">Functions</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_source_config</span></code>(study, source_type)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">expected_ms</span></code>(d)</p></td>
+<td><p>Convert a date (or datetime.date) to Unix milliseconds using the same conversion the view uses for consent.data_start / consent.data_end.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_source_config</span></code>(study, source_type)</p></td>
 <td><p>Return one StudySourceConfiguration of the given type for a study.</p></td>
 </tr>
 </tbody>
@@ -67,17 +70,23 @@
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">JoinStudyViewTest</span></code>([methodName])</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">RevokeConsentViewTest</span></code>([methodName])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">MarkDataDeletableTest</span></code>([methodName])</p></td>
+<td><p>Tests for the mark_data_deletable POST endpoint with slug-namespaced data_type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">RevokeConsentViewTest</span></code>([methodName])</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">SelectDataSourceViewTest</span></code>([methodName])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">SelectDataSourceViewTest</span></code>([methodName])</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudyAdminTest</span></code>([methodName])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudyAdminTest</span></code>([methodName])</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudyDataApiTest</span></code>([methodName])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudyDataApiTest</span></code>([methodName])</p></td>
 <td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudyDataApiWatermarkTest</span></code>([methodName])</p></td>
+<td><p>Tests for the per-source slug-namespaced download endpoint with cursor/advance logic.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudyDetailViewTest</span></code>([methodName])</p></td>
 <td><p></p></td>

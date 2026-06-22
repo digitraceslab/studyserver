@@ -12,6 +12,7 @@ data\_sources.tests
       AddDataSourceViewTest
       AwareConfigEndpointTest
       AwareDataSourceTest
+      BaseDataSourceMarkDeletableTest
       DataSourceModelTest
       DataSourceTest
       DataSourcesViewsTest

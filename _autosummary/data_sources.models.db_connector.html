@@ -42,15 +42,18 @@
 <td><p>Return the number of rows available for the given AWARE data_type.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_aware_data</span></code>(device_label[, table_name, ...])</p></td>
-<td><p>Connects to the AWARE DB and fetches the latest records for a specific AWARE device ID.</p></td>
+<td><p>Fetch rows from the AWARE DB using a timestamp cursor.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_aware_tables</span></code>(device_label)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_aware_max_timestamp</span></code>(device_label[, ...])</p></td>
+<td><p>Return the newest row timestamp (Unix ms) for the given AWARE data_type, or None.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_aware_tables</span></code>(device_label)</p></td>
 <td><p>Gets a list of available tables that have data for the given device_label.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_device_ids_for_label</span></code>(device_label)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_device_ids_for_label</span></code>(device_label)</p></td>
 <td><p>Gets a list of device_ids associated with the given device_label.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">query_aware_data</span></code>(base_query, device_label, ...)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">query_aware_data</span></code>(base_query, device_label, ...)</p></td>
 <td><p>Runs a data query against the AWARE database. The query parameter should be either &quot;SELECT COUNT(*)&quot; or &quot;SELECT <a href="#id1"><span class="problematic" id="id2">*</span></a>&quot;.</p></td>
 </tr>
 </tbody>
