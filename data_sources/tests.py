@@ -874,6 +874,62 @@ class AddDataSourceCopiesConsentParamsTest(TestCase):
         self.assertEqual(source.data_end, date(2024, 9, 30))
 
 
+class DeletableWatermarkTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='watermark_user', password='testpass')
+        self.profile = Profile.objects.create(user=self.user)
+        self.source = AwareDataSource.objects.create(
+            profile=self.profile,
+            name='Watermark Test Source',
+        )
+
+    def test_create_watermark(self):
+        from data_sources.models.watermark import DeletableWatermark
+        wm = DeletableWatermark.objects.create(
+            data_source=self.source,
+            data_type='battery_transformed',
+        )
+        self.assertEqual(wm.data_source, self.source)
+        self.assertEqual(wm.data_type, 'battery_transformed')
+        self.assertIsNone(wm.downloaded_through)
+        self.assertIsNone(wm.deletable_through)
+        self.assertIsNone(wm.deleted_through)
+        self.assertIsNotNone(wm.updated_at)
+        self.assertEqual(str(wm), f'{self.source} / battery_transformed')
+
+    def test_unique_together_per_source_and_data_type(self):
+        from django.db import IntegrityError
+        from data_sources.models.watermark import DeletableWatermark
+        DeletableWatermark.objects.create(
+            data_source=self.source,
+            data_type='battery_transformed',
+        )
+        with self.assertRaises(IntegrityError):
+            DeletableWatermark.objects.create(
+                data_source=self.source,
+                data_type='battery_transformed',
+            )
+
+    def test_same_data_type_different_sources_allowed(self):
+        from data_sources.models.watermark import DeletableWatermark
+        user2 = User.objects.create_user(username='watermark_user2', password='testpass')
+        profile2 = Profile.objects.create(user=user2)
+        source2 = AwareDataSource.objects.create(profile=profile2, name='Second Source')
+        DeletableWatermark.objects.create(data_source=self.source, data_type='battery_transformed')
+        wm2 = DeletableWatermark.objects.create(data_source=source2, data_type='battery_transformed')
+        self.assertEqual(wm2.data_source, source2)
+
+    def test_cascade_delete_with_source(self):
+        from data_sources.models.watermark import DeletableWatermark
+        wm = DeletableWatermark.objects.create(
+            data_source=self.source,
+            data_type='screen_transformed',
+        )
+        wm_id = wm.id
+        self.source.delete()
+        self.assertFalse(DeletableWatermark.objects.filter(id=wm_id).exists())
+
+
 class AwareConfigEndpointTest(TestCase):
     """Fix A: config token endpoint must handle missing source config gracefully."""
 

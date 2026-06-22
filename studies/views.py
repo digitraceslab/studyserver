@@ -21,7 +21,8 @@ import base64
 from .models import Study, Consent, StudyParticipant, StudySourceConfiguration
 from .forms import ConsentAcceptanceForm, DataSourceSelectionForm
 from . import services
-from data_sources.models import DataSource
+from django.db import transaction
+from data_sources.models import DataSource, DeletableWatermark
 
 
 def get_study():
@@ -463,6 +464,30 @@ def study_data_api(request):
             limit=limit,
             offset=offset,
         )
+
+        # Update the downloaded_through watermark for this (data_source, data_type).
+        if isinstance(data, list):
+            max_ts = None
+            for r in data:
+                ts_raw = r.get('timestamp')
+                if ts_raw is None:
+                    continue
+                try:
+                    ts = int(ts_raw)
+                except (TypeError, ValueError):
+                    continue
+                if max_ts is None or ts > max_ts:
+                    max_ts = ts
+            if max_ts is not None:
+                wm, _ = DeletableWatermark.objects.get_or_create(
+                    data_source=consent.data_source, data_type=data_type
+                )
+                with transaction.atomic():
+                    wm = DeletableWatermark.objects.select_for_update().get(pk=wm.pk)
+                    if wm.downloaded_through is None or max_ts > wm.downloaded_through:
+                        wm.downloaded_through = max_ts
+                        wm.save(update_fields=['downloaded_through', 'updated_at'])
+
         limit -= len(data)
         for row in data:
             row["data_type"] = data_type

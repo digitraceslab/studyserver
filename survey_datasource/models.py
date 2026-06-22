@@ -76,7 +76,8 @@ class SurveyDataSource(DataSource):
                         'survey': survey.name,
                         'question': answer.question.text,
                         'answer': answer.body,
-                        'timestamp': response.created,
+                        # timestamp is canonically Unix time in milliseconds across all sources.
+                        'timestamp': int(response.created.timestamp() * 1000),
                     })
             return data
         except Survey.DoesNotExist:
