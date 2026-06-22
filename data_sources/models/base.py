@@ -162,6 +162,16 @@ class DataSource(PolymorphicModel):
         """Revoke any permissions and delete the source."""
         pass
 
+    def mark_deletable(self, data_type, through):
+        """Signal to the underlying source that data of ``data_type`` up to the
+        Unix-ms timestamp ``through`` has been downloaded and may be deleted.
+
+        Default is a no-op (e.g. survey/json_url do not support deletion).
+        Subclasses that own deletable storage override this. May raise on failure;
+        callers should not advance the deletable watermark if it raises.
+        """
+        return None
+
     def get_confirm_url(self):
         return None
     

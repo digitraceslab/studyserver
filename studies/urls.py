@@ -9,4 +9,6 @@ urlpatterns = [
     path('revoke/<int:consent_id>/', views.revoke_consent, name='revoke_consent'),
     path('api/data', views.study_data_api, name='study_data_api'),
     path('api/data/', views.study_data_api),
+    path('api/data/mark-deletable', views.mark_data_deletable, name='mark_data_deletable'),
+    path('api/data/mark-deletable/', views.mark_data_deletable),
 ]
