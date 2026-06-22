@@ -3,6 +3,25 @@
 from django.db import migrations, models
 
 
+# Postgres cannot implicitly cast timestamptz -> bigint, so each column is
+# altered with an explicit USING clause converting to Unix time in milliseconds.
+# RunSQL performs the DDL; state_operations keeps Django's model state in sync.
+def _alter_to_bigint_ms(column):
+    return (
+        f'ALTER TABLE "data_sources_deletablewatermark" '
+        f'ALTER COLUMN "{column}" TYPE bigint '
+        f'USING (EXTRACT(EPOCH FROM "{column}") * 1000)::bigint;'
+    )
+
+
+def _alter_to_timestamptz(column):
+    return (
+        f'ALTER TABLE "data_sources_deletablewatermark" '
+        f'ALTER COLUMN "{column}" TYPE timestamptz '
+        f'USING to_timestamp("{column}" / 1000.0);'
+    )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,19 +29,33 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='deletablewatermark',
-            name='deletable_through',
-            field=models.BigIntegerField(blank=True, help_text='Unix time in milliseconds up to which a researcher has marked data deletable.', null=True),
-        ),
-        migrations.AlterField(
-            model_name='deletablewatermark',
-            name='deleted_through',
-            field=models.BigIntegerField(blank=True, help_text='Unix time in milliseconds up to which the source confirms data has been purged.', null=True),
-        ),
-        migrations.AlterField(
-            model_name='deletablewatermark',
-            name='downloaded_through',
-            field=models.BigIntegerField(blank=True, help_text='Max row timestamp (Unix time in milliseconds) served to researchers so far.', null=True),
+        migrations.RunSQL(
+            sql=[
+                _alter_to_bigint_ms('deletable_through'),
+                _alter_to_bigint_ms('deleted_through'),
+                _alter_to_bigint_ms('downloaded_through'),
+            ],
+            reverse_sql=[
+                _alter_to_timestamptz('deletable_through'),
+                _alter_to_timestamptz('deleted_through'),
+                _alter_to_timestamptz('downloaded_through'),
+            ],
+            state_operations=[
+                migrations.AlterField(
+                    model_name='deletablewatermark',
+                    name='deletable_through',
+                    field=models.BigIntegerField(blank=True, help_text='Unix time in milliseconds up to which a researcher has marked data deletable.', null=True),
+                ),
+                migrations.AlterField(
+                    model_name='deletablewatermark',
+                    name='deleted_through',
+                    field=models.BigIntegerField(blank=True, help_text='Unix time in milliseconds up to which the source confirms data has been purged.', null=True),
+                ),
+                migrations.AlterField(
+                    model_name='deletablewatermark',
+                    name='downloaded_through',
+                    field=models.BigIntegerField(blank=True, help_text='Max row timestamp (Unix time in milliseconds) served to researchers so far.', null=True),
+                ),
+            ],
         ),
     ]

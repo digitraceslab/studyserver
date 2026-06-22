@@ -1,31 +1,33 @@
 """Abstract base class for Niimport-backed data sources."""
+
 import logging
 
 from django.conf import settings
 from django.db import models
 
-from .base import DataSource
 from . import portability_client
+from .base import DataSource
 
 logger = logging.getLogger(__name__)
 
 
 class NiimportDataSource(DataSource):
     """Concrete base for data sources that proxy to a Niimport server."""
+
     SOURCE_TYPE = "niimport"
 
     PROCESSING_STATUS_CHOICES = (
-        ('pending', 'Pending'),
-        ('authorized', 'Authorized, waiting for data'),
-        ('processing', 'Processing'),
-        ('processed', 'Processed successfully'),
-        ('error', 'Error during processing'),
+        ("pending", "Pending"),
+        ("authorized", "Authorized, waiting for data"),
+        ("processing", "Processing"),
+        ("processed", "Processed successfully"),
+        ("error", "Error during processing"),
     )
 
     NIIMPORT_SOURCE_TYPE_CHOICES = (
-        ('google_portability', 'Google Portability'),
-        ('tiktok_portability', 'TikTok Portability'),
-        ('tiktok_export', 'TikTok Export'),
+        ("google_portability", "Google Portability"),
+        ("tiktok_portability", "TikTok Portability"),
+        ("tiktok_export", "TikTok Export"),
     )
 
     niimport_source_type = models.CharField(
@@ -37,9 +39,9 @@ class NiimportDataSource(DataSource):
     processing_status = models.CharField(
         max_length=20,
         choices=PROCESSING_STATUS_CHOICES,
-        default='pending',
+        default="pending",
     )
-    processing_log = models.TextField(blank=True, default='')
+    processing_log = models.TextField(blank=True, default="")
 
     requires_setup = True
     requires_confirmation = False
@@ -48,9 +50,9 @@ class NiimportDataSource(DataSource):
     # both the instance display (keyed off the db column) and the config-space
     # resolver (keyed off StudySourceConfiguration.configuration).
     DISPLAY_NAMES = {
-        'google_portability': "Google Portability Data",
-        'tiktok_portability': "TikTok Portability Data",
-        'tiktok_export': "TikTok Export Data",
+        "google_portability": "Google Portability Data",
+        "tiktok_portability": "TikTok Portability Data",
+        "tiktok_export": "TikTok Export Data",
     }
 
     @property
@@ -61,30 +63,34 @@ class NiimportDataSource(DataSource):
     def display_type_for_configuration(cls, configuration):
         # Config-space resolver: a StudySourceConfiguration has no db column, so the
         # variant is read from its configuration JSON.
-        variant = (configuration or {}).get('niimport_source_type')
+        variant = (configuration or {}).get("niimport_source_type")
         return cls.DISPLAY_NAMES.get(variant, "Missing portability data type")
 
     @property
     def display_type(self):
         # For a live source the niimport_source_type db column is authoritative;
         # the variant is never read from self.configuration.
-        return self.DISPLAY_NAMES.get(self.niimport_source_type, "Missing portability data type")
+        return self.DISPLAY_NAMES.get(
+            self.niimport_source_type, "Missing portability data type"
+        )
 
     def _get_study_config(self):
         """Build donation kwargs from values stored on this datasource."""
         kwargs = {}
         data_start, data_end = self.data_start, self.data_end
         if data_start:
-            kwargs['data_start_date'] = data_start
+            kwargs["data_start_date"] = data_start
         if data_end:
-            kwargs['data_end_date'] = data_end
-        requested_data_types = (self.configuration or {}).get('requested_data_types')
+            kwargs["data_end_date"] = data_end
+        requested_data_types = (self.configuration or {}).get("requested_data_types")
         if requested_data_types is not None:
             if isinstance(requested_data_types, str):
                 requested_data_types = [
-                    item.strip() for item in requested_data_types.split(',') if item.strip()
+                    item.strip()
+                    for item in requested_data_types.split(",")
+                    if item.strip()
                 ]
-            kwargs['requested_data_types'] = requested_data_types
+            kwargs["requested_data_types"] = requested_data_types
         return kwargs
 
     def _create_donation(self):
@@ -93,8 +99,8 @@ class NiimportDataSource(DataSource):
         donation = portability_client.create_donation(
             self.NIIMPORT_SOURCE_TYPE, **kwargs
         )
-        self.donation_id = donation['id']
-        self.donation_token = donation['token']
+        self.donation_id = donation["id"]
+        self.donation_token = donation["token"]
         self.save()
 
     def get_setup_url(self):
@@ -109,12 +115,14 @@ class NiimportDataSource(DataSource):
             return []
         try:
             result = portability_client.get_data(self.donation_id)
-            return result.get('data_types', [])
+            return result.get("data_types", [])
         except Exception as e:
             logger.warning("Failed to get data types from Niimport server: %s", e)
             return []
 
-    def fetch_data(self, data_type, limit=1000, start_date=None, end_date=None, offset=0):
+    def fetch_data(
+        self, data_type, limit=1000, start_date=None, end_date=None, offset=0
+    ):
         if not self.donation_id:
             return []
         try:
@@ -126,7 +134,7 @@ class NiimportDataSource(DataSource):
                 limit=limit,
                 offset=offset,
             )
-            return result.get('data', [])
+            return result.get("data", [])
         except Exception as e:
             logger.warning("Failed to fetch data from Niimport server: %s", e)
             return []
@@ -142,7 +150,7 @@ class NiimportDataSource(DataSource):
                 end_date=end_date,
                 limit=0,
             )
-            return result.get('count', 0)
+            return result.get("count", 0)
         except Exception as e:
             logger.warning("Failed to count rows from Niimport server: %s", e)
             return 0
@@ -160,15 +168,15 @@ class NiimportDataSource(DataSource):
             return
         try:
             donation = portability_client.get_donation(self.donation_id)
-            remote_status = donation.get('status', '')
-            if remote_status == 'processed':
-                self.processing_status = 'processed'
-                self.status = 'active'
-            elif remote_status == 'error':
-                self.processing_status = 'error'
-            elif remote_status in ('authorized', 'processing'):
+            remote_status = donation.get("status", "")
+            if remote_status == "processed":
+                self.processing_status = "processed"
+                self.status = "active"
+            elif remote_status == "error":
+                self.processing_status = "error"
+            elif remote_status in ("authorized", "processing"):
                 self.processing_status = remote_status
-                self.status = 'processing'
+                self.status = "processing"
             self.save()
         except Exception as e:
             logger.warning("Failed to poll Niimport server: %s", e)
