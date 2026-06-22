@@ -16,6 +16,7 @@ data\_sources.tests
       DataSourceTest
       DataSourcesViewsTest
       DbConnectorTest
+      DeletableWatermarkTest
       JsonUrlDataSourceTest
       NiimportDataSourceTest
       NiimportDisplayTypeForConfigurationTest

@@ -1,0 +1,12 @@
+data\_sources.models.watermark
+==============================
+
+.. automodule:: data_sources.models.watermark
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      DeletableWatermark
+   
