@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils.timezone import datetime, timezone
 from data_sources.models import DataSource
 from survey.models import Survey, Response
 
@@ -53,33 +54,48 @@ class SurveyDataSource(DataSource):
         except Survey.DoesNotExist:
             return 0
     
-    def fetch_data(self, data_type='', limit=None, start_date=None, end_date=None, offset=0):
-        """Fetch responses for the specified survey."""
+    def fetch_data(self, data_type='', timestamp=0, limit=1000):
+        """Fetch responses for the specified survey using a timestamp cursor.
+
+        Returns rows whose ``timestamp`` (Unix ms derived from
+        ``response.created``) is >= ``timestamp``, ordered by ``created``
+        ascending. The soft-limit rule is applied: up to ``limit`` rows are
+        returned, extended to include all rows sharing the last timestamp so the
+        caller can advance its cursor to ``last_timestamp + 1`` safely.
+        """
         try:
             survey = Survey.objects.get(name=data_type)
+            # Convert Unix-ms cursor to a timezone-aware datetime for the ORM filter
+            cursor_dt = datetime.fromtimestamp(int(timestamp) / 1000, tz=timezone.utc)
             responses = Response.objects.filter(
                 survey=survey,
-                user=self.profile.user
+                user=self.profile.user,
+                created__gte=cursor_dt,
             ).order_by('created')
-            if start_date:
-                responses = responses.filter(created__gte=start_date)
-            if end_date:
-                responses = responses.filter(created__lte=end_date)
-            if offset:
-                responses = responses[offset:]
-            if limit:
-                responses = responses[:limit]
+
             data = []
             for response in responses:
+                row_ts = int(response.created.timestamp() * 1000)
                 for answer in response.answers.all():
                     data.append({
                         'survey': survey.name,
                         'question': answer.question.text,
                         'answer': answer.body,
                         # timestamp is canonically Unix time in milliseconds across all sources.
-                        'timestamp': int(response.created.timestamp() * 1000),
+                        'timestamp': row_ts,
                     })
-            return data
+
+            # Apply soft limit
+            if len(data) <= int(limit):
+                return data
+
+            batch = data[:int(limit)]
+            last_ts_val = batch[-1]['timestamp']
+            # Extend batch to include all rows sharing the last timestamp
+            extended = [r for r in batch if r['timestamp'] != last_ts_val]
+            extended += [r for r in data if r['timestamp'] == last_ts_val]
+            return extended
+
         except Survey.DoesNotExist:
             return []
             

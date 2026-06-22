@@ -407,6 +407,13 @@ def _make_timezone_aware(dt):
     return dt
 
 
+def _split_namespaced_type(value):
+    slug, sep, bare = (value or '').partition(':')
+    if not sep:
+        return None, None
+    return slug, bare
+
+
 def _allowed_data_types(consent):
     """Data types the participant consented to share, or None when unrestricted.
 
@@ -444,20 +451,19 @@ def study_data_api(request):
         .order_by("id")
     )
 
-    # Collect all available data types across consents, restricted to what each
-    # participant consented to share (requested_data_types snapshot).
-    all_data_types = set()
-    for consent in active_consents:
-        if not consent.data_source:
-            continue
-        source = consent.data_source.get_real_instance()
-        available = set(source.get_data_types())
-        allowed = _allowed_data_types(consent)
-        if allowed is not None:
-            available &= allowed
-        all_data_types.update(available)
-
+    # --- List branch: no data_type given ---
     if not data_type:
+        all_data_types = set()
+        for consent in active_consents:
+            if not consent.data_source:
+                continue
+            source = consent.data_source.get_real_instance()
+            available = set(source.get_data_types())
+            allowed = _allowed_data_types(consent)
+            if allowed is not None:
+                available &= allowed
+            for dt in available:
+                all_data_types.add(f"{source.SOURCE_TYPE}:{dt}")
         return JsonResponse(
             {
                 "study": study.title,
@@ -465,139 +471,198 @@ def study_data_api(request):
             }
         )
 
-    try:
-        output_format = request.GET.get("format", "json")
-        limit = int(request.GET.get("limit", 10000))
-        offset = int(request.GET.get("offset", 0))
+    # --- Fetch branch: data_type given ---
+    slug, bare = _split_namespaced_type(data_type)
+    if slug is None:
+        return JsonResponse(
+            {"error": "data_type must be namespaced as <source_type>:<data_type>"},
+            status=400,
+        )
 
-        start_date_param = request.GET.get("start_date")
-        end_date_param = request.GET.get("end_date")
-        start_date = _parse_date(start_date_param)
-        end_date = _parse_date(end_date_param)
-    except:
+    participant_id = request.GET.get("participant_id")
+    if not participant_id:
+        return JsonResponse({"error": "participant_id is required"}, status=400)
+
+    try:
+        timestamp = int(request.GET.get("timestamp", 0))
+        limit = int(request.GET.get("limit", 1000))
+    except (TypeError, ValueError):
         return JsonResponse({"error": "Invalid query parameters"}, status=400)
 
-    if offset < 0 or limit < 1:
+    if timestamp < 0:
+        return JsonResponse({"error": "Invalid query parameters"}, status=400)
+    if limit < 1:
         return JsonResponse({"error": "Invalid limit or offset"}, status=400)
     if limit > 10000:
         return JsonResponse({"error": "Maximum limit is 10000"}, status=400)
 
-    all_data = []
-    full_count = 0
+    advance_raw = request.GET.get("advance", "").strip().lower()
+    advance = advance_raw in ("true", "1", "yes")
+    output_format = request.GET.get("format", "json")
+
+    # Resolve single matching consent
+    matched_consent = None
+    matched_source = None
     for consent in active_consents:
         if not consent.data_source:
             continue
+        if not consent.study_participant:
+            continue
+        if str(consent.study_participant.pseudo_id) != participant_id:
+            continue
         source = consent.data_source.get_real_instance()
-        data_types = source.get_data_types()
-
-        if data_type not in data_types:
+        if source.SOURCE_TYPE != slug:
             continue
-
-        # Never return a data type the participant did not consent to share.
+        if bare not in source.get_data_types():
+            continue
         allowed = _allowed_data_types(consent)
-        if allowed is not None and data_type not in allowed:
+        if allowed is not None and bare not in allowed:
             continue
+        matched_consent = consent
+        matched_source = source
+        break
 
-        consent_start = consent.data_start or consent.consent_date
-        if not consent_start:
-            continue
+    if matched_consent is None:
+        return JsonResponse({"error": "No matching data source"}, status=404)
 
-        consent_end = consent.revocation_date or timezone.now()
+    consent = matched_consent
+    source = matched_source
 
-        type_start = consent.data_start
-        type_end = consent.data_end
-
-        effective_start = type_start or consent_start
-        start_candidates = [
-            _make_timezone_aware(d)
-            for d in [effective_start, start_date]
-            if d is not None
-        ]
-        interval_start = max(start_candidates) if start_candidates else None
-
-        end_candidates = [
-            _make_timezone_aware(d)
-            for d in [type_end, consent_end, end_date]
-            if d is not None
-        ]
-        interval_end = min(end_candidates) if end_candidates else None
-
-        count = source.count_rows(
-            data_type=data_type, start_date=interval_start, end_date=interval_end
+    # Compute consent window in Unix ms
+    if consent.data_start:
+        data_start_ms = int(
+            _make_timezone_aware(
+                datetime.combine(consent.data_start, datetime.min.time())
+            ).timestamp() * 1000
         )
-        full_count += count
+    else:
+        data_start_ms = 0
 
-        if limit <= 0:
-            continue
-
-        if offset > count:
-            # This source is completely skipped
-            offset -= count
-            if offset < 0:
-                offset = 0
-            continue
-
-        data = source.fetch_data(
-            data_type=data_type,
-            start_date=interval_start,
-            end_date=interval_end,
-            limit=limit,
-            offset=offset,
+    if consent.data_end:
+        data_end_ms = int(
+            _make_timezone_aware(
+                datetime.combine(consent.data_end, datetime.max.time())
+            ).timestamp() * 1000
         )
+    else:
+        data_end_ms = None
 
-        # fetch_data may return a non-list (e.g. an error dict); skip processing.
-        if not isinstance(data, list):
-            offset = 0
-            continue
+    effective_cursor = max(int(timestamp), data_start_ms)
 
-        # Update the downloaded_through watermark for this (data_source, data_type).
-        max_ts = None
-        for r in data:
-            ts_raw = r.get("timestamp")
-            if ts_raw is None:
-                continue
-            try:
-                ts = int(ts_raw)
-            except (TypeError, ValueError):
-                continue
-            if max_ts is None or ts > max_ts:
-                max_ts = ts
-        if max_ts is not None:
-            wm, _ = DeletableWatermark.objects.get_or_create(
-                data_source=consent.data_source, data_type=data_type
+    rows = source.fetch_data(bare, timestamp=effective_cursor, limit=limit)
+    if not isinstance(rows, list):
+        rows = []
+
+    # Post-cap by data_end_ms
+    if data_end_ms is not None:
+        rows = [
+            row for row in rows
+            if not (row.get("timestamp") is not None and int(row["timestamp"]) > data_end_ms)
+        ]
+
+    # Enrich rows
+    for row in rows:
+        row["data_type"] = data_type
+        row["source_type"] = consent.source_type
+        row["origin"] = (consent.configuration or {}).get("niimport_source_type")
+        row["participant_id"] = participant_id
+        _clean_row(row)
+
+    # Advance watermark handling
+    if advance:
+        wm, _ = DeletableWatermark.objects.get_or_create(
+            data_source=consent.data_source, data_type=bare
+        )
+        D = wm.downloaded_through
+        floor = D if D is not None else (data_start_ms - 1)
+
+        if int(timestamp) < floor + 2:
+            # Contiguous: safe to advance
+            max_ts = max(
+                (int(r["timestamp"]) for r in rows if r.get("timestamp") is not None),
+                default=None,
             )
-            with transaction.atomic():
-                wm = DeletableWatermark.objects.select_for_update().get(pk=wm.pk)
-                if wm.downloaded_through is None or max_ts > wm.downloaded_through:
-                    wm.downloaded_through = max_ts
-                    wm.save(update_fields=["downloaded_through", "updated_at"])
-
-        limit -= len(data)
-        for row in data:
-            row["data_type"] = data_type
-            row["source_type"] = consent.source_type
-            # For niimport, the variant (google/tiktok/...) lives in the snapshot; expose it.
-            row["origin"] = (consent.configuration or {}).get("niimport_source_type")
-            row["participant_id"] = (
-                str(consent.study_participant.pseudo_id)
-                if consent.study_participant
-                else None
+            if max_ts is not None:
+                with transaction.atomic():
+                    wm_l = DeletableWatermark.objects.select_for_update().get(pk=wm.pk)
+                    new_val = max_ts if wm_l.downloaded_through is None else max(wm_l.downloaded_through, max_ts)
+                    if wm_l.downloaded_through != new_val:
+                        wm_l.downloaded_through = new_val
+                        wm_l.save(update_fields=["downloaded_through", "updated_at"])
+        else:
+            # Gap detected: refuse
+            return JsonResponse(
+                {
+                    "error": "gap: requested timestamp is ahead of the download cursor",
+                    "downloaded_through": D,
+                },
+                status=400,
             )
-            all_data.append(_clean_row(row))
-
-        offset = 0
 
     if output_format == "csv":
-        return data_to_csv_response(all_data, "study_data.csv")
-    else:
-        return JsonResponse(
-            {
-                "study": study.title,
-                "data_count": full_count,
-                "data_types": [data_type],
-                "data": all_data,
-            }
+        return data_to_csv_response(rows, "study_data.csv")
+    return JsonResponse(
+        {
+            "study": study.title,
+            "data_type": data_type,
+            "participant_id": participant_id,
+            "count": len(rows),
+            "data": rows,
+        }
+    )
+
+
+@api_view(["GET"])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def study_participants_api(request):
+    study = Study.objects.first()
+    if study is None:
+        return JsonResponse({"error": "No study configured"}, status=404)
+
+    if not request.user.is_superuser:
+        if not study.researchers.filter(user=request.user).exists():
+            return JsonResponse({"error": "Unauthorized"}, status=403)
+
+    data_type = request.GET.get("data_type")
+    slug = None
+    bare = None
+    if data_type:
+        slug, bare = _split_namespaced_type(data_type)
+        if slug is None:
+            return JsonResponse(
+                {"error": "data_type must be namespaced as <source_type>:<data_type>"},
+                status=400,
+            )
+
+    active_consents = (
+        Consent.objects.filter(
+            study=study,
+            is_complete=True,
+            revocation_date__isnull=True,
+            data_source__status="active",
         )
+        .select_related("data_source", "study_participant")
+    )
+
+    participant_ids = []
+    for consent in active_consents:
+        if not consent.study_participant:
+            continue
+        if data_type:
+            if not consent.data_source:
+                continue
+            source = consent.data_source.get_real_instance()
+            if source.SOURCE_TYPE != slug:
+                continue
+            if bare not in source.get_data_types():
+                continue
+            allowed = _allowed_data_types(consent)
+            if allowed is not None and bare not in allowed:
+                continue
+        participant_ids.append(str(consent.study_participant.pseudo_id))
+
+    return JsonResponse({"study": study.title, "participants": sorted(set(participant_ids))})
 
 
 @api_view(["POST"])
@@ -615,6 +680,13 @@ def mark_data_deletable(request):
     data_type = request.data.get("data_type", "").strip()
     if not data_type:
         return JsonResponse({"error": "data_type is required"}, status=400)
+
+    slug, bare = _split_namespaced_type(data_type)
+    if slug is None:
+        return JsonResponse(
+            {"error": "data_type must be namespaced as <source_type>:<data_type>"},
+            status=400,
+        )
 
     through_raw = request.data.get('through', None)
     if through_raw is None or through_raw == '':
@@ -642,11 +714,14 @@ def mark_data_deletable(request):
 
         source = consent.data_source.get_real_instance()
 
-        if data_type not in source.get_data_types():
+        if source.SOURCE_TYPE != slug:
+            continue
+
+        if bare not in source.get_data_types():
             continue
 
         allowed = _allowed_data_types(consent)
-        if allowed is not None and data_type not in allowed:
+        if allowed is not None and bare not in allowed:
             continue
 
         participant_id = (
@@ -668,7 +743,7 @@ def mark_data_deletable(request):
             continue
 
         wm = DeletableWatermark.objects.filter(
-            data_source=consent.data_source, data_type=data_type
+            data_source=consent.data_source, data_type=bare
         ).first()
         D = wm.downloaded_through if wm else None
 
@@ -694,7 +769,7 @@ def mark_data_deletable(request):
             )
             continue
 
-        M = source.latest_timestamp(data_type)
+        M = source.latest_timestamp(bare)
         if M is None or M <= through:
             results.append(
                 {
@@ -707,7 +782,7 @@ def mark_data_deletable(request):
             continue
 
         try:
-            source.mark_deletable(data_type, through=through)
+            source.mark_deletable(bare, through=through)
         except Exception as e:
             results.append(
                 {

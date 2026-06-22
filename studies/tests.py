@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from unittest.mock import patch
 from django.test import TestCase
 from django.urls import reverse
@@ -11,7 +11,13 @@ from data_sources.models.aware import AwareDataSource
 from data_sources.models.jsonurl import JsonUrlDataSource
 from data_sources.models.niimport import NiimportDataSource
 from .models import Study, Consent, StudyParticipant, StudySourceConfiguration
-from .views import get_next_consent
+from .views import get_next_consent, _make_timezone_aware
+
+
+def expected_ms(d):
+    """Convert a date (or datetime.date) to Unix milliseconds using the same
+    conversion the view uses for consent.data_start / consent.data_end."""
+    return int(_make_timezone_aware(datetime.combine(d, datetime.min.time())).timestamp() * 1000)
 
 
 def get_source_config(study, source_type):
@@ -1164,11 +1170,12 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         )
         self.client.login(username='researcher', password='testpass')
         url = reverse('study_data_api')
-        response = self.client.get(url, {'data_type': 'battery'})
+        pid = str(self.study_participant.pseudo_id)
+        response = self.client.get(url, {'data_type': 'aware:battery', 'participant_id': pid})
         data = response.json()
-        self.assertGreater(data['data_count'], 0)
+        self.assertGreater(data['count'], 0)
         for row in data['data']:
-            self.assertEqual(row['participant_id'], str(self.study_participant.pseudo_id))
+            self.assertEqual(row['participant_id'], pid)
             self.assertEqual(row['source_type'], 'aware')
 
     @patch.object(AwareDataSource, 'count_rows', return_value=1)
@@ -1188,13 +1195,17 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         )
         self.client.login(username='researcher', password='testpass')
         url = reverse('study_data_api')
+        pid = str(self.study_participant.pseudo_id)
 
-        response = self.client.get(url, {'data_type': 'location'})
-        self.assertEqual(response.json()['data_count'], 0)
+        # 'location' is not in the allowed types — no matching consent/source → 404
+        response = self.client.get(url, {'data_type': 'aware:location', 'participant_id': pid})
+        self.assertEqual(response.status_code, 404)
         mock_fetch.assert_not_called()
 
-        response = self.client.get(url, {'data_type': 'battery'})
-        self.assertGreater(response.json()['data_count'], 0)
+        # 'battery' is allowed → 200 with data
+        response = self.client.get(url, {'data_type': 'aware:battery', 'participant_id': pid})
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(response.json()['count'], 0)
 
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery', 'location'])
     def test_discovery_hides_unrequested_data_types(self, mock_types):
@@ -1211,7 +1222,7 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         self.client.login(username='researcher', password='testpass')
         url = reverse('study_data_api')
         response = self.client.get(url)
-        self.assertEqual(response.json()['data_types'], ['battery'])
+        self.assertEqual(response.json()['data_types'], ['aware:battery'])
 
     @patch.object(AwareDataSource, 'count_rows', return_value=1)
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
@@ -1236,16 +1247,18 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         )
         self.client.login(username='researcher', password='testpass')
         url = reverse('study_data_api')
-        self.client.get(url, {'data_type': 'battery'})
+        pid = str(self.study_participant.pseudo_id)
+        # No timestamp query param → effective_cursor == data_start_ms (June 1 clamps it up)
+        self.client.get(url, {'data_type': 'aware:battery', 'participant_id': pid})
 
-        _, kwargs = mock_fetch.call_args
-        self.assertEqual(kwargs['start_date'].date(), datetime(2024, 6, 1).date())
+        self.assertEqual(
+            mock_fetch.call_args.kwargs['timestamp'],
+            expected_ms(date(2024, 6, 1)),
+        )
 
-    @patch.object(AwareDataSource, 'count_rows', return_value=1)
-    @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery'])
-    def test_config_data_end_limits_fetched_data(self, mock_types, mock_fetch, mock_count):
-        # Consent snapshot data_end (Sep 1) should cap the end date passed to fetch_data
+    def test_config_data_end_limits_fetched_data(self, mock_types):
+        # Consent snapshot data_end (Sep 1) post-caps rows: October row is dropped.
         source = AwareDataSource.objects.create(
             profile=self.profile,
             name='Config End Test Source',
@@ -1265,10 +1278,21 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         )
         self.client.login(username='researcher', password='testpass')
         url = reverse('study_data_api')
-        self.client.get(url, {'data_type': 'battery'})
+        pid = str(self.study_participant.pseudo_id)
 
-        _, kwargs = mock_fetch.call_args
-        self.assertEqual(kwargs['end_date'].date(), datetime(2024, 9, 1).date())
+        aug_ms = expected_ms(date(2024, 8, 1))
+        oct_ms = expected_ms(date(2024, 10, 1))
+        two_rows = [{'timestamp': aug_ms, 'value': 1}, {'timestamp': oct_ms, 'value': 2}]
+
+        with patch.object(AwareDataSource, 'fetch_data', return_value=two_rows):
+            response = self.client.get(url, {'data_type': 'aware:battery', 'participant_id': pid})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        # Only the August row survives the post-cap; the October row is beyond data_end
+        self.assertEqual(data['count'], 1)
+        surviving_ts = data['data'][0]['timestamp']
+        self.assertLessEqual(surviving_ts, expected_ms(date(2024, 9, 2)))
 
     @patch.object(AwareDataSource, 'count_rows', return_value=1)
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
@@ -1300,29 +1324,34 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         )
         self.client.login(username='researcher', password='testpass')
         url = reverse('study_data_api')
+        pid = str(self.study_participant.pseudo_id)
 
-        self.client.get(url, {'data_type': 'battery'})
-        _, kwargs = mock_fetch.call_args
-        self.assertEqual(kwargs['start_date'].date(), datetime(2024, 6, 1).date())
+        self.client.get(url, {'data_type': 'aware:battery', 'participant_id': pid})
+        self.assertEqual(
+            mock_fetch.call_args.kwargs['timestamp'],
+            expected_ms(date(2024, 6, 1)),
+        )
 
         # Now edit the config to a different date — the consent snapshot must stay unchanged
         source_config.data_start = timezone.make_aware(datetime(2024, 8, 1))
         source_config.save()
 
-        self.client.get(url, {'data_type': 'battery'})
-        _, kwargs = mock_fetch.call_args
+        self.client.get(url, {'data_type': 'aware:battery', 'participant_id': pid})
         # Still uses the original snapshotted June 1, not the edited August 1
-        self.assertEqual(kwargs['start_date'].date(), datetime(2024, 6, 1).date())
+        self.assertEqual(
+            mock_fetch.call_args.kwargs['timestamp'],
+            expected_ms(date(2024, 6, 1)),
+        )
 
     @patch.object(AwareDataSource, 'count_rows', return_value=1)
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery'])
-    def test_query_param_narrows_config_window(self, mock_types, mock_fetch, mock_count):
-        # Query params (March 1 - June 1) are narrower than consent snapshot (Jan 1 - Dec 31),
-        # so fetch_data should receive the narrower query-param window
+    def test_query_timestamp_overrides_when_after_data_start(self, mock_types, mock_fetch, mock_count):
+        # timestamp query param (March 1) is after consent data_start (Jan 1),
+        # so effective_cursor == the query timestamp, not data_start_ms
         source = AwareDataSource.objects.create(
             profile=self.profile,
-            name='Query Param Narrow Test Source',
+            name='Query Timestamp Test Source',
             status='active',
         )
         consent = Consent.objects.create(
@@ -1334,22 +1363,22 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
             is_complete=True,
             consent_date=timezone.make_aware(datetime(2024, 1, 1)),
             data_start=timezone.make_aware(datetime(2024, 1, 1)),
-            data_end=timezone.make_aware(datetime(2024, 12, 31)),
             study_participant=self.study_participant,
         )
         self.client.login(username='researcher', password='testpass')
         url = reverse('study_data_api')
-        self.client.get(url, {'data_type': 'battery', 'start_date': '2024-03-01', 'end_date': '2024-06-01'})
+        pid = str(self.study_participant.pseudo_id)
+        march_ms = expected_ms(date(2024, 3, 1))
+        self.client.get(url, {'data_type': 'aware:battery', 'participant_id': pid, 'timestamp': march_ms})
 
-        _, kwargs = mock_fetch.call_args
-        self.assertEqual(kwargs['start_date'].date(), datetime(2024, 3, 1).date())
-        self.assertEqual(kwargs['end_date'].date(), datetime(2024, 6, 1).date())
+        # effective_cursor == march_ms (> data_start_ms for Jan 1)
+        self.assertEqual(mock_fetch.call_args.kwargs['timestamp'], march_ms)
 
     @patch.object(AwareDataSource, 'count_rows', return_value=1)
     @patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 123, 'value': 42}])
     @patch.object(AwareDataSource, 'get_data_types', return_value=['battery'])
     def test_no_config_dates_falls_back_to_consent(self, mock_types, mock_fetch, mock_count):
-        # Without source_configurations, fetch_data should receive the consent's data_start
+        # Without source_configurations, fetch_data should use the consent's data_start as cursor
         source = AwareDataSource.objects.create(
             profile=self.profile,
             name='No Config Fallback Test Source',
@@ -1369,10 +1398,13 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         )
         self.client.login(username='researcher', password='testpass')
         url = reverse('study_data_api')
-        self.client.get(url, {'data_type': 'battery'})
+        pid = str(self.study_participant.pseudo_id)
+        self.client.get(url, {'data_type': 'aware:battery', 'participant_id': pid})
 
-        _, kwargs = mock_fetch.call_args
-        self.assertEqual(kwargs['start_date'].date(), datetime(2024, 1, 1).date())
+        self.assertEqual(
+            mock_fetch.call_args.kwargs['timestamp'],
+            expected_ms(date(2024, 1, 1)),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1488,7 +1520,7 @@ class StudyAdminTest(TestCase):
 # ---------------------------------------------------------------------------
 
 class StudyDataApiWatermarkTest(StudyTestMixin, TestCase):
-    """Tests for the download watermark tracking in study_data_api."""
+    """Tests for the per-source slug-namespaced download endpoint with cursor/advance logic."""
 
     def setUp(self):
         super().setUp()
@@ -1511,89 +1543,211 @@ class StudyDataApiWatermarkTest(StudyTestMixin, TestCase):
             source_type='aware',
             is_complete=True,
             consent_date=timezone.now(),
-            data_start=timezone.make_aware(datetime(2020, 1, 1)),
+            # Null data_start/end keeps data_start_ms=0 so cursor math is clean.
+            data_start=None,
+            data_end=None,
             study_participant=self.study_participant,
         )
+        self.pid = str(self.study_participant.pseudo_id)
 
-    def test_download_creates_watermark_with_max_timestamp(self):
-        from data_sources.models import DeletableWatermark
-        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
-             patch.object(AwareDataSource, 'count_rows', return_value=2), \
-             patch.object(AwareDataSource, 'fetch_data', return_value=[
-                 {'timestamp': 1000}, {'timestamp': 3000}
-             ]):
-            resp = self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
+    # ------------------------------------------------------------------
+    # 1. List branch returns namespaced types.
+    # ------------------------------------------------------------------
+    def test_list_branch_returns_namespaced_data_types(self):
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']):
+            resp = self.api_client.get(reverse('study_data_api'))
         self.assertEqual(resp.status_code, 200)
-        wm = DeletableWatermark.objects.get(data_source=self.source, data_type='battery')
-        self.assertEqual(wm.downloaded_through, 3000)
+        data = resp.json()
+        self.assertIn('data_types', data)
+        self.assertIn('aware:battery', data['data_types'])
 
-    def test_second_download_with_higher_max_advances_watermark(self):
+    # ------------------------------------------------------------------
+    # 2. Fetch without participant_id → 400.
+    # ------------------------------------------------------------------
+    def test_fetch_without_participant_id_returns_400(self):
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']):
+            resp = self.api_client.get(
+                reverse('study_data_api'),
+                {'data_type': 'aware:battery'},
+            )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('participant_id', resp.json().get('error', ''))
+
+    # ------------------------------------------------------------------
+    # 3. Fetch with un-namespaced data_type → 400.
+    # ------------------------------------------------------------------
+    def test_fetch_with_un_namespaced_data_type_returns_400(self):
+        resp = self.api_client.get(
+            reverse('study_data_api'),
+            {'data_type': 'battery', 'participant_id': self.pid},
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('namespaced', resp.json().get('error', ''))
+
+    # ------------------------------------------------------------------
+    # 4. Fetch with unknown participant_id → 404.
+    # ------------------------------------------------------------------
+    def test_fetch_with_unknown_participant_id_returns_404(self):
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']):
+            resp = self.api_client.get(
+                reverse('study_data_api'),
+                {'data_type': 'aware:battery', 'participant_id': 'does-not-exist'},
+            )
+        self.assertEqual(resp.status_code, 404)
+
+    # ------------------------------------------------------------------
+    # 5. Happy fetch (no advance): enriched rows, no watermark created.
+    # ------------------------------------------------------------------
+    def test_happy_fetch_no_advance_returns_enriched_rows_and_no_watermark(self):
         from data_sources.models import DeletableWatermark
         with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
-             patch.object(AwareDataSource, 'count_rows', return_value=1), \
-             patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 3000}]):
-            self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
+             patch.object(AwareDataSource, 'fetch_data', return_value=[
+                 {'timestamp': 3000}, {'timestamp': 5000}
+             ]):
+            resp = self.api_client.get(
+                reverse('study_data_api'),
+                {'data_type': 'aware:battery', 'participant_id': self.pid, 'timestamp': 0},
+            )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['count'], 2)
+        self.assertEqual(len(data['data']), 2)
+        for row in data['data']:
+            self.assertEqual(row['data_type'], 'aware:battery')
+            self.assertEqual(row['participant_id'], self.pid)
+        self.assertFalse(
+            DeletableWatermark.objects.filter(data_source=self.source, data_type='battery').exists()
+        )
 
+    # ------------------------------------------------------------------
+    # 6. advance=true, timestamp=0: creates watermark with max timestamp.
+    # ------------------------------------------------------------------
+    def test_advance_from_zero_creates_watermark_with_max_timestamp(self):
+        from data_sources.models import DeletableWatermark
         with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
-             patch.object(AwareDataSource, 'count_rows', return_value=1), \
-             patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 5000}]):
-            self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
-
+             patch.object(AwareDataSource, 'fetch_data', return_value=[
+                 {'timestamp': 3000}, {'timestamp': 5000}
+             ]):
+            resp = self.api_client.get(
+                reverse('study_data_api'),
+                {'data_type': 'aware:battery', 'participant_id': self.pid,
+                 'timestamp': 0, 'advance': 'true'},
+            )
+        self.assertEqual(resp.status_code, 200)
         wm = DeletableWatermark.objects.get(data_source=self.source, data_type='battery')
         self.assertEqual(wm.downloaded_through, 5000)
 
-    def test_second_download_with_lower_max_does_not_lower_watermark(self):
+    # ------------------------------------------------------------------
+    # 7. Monotonic re-download: second advance=true with timestamp=0 (≤ floor+1)
+    #    keeps downloaded_through at 5000, response is 200.
+    # ------------------------------------------------------------------
+    def test_advance_monotonic_redownload_stays_at_max(self):
         from data_sources.models import DeletableWatermark
+        # First call establishes D=5000.
         with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
-             patch.object(AwareDataSource, 'count_rows', return_value=1), \
-             patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 5000}]):
-            self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
-
+             patch.object(AwareDataSource, 'fetch_data', return_value=[
+                 {'timestamp': 3000}, {'timestamp': 5000}
+             ]):
+            self.api_client.get(
+                reverse('study_data_api'),
+                {'data_type': 'aware:battery', 'participant_id': self.pid,
+                 'timestamp': 0, 'advance': 'true'},
+            )
+        # Second call with timestamp=0 again (0 <= 5000+1): not a gap, max stays 5000.
         with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
-             patch.object(AwareDataSource, 'count_rows', return_value=1), \
-             patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 2000}]):
-            self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
-
+             patch.object(AwareDataSource, 'fetch_data', return_value=[
+                 {'timestamp': 3000}, {'timestamp': 5000}
+             ]):
+            resp = self.api_client.get(
+                reverse('study_data_api'),
+                {'data_type': 'aware:battery', 'participant_id': self.pid,
+                 'timestamp': 0, 'advance': 'true'},
+            )
+        self.assertEqual(resp.status_code, 200)
         wm = DeletableWatermark.objects.get(data_source=self.source, data_type='battery')
         self.assertEqual(wm.downloaded_through, 5000)
 
-    def test_rows_without_timestamp_create_no_watermark(self):
+    # ------------------------------------------------------------------
+    # 8. Contiguous continuation: D=5000, timestamp=5001 (== floor+1).
+    #    New rows go up to 8000 → downloaded_through advances to 8000.
+    # ------------------------------------------------------------------
+    def test_advance_contiguous_continuation_advances_watermark(self):
         from data_sources.models import DeletableWatermark
+        # Establish D=5000.
         with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
-             patch.object(AwareDataSource, 'count_rows', return_value=2), \
              patch.object(AwareDataSource, 'fetch_data', return_value=[
-                 {'value': 42}, {'value': 99}
+                 {'timestamp': 3000}, {'timestamp': 5000}
              ]):
-            resp = self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
-        self.assertEqual(resp.status_code, 200)
-        self.assertFalse(
-            DeletableWatermark.objects.filter(data_source=self.source, data_type='battery').exists()
-        )
-
-    def test_fetch_data_returning_dict_creates_no_watermark_and_returns_200(self):
-        from data_sources.models import DeletableWatermark
+            self.api_client.get(
+                reverse('study_data_api'),
+                {'data_type': 'aware:battery', 'participant_id': self.pid,
+                 'timestamp': 0, 'advance': 'true'},
+            )
+        # Contiguous next page: timestamp=5001 = floor+1.
         with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
-             patch.object(AwareDataSource, 'count_rows', return_value=1), \
-             patch.object(AwareDataSource, 'fetch_data', return_value={'error': 'db unavailable'}):
-            resp = self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
+             patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 8000}]):
+            resp = self.api_client.get(
+                reverse('study_data_api'),
+                {'data_type': 'aware:battery', 'participant_id': self.pid,
+                 'timestamp': 5001, 'advance': 'true'},
+            )
         self.assertEqual(resp.status_code, 200)
-        self.assertFalse(
-            DeletableWatermark.objects.filter(data_source=self.source, data_type='battery').exists()
-        )
+        wm = DeletableWatermark.objects.get(data_source=self.source, data_type='battery')
+        self.assertEqual(wm.downloaded_through, 8000)
 
-    def test_watermark_is_keyed_per_data_type(self):
+    # ------------------------------------------------------------------
+    # 9. Gap: D=5000, timestamp=10000 (> floor+1=5001) → 400, watermark unchanged.
+    # ------------------------------------------------------------------
+    def test_advance_gap_returns_400_and_watermark_unchanged(self):
         from data_sources.models import DeletableWatermark
-        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery', 'location']), \
-             patch.object(AwareDataSource, 'count_rows', return_value=1), \
-             patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 7000}]):
-            self.api_client.get(reverse('study_data_api'), {'data_type': 'battery'})
+        # Establish D=5000.
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'fetch_data', return_value=[
+                 {'timestamp': 3000}, {'timestamp': 5000}
+             ]):
+            self.api_client.get(
+                reverse('study_data_api'),
+                {'data_type': 'aware:battery', 'participant_id': self.pid,
+                 'timestamp': 0, 'advance': 'true'},
+            )
+        # Gap request: timestamp=10000 > 5001.
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'fetch_data', return_value=[{'timestamp': 12000}]):
+            resp = self.api_client.get(
+                reverse('study_data_api'),
+                {'data_type': 'aware:battery', 'participant_id': self.pid,
+                 'timestamp': 10000, 'advance': 'true'},
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertIn('gap', body.get('error', ''))
+        self.assertEqual(body.get('downloaded_through'), 5000)
+        # Watermark must be unchanged.
+        wm = DeletableWatermark.objects.get(data_source=self.source, data_type='battery')
+        self.assertEqual(wm.downloaded_through, 5000)
 
-        self.assertTrue(
-            DeletableWatermark.objects.filter(data_source=self.source, data_type='battery').exists()
-        )
-        self.assertFalse(
-            DeletableWatermark.objects.filter(data_source=self.source, data_type='location').exists()
-        )
+    # ------------------------------------------------------------------
+    # 10. data_end cap: rows after data_end_ms are dropped.
+    #     data_end = 2026-01-01 → data_end_ms ≈ end-of-day 2026-01-01 in local tz.
+    #     Row at 1_700_000_000_000 (Nov 2023) is before → kept.
+    #     Row at 1_800_000_000_000 (Jan 2027) is after → dropped.
+    # ------------------------------------------------------------------
+    def test_data_end_cap_drops_rows_after_cutoff(self):
+        self.consent.data_end = timezone.make_aware(datetime(2026, 1, 1))
+        self.consent.save()
+        with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
+             patch.object(AwareDataSource, 'fetch_data', return_value=[
+                 {'timestamp': 1_700_000_000_000},
+                 {'timestamp': 1_800_000_000_000},
+             ]):
+            resp = self.api_client.get(
+                reverse('study_data_api'),
+                {'data_type': 'aware:battery', 'participant_id': self.pid, 'timestamp': 0},
+            )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['count'], 1)
+        self.assertEqual(data['data'][0]['timestamp'], 1_700_000_000_000)
 
 
 # ---------------------------------------------------------------------------
@@ -1601,7 +1755,7 @@ class StudyDataApiWatermarkTest(StudyTestMixin, TestCase):
 # ---------------------------------------------------------------------------
 
 class MarkDataDeletableTest(StudyTestMixin, TestCase):
-    """Tests for the mark_data_deletable POST endpoint."""
+    """Tests for the mark_data_deletable POST endpoint with slug-namespaced data_type."""
 
     def setUp(self):
         super().setUp()
@@ -1626,10 +1780,11 @@ class MarkDataDeletableTest(StudyTestMixin, TestCase):
             source_type='aware',
             is_complete=True,
             consent_date=timezone.now(),
-            data_start=timezone.make_aware(datetime(2020, 1, 1)),
+            data_start=None,
+            data_end=None,
             study_participant=self.study_participant,
         )
-        # Pre-create a watermark with a known downloaded_through value.
+        # Pre-create a watermark keyed on the BARE data_type ('battery').
         self.watermark = DeletableWatermark.objects.create(
             data_source=self.source,
             data_type='battery',
@@ -1637,16 +1792,27 @@ class MarkDataDeletableTest(StudyTestMixin, TestCase):
         )
 
     # setUp creates: self.watermark with downloaded_through=5000, deletable_through=None.
-    # Happy-path values used throughout: D=5000 (downloaded_through), through=3000,
-    # M=5000 (latest_timestamp).  D >= through and M > through → success.
+    # Happy-path values: D=5000, through=3000, M=5000 → D>=through, M>through → success.
 
-    def _post(self, data_type='battery', through=3000, client=None):
+    def _post(self, data_type='aware:battery', through=3000, client=None):
         c = client or self.api_client
         return c.post(
             reverse('mark_data_deletable'),
             {'data_type': data_type, 'through': through},
             format='json',
         )
+
+    # ------------------------------------------------------------------
+    # 0. Un-namespaced data_type → 400 with namespacing error.
+    # ------------------------------------------------------------------
+    def test_un_namespaced_data_type_returns_400(self):
+        resp = self.api_client.post(
+            reverse('mark_data_deletable'),
+            {'data_type': 'battery', 'through': 3000},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('namespaced', resp.json().get('error', ''))
 
     # ------------------------------------------------------------------
     # 1. Happy path: marked True, DB row updated to supplied through.
@@ -1669,12 +1835,12 @@ class MarkDataDeletableTest(StudyTestMixin, TestCase):
         self.assertEqual(self.watermark.deletable_through, 3000)
 
     # ------------------------------------------------------------------
-    # 2. through == existing deletable_through is now allowed (old guard removed).
+    # 2. through == existing deletable_through is allowed.
     # ------------------------------------------------------------------
     def test_through_equal_to_existing_deletable_through_still_marks_true(self):
         self.watermark.deletable_through = 3000
         self.watermark.save()
-        # D=5000, through=3000, M=5000 → previously guarded; now succeeds.
+        # D=5000, through=3000, M=5000 → succeeds even when deletable_through already set.
         with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
              patch.object(AwareDataSource, 'latest_timestamp', return_value=5000), \
              patch.object(AwareDataSource, 'mark_deletable'):
@@ -1690,7 +1856,7 @@ class MarkDataDeletableTest(StudyTestMixin, TestCase):
     def test_missing_through_returns_400(self):
         resp = self.api_client.post(
             reverse('mark_data_deletable'),
-            {'data_type': 'battery'},
+            {'data_type': 'aware:battery'},
             format='json',
         )
         self.assertEqual(resp.status_code, 400)
@@ -1702,14 +1868,14 @@ class MarkDataDeletableTest(StudyTestMixin, TestCase):
     def test_non_integer_through_returns_400(self):
         resp = self.api_client.post(
             reverse('mark_data_deletable'),
-            {'data_type': 'battery', 'through': 'abc'},
+            {'data_type': 'aware:battery', 'through': 'abc'},
             format='json',
         )
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp.json().get('error'), 'through must be an integer (Unix ms)')
 
     # ------------------------------------------------------------------
-    # 5. Missing data_type → 400 (unchanged).
+    # 5. Missing data_type → 400.
     # ------------------------------------------------------------------
     def test_missing_data_type_returns_400(self):
         resp = self.api_client.post(
@@ -1805,10 +1971,10 @@ class MarkDataDeletableTest(StudyTestMixin, TestCase):
         mock_mark.assert_not_called()
 
     # ------------------------------------------------------------------
-    # 11. Hook called with correct args on success.
+    # 11. Hook called with BARE name and correct through on success.
     # ------------------------------------------------------------------
-    def test_mark_deletable_hook_called_with_correct_args(self):
-        # D=5000, through=3000, M=5000
+    def test_mark_deletable_hook_called_with_bare_name_and_correct_args(self):
+        # D=5000, through=3000, M=5000; hook must receive bare 'battery', not 'aware:battery'.
         with patch.object(AwareDataSource, 'get_data_types', return_value=['battery']), \
              patch.object(AwareDataSource, 'latest_timestamp', return_value=5000), \
              patch.object(AwareDataSource, 'mark_deletable') as mock_mark:
@@ -1858,7 +2024,7 @@ class MarkDataDeletableTest(StudyTestMixin, TestCase):
         with patch.object(AwareDataSource, 'get_data_types', return_value=['battery', 'location']), \
              patch.object(AwareDataSource, 'latest_timestamp', return_value=5000), \
              patch.object(AwareDataSource, 'mark_deletable') as mock_mark:
-            resp = self._post(data_type='battery', through=3000)
+            resp = self._post(data_type='aware:battery', through=3000)
 
         self.assertEqual(resp.status_code, 200)
         data = resp.json()

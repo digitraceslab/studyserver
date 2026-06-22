@@ -330,7 +330,7 @@ class JsonUrlDataSourceTest(TestCase):
 
         mock_resp = mock_get.return_value
         mock_resp.raise_for_status.return_value = None
-        mock_resp.json.return_value = [{'foo': 'bar', 'device_id': 'old-id'}]
+        mock_resp.json.return_value = [{'foo': 'bar', 'device_id': 'old-id', 'timestamp': 1000}]
 
         results = self.source.fetch_data('raw_json', limit=10)
         # should be a list with enriched device_id

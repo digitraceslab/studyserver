@@ -151,45 +151,75 @@ def _run_aware_table_query(cursor, base_select, table_name, id_column, id_values
     return cursor.fetchall()
 
 
+def _connect_and_resolve_device_uids(device_label):
+    """Open a MySQL connection and resolve device_uuid -> device_uid mappings.
+
+    Validates ``device_label``, fetches device IDs, opens the AWARE MySQL
+    connection, then resolves ``device_uuid`` -> ``device_uid`` via
+    ``device_lookup``.
+
+    Returns ``(database, cursor, device_uids, device_uid_to_device_id)`` on
+    success where ``cursor`` is a dictionary cursor.  The caller is responsible
+    for closing ``cursor`` and ``database`` in all code paths.
+
+    Returns ``(None, None, [], {})`` when there are no matching devices (caller
+    should return early) or raises ``mysql.connector.Error`` on connection
+    failure.
+    """
+    if not device_label:
+        print("Invalid AWARE device label provided.", device_label)
+        return None, None, [], {}
+
+    device_ids = get_device_ids_for_label(device_label)
+    if not device_ids:
+        return None, None, [], {}
+
+    database = mysql.connector.connect(
+        host=settings.AWARE_DB_HOST,
+        port=settings.AWARE_DB_PORT,
+        user=settings.AWARE_DB_RO_USER,
+        password=settings.AWARE_DB_RO_PASSWORD,
+        database=settings.AWARE_DB_NAME
+    )
+    cursor = database.cursor(dictionary=True)
+
+    device_id_format = ",".join(["%s"] * len(device_ids))
+    lookup_query = (
+        f"SELECT id, device_uuid FROM device_lookup "
+        f"WHERE device_uuid IN ({device_id_format})"
+    )
+    cursor.execute(lookup_query, tuple(device_ids))
+    rows = cursor.fetchall()
+    device_uids = [row['id'] for row in rows if isinstance(row, dict)]
+    device_uid_to_device_id = {row['id']: row['device_uuid'] for row in rows if isinstance(row, dict)}
+
+    return database, cursor, device_uids, device_uid_to_device_id
+
+
 def query_aware_data(base_query, device_label, table_name, limit=None, start_date=None, end_date=None, offset=0):
     """
     Runs a data query against the AWARE database. The query parameter should be either "SELECT COUNT(*)" or "SELECT *".
     """
-    if not device_label:
-        print("Invalid AWARE device label provided.", device_label)
-        return []
-
-    device_ids = get_device_ids_for_label(device_label)
-    if not device_ids:
-        return []
     results = []
-
+    database = None
+    cursor = None
     try:
-        database = mysql.connector.connect(
-            host=settings.AWARE_DB_HOST,
-            port=settings.AWARE_DB_PORT,
-            user=settings.AWARE_DB_RO_USER,
-            password=settings.AWARE_DB_RO_PASSWORD,
-            database=settings.AWARE_DB_NAME
-        )
-        cursor = database.cursor()
+        database, cursor, device_uids, device_uid_to_device_id = _connect_and_resolve_device_uids(device_label)
+        if database is None:
+            return []
 
-        cursor.execute("SHOW TABLES")
-        all_tables = [table[0] for table in cursor.fetchall()]
+        # Verify the transformed table exists (use a plain cursor for SHOW TABLES)
+        plain_cursor = database.cursor()
+        plain_cursor.execute("SHOW TABLES")
+        all_tables = [table[0] for table in plain_cursor.fetchall()]
+        plain_cursor.close()
+
         transformed_table_name = f"{table_name}_transformed"
         if transformed_table_name not in all_tables:
             print(f"Transformed table {transformed_table_name} does not exist in AWARE database.")
+            cursor.close()
+            database.close()
             return []
-        cursor.close()
-
-        cursor = database.cursor(dictionary=True)
-        # Map device_lookup.id (device_uid) -> device_uuid (the original device id)
-        device_id_format = ",".join(["%s"] * len(device_ids))
-        query_string = f"SELECT id, device_uuid FROM device_lookup WHERE device_uuid IN ({device_id_format})"
-        cursor.execute(query_string, tuple(device_ids))
-        rows = cursor.fetchall()
-        device_uids = [row['id'] for row in rows if isinstance(row, dict) and len(row) > 0]
-        device_uid_to_device_id = {row['id']: row['device_uuid'] for row in rows if isinstance(row, dict)}
 
         if device_uids:
             # Query only the transformed table (processed data only)
@@ -204,21 +234,100 @@ def query_aware_data(base_query, device_label, table_name, limit=None, start_dat
         database.close()
 
         return results
-    
+
     except mysql.connector.Error as e:
         print(f"Error querying Aware data: {e}")
+        if cursor is not None:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if database is not None:
+            try:
+                database.close()
+            except Exception:
+                pass
         return results
 
 
+def get_aware_data(device_label, table_name='battery', timestamp=0, limit=1000):
+    """Fetch rows from the AWARE DB using a timestamp cursor.
 
-def get_aware_data(device_label, table_name='battery', limit=1000, start_date=None, end_date=None, offset=0):
+    Returns rows from ``<table_name>_transformed`` whose ``timestamp`` field is
+    >= ``timestamp`` (Unix time in milliseconds), ordered by ``timestamp`` ASC.
+    Applies the soft-limit rule: if exactly ``limit`` rows were returned, all
+    rows sharing the last timestamp are fetched and merged in so that the caller
+    can safely advance its cursor to ``max(timestamp) + 1``.
+
+    Each returned dict has ``device_id`` (the original device UUID) and no
+    ``device_uid`` field.
     """
-    Connects to the AWARE DB and fetches the latest records for a specific
-    AWARE device ID. Returns a list of dictionaries.
-    """
-    return query_aware_data(
-        "SELECT *", device_label, table_name, limit, start_date, end_date, offset
-    )
+    database = None
+    cursor = None
+    try:
+        database, cursor, device_uids, device_uid_to_device_id = _connect_and_resolve_device_uids(device_label)
+        if database is None:
+            return []
+
+        if not device_uids:
+            cursor.close()
+            database.close()
+            return []
+
+        transformed_table_name = f"{table_name}_transformed"
+        device_uid_format = ",".join(["%s"] * len(device_uids))
+
+        # Primary cursor query
+        primary_query = (
+            f"SELECT * FROM `{transformed_table_name}` "
+            f"WHERE device_uid IN ({device_uid_format}) "
+            f"AND timestamp >= %s "
+            f"ORDER BY timestamp ASC "
+            f"LIMIT %s"
+        )
+        primary_params = tuple(device_uids) + (int(timestamp), int(limit))
+        cursor.execute(primary_query, primary_params)
+        rows = cursor.fetchall()
+
+        # Soft-limit: if we got exactly `limit` rows, fetch all rows at last_ts
+        if len(rows) == int(limit) and rows:
+            last_ts = rows[-1]['timestamp']
+            # Trim trailing rows sharing last_ts from the primary result
+            trimmed = [r for r in rows if r['timestamp'] != last_ts]
+            # Fetch the complete group at last_ts
+            tail_query = (
+                f"SELECT * FROM `{transformed_table_name}` "
+                f"WHERE device_uid IN ({device_uid_format}) "
+                f"AND timestamp = %s "
+                f"ORDER BY timestamp ASC"
+            )
+            tail_params = tuple(device_uids) + (last_ts,)
+            cursor.execute(tail_query, tail_params)
+            tail_rows = cursor.fetchall()
+            rows = trimmed + tail_rows
+
+        cursor.close()
+        database.close()
+
+        # Map device_uid -> device_id and strip device_uid
+        for row in rows:
+            row['device_id'] = device_uid_to_device_id.get(row.get('device_uid'))
+            row.pop('device_uid', None)
+        return rows
+
+    except mysql.connector.Error as e:
+        print(f"Error in get_aware_data: {e}")
+        if cursor is not None:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if database is not None:
+            try:
+                database.close()
+            except Exception:
+                pass
+        return []
 
 
 def get_aware_count(device_label, table_name='battery', start_date=None, end_date=None):

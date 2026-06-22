@@ -12,8 +12,8 @@
 
 <hr>
 
-{% if page_obj %}
-<h3>Displaying page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</h3>
+{% if rows %}
+<h3>Total: {{ total_count }} rows ({{ num_pages }} page(s) of 100)</h3>
 <table border="1" style="width:100%; border-collapse: collapse;">
     <thead>
         <tr>
@@ -23,7 +23,7 @@
         </tr>
     </thead>
     <tbody>
-        {% for row in page_obj.object_list %}
+        {% for row in rows %}
             <tr>
                 {% for header in headers %}
                     <td>{{ row|get_item:header }}</td>
@@ -35,35 +35,8 @@
 
 <div class="pagination">
     <span class="step-links">
-        {% with request.GET.urlencode as query %}
-            {% if query %}
-                {% with query|cut:'page='|cut:'&&' as base_query %}
-                    {% if page_obj.has_previous %}
-                        <a href="?{{ base_query }}&page=1">&laquo; first</a>
-                        <a href="?{{ base_query }}&page={{ page_obj.previous_page_number }}">previous</a>
-                    {% endif %}
-                    <span class="current">
-                        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
-                    </span>
-                    {% if page_obj.has_next %}
-                        <a href="?{{ base_query }}&page={{ page_obj.next_page_number }}">next</a>
-                        <a href="?{{ base_query }}&page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
-                    {% endif %}
-                {% endwith %}
-            {% else %}
-                {% if page_obj.has_previous %}
-                    <a href="?page=1">&laquo; first</a>
-                    <a href="?page={{ page_obj.previous_page_number }}">previous</a>
-                {% endif %}
-                <span class="current">
-                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
-                </span>
-                {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}">next</a>
-                    <a href="?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
-                {% endif %}
-            {% endif %}
-        {% endwith %}
+        <a href="?{{ base_query }}">&laquo; first</a>
+        {% if has_next %}<a href="?{{ base_query }}&cursor={{ next_cursor }}">next &raquo;</a>{% endif %}
     </span>
 </div>
 {% elif form.is_valid and form.cleaned_data.data_type %}

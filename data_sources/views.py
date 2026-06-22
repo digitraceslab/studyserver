@@ -4,7 +4,6 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import Http404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
-from django.core.paginator import Paginator
 from django.contrib import messages
 from django.utils import timezone
 from urllib.parse import urlencode
@@ -193,8 +192,14 @@ def view_data_source(request, source_id):
         initial_data = {'start_date': date.today(), 'end_date': date.today()}
         form = DataFilterForm(initial=initial_data, data_type_choices=data_types)
 
+    PAGE_SIZE = 100
     headers = []
-    page_obj = None
+    rows = []
+    total_count = 0
+    num_pages = 0
+    has_next = False
+    next_cursor = None
+
     if form.is_valid():
         selected_type = form.cleaned_data.get('data_type')
         start_date = form.cleaned_data.get('start_date')
@@ -204,24 +209,52 @@ def view_data_source(request, source_id):
             tz = zoneinfo.ZoneInfo('Europe/Helsinki')
             start_datetime = datetime.combine(start_date, time.min, tzinfo=tz) if start_date else None
             end_datetime = datetime.combine(end_date, time.max, tzinfo=tz) if end_date else None
-            all_data = real_instance.fetch_data(
-                data_type=selected_type, 
-                start_date=start_datetime,
-                end_date=end_datetime
-            )
 
-            if all_data:
-                headers = all_data[0].keys()
-                
-                paginator = Paginator(all_data, 100)
-                page_number = request.GET.get('page')
-                page_obj = paginator.get_page(page_number)
+            start_ms = int(start_datetime.timestamp() * 1000) if start_datetime else 0
+            end_ms = int(end_datetime.timestamp() * 1000) if end_datetime else None
+
+            # cursor: explicit ?cursor= overrides; otherwise start of the range.
+            try:
+                cursor = int(request.GET.get('cursor', start_ms))
+            except (TypeError, ValueError):
+                cursor = start_ms
+            if cursor < start_ms:
+                cursor = start_ms
+
+            total_count = real_instance.count_rows(selected_type, start_datetime, end_datetime)
+            num_pages = (total_count + PAGE_SIZE - 1) // PAGE_SIZE if total_count else 0
+
+            page_rows = real_instance.fetch_data(selected_type, timestamp=cursor, limit=PAGE_SIZE)
+            if not isinstance(page_rows, list):
+                page_rows = []
+            # cap to the end of the requested range
+            if end_ms is not None:
+                page_rows = [r for r in page_rows if r.get('timestamp') is None or int(r['timestamp']) <= end_ms]
+
+            rows = page_rows
+            if rows:
+                headers = list(rows[0].keys())
+                if len(rows) >= PAGE_SIZE:
+                    candidate = int(rows[-1]['timestamp']) + 1
+                    if end_ms is None or candidate <= end_ms:
+                        has_next = True
+                        next_cursor = candidate
+
+    # Preserve filter params (data_type/start_date/end_date) across page links, dropping any existing cursor.
+    _q = request.GET.copy()
+    _q.pop('cursor', None)
+    base_query = _q.urlencode()
 
     context = {
         'source': real_instance,
         'form': form,
         'headers': headers,
-        'page_obj': page_obj,
+        'rows': rows,
+        'total_count': total_count,
+        'num_pages': num_pages,
+        'has_next': has_next,
+        'next_cursor': next_cursor,
+        'base_query': base_query,
     }
     return render(request, 'data_sources/data_source_detail.html', context)
 

@@ -212,14 +212,24 @@ class DataSource(PolymorphicModel):
         """Returns a list of available data type names for this source."""
         raise NotImplementedError("Subclasses must implement this method.")
     
-    def fetch_data(self, data_type='battery', limit=None, start_date=None, end_date=None, offset=0):
-        """Fetches and returns data from the source.
+    def fetch_data(self, data_type='battery', timestamp=0, limit=1000):
+        """Fetches and returns data from the source using a timestamp cursor.
 
         Parameters:
         - data_type: name of the data table/type to fetch
-        - limit: maximum number of rows to return (None means no limit)
-        - start_date, end_date: optional datetime filters
-        - offset: pagination offset (use with limit)
+        - timestamp: Unix time in milliseconds (int). Return only rows whose
+          ``timestamp`` field is >= this value. Defaults to 0 (all rows).
+        - limit: soft maximum number of rows to return. The implementation MUST
+          return up to ``limit`` rows but always include ALL rows that share the
+          last returned timestamp, so the caller can safely advance its cursor to
+          ``last_timestamp + 1`` without splitting equal-timestamp groups. This
+          may cause the returned list to exceed ``limit``.
+
+        Contract:
+        - Rows are returned in **ascending** ``timestamp`` order.
+        - Sources that return True from ``supports_deletion()`` MUST honor
+          ascending order and the soft-limit rule, because the download watermark
+          relies on ``max(timestamp)`` being a contiguous high-water mark.
         """
         raise NotImplementedError("Subclasses must implement this method.")
 

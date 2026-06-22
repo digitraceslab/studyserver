@@ -11,4 +11,6 @@ urlpatterns = [
     path('api/data/', views.study_data_api),
     path('api/data/mark-deletable', views.mark_data_deletable, name='mark_data_deletable'),
     path('api/data/mark-deletable/', views.mark_data_deletable),
+    path('api/participants', views.study_participants_api, name='study_participants_api'),
+    path('api/participants/', views.study_participants_api),
 ]
