@@ -15,6 +15,7 @@ studies.views
       get_next_consent
       get_study
       join_study
+      mark_data_deletable
       revoke_consent
       select_data_source_view
       study_data_api
