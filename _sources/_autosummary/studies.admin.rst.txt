@@ -15,5 +15,6 @@ studies.admin
       StudyAdmin
       StudyAssetInline
       StudyParticipantAdmin
+      StudyParticipantInline
       StudySourceConfigurationAdmin
    

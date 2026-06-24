@@ -42,7 +42,7 @@
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ConsentInline</span></code>(parent_model, admin_site)</p></td>
-<td><p></p></td>
+<td><p>Consents for a single participant, shown as rows on the StudyParticipant page.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">PrettyJSONFormField</span></code>([encoder, decoder])</p></td>
 <td><p></p></td>
@@ -59,7 +59,10 @@
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudyParticipantAdmin</span></code>(model, admin_site)</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudySourceConfigurationAdmin</span></code>(model, admin_site)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudyParticipantInline</span></code>(parent_model, admin_site)</p></td>
+<td><p>Participants of a study, shown as rows on the Study page with a completed/total consent summary instead of the individual consents.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudySourceConfigurationAdmin</span></code>(model, admin_site)</p></td>
 <td><p></p></td>
 </tr>
 </tbody>
