@@ -18,55 +18,166 @@ class PrettyJSONFormField(forms.JSONField):
             return json.dumps(value, indent=2)
         return super().prepare_value(value)
 
+def _consent_summary(study_participant):
+    """(required_complete, required_total, optional_complete, optional_total) for a participant."""
+    consents = study_participant.consents.filter(revocation_date__isnull=True)
+    required = consents.filter(is_optional=False)
+    optional = consents.filter(is_optional=True)
+    return (
+        required.filter(is_complete=True, data_source__status='active').count(),
+        required.count(),
+        optional.filter(is_complete=True).count(),
+        optional.count(),
+    )
+
+
+class ConsentInline(admin.TabularInline):
+    """Consents for a single participant, shown as rows on the StudyParticipant page.
+
+    Deliberately omits participant username/email — participants are identified
+    only by their pseudonymous id.
+    """
+    model = Consent
+    fields = ('source_type', 'data_source_info', 'is_optional', 'is_complete', 'consent_date')
+    readonly_fields = (
+        'source_type',
+        'data_source_info',
+        'is_optional',
+        'is_complete',
+        'consent_date',
+    )
+    can_delete = False
+    extra = 0
+
+    def get_fields(self, request, obj=None):
+        fields = super().get_fields(request, obj)
+        if request.user.is_superuser and 'change_link' not in fields:
+            return tuple(fields) + ('change_link',)
+        return fields
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = super().get_readonly_fields(request, obj)
+        if request.user.is_superuser and 'change_link' not in readonly:
+            return tuple(readonly) + ('change_link',)
+        return readonly
+
+    @admin.display(description='')
+    def change_link(self, obj):
+        if not obj.pk:
+            return '-'
+        url = reverse('admin:studies_consent_change', args=[obj.pk])
+        return format_html('<a href="{}">Edit</a>', url)
+
+    @admin.display(description='Data Source')
+    def data_source_info(self, obj):
+        if not obj.data_source:
+            return "Not linked"
+        source = obj.data_source.get_real_instance()
+        status_color = 'green' if source.status == 'active' else 'orange'
+        return format_html(
+            '<span style="color: {};">{}</span> ({})',
+            status_color,
+            source.name,
+            source.status,
+        )
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class StudyParticipantInline(admin.TabularInline):
+    """Participants of a study, shown as rows on the Study page with a
+    completed/total consent summary instead of the individual consents."""
+    model = StudyParticipant
+    fields = ('pseudo_id', 'consents_summary', 'status', 'change_link')
+    readonly_fields = ('pseudo_id', 'consents_summary', 'status', 'change_link')
+    can_delete = False
+    extra = 0
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    @admin.display(description='Consents (complete / total)')
+    def consents_summary(self, obj):
+        rc, rt, oc, ot = _consent_summary(obj)
+        return f"required {rc}/{rt}, optional {oc}/{ot}"
+
+    @admin.display(description='Status')
+    def status(self, obj):
+        rc, rt, _, _ = _consent_summary(obj)
+        return 'Complete' if rt and rc == rt else 'Incomplete'
+
+    @admin.display(description='')
+    def change_link(self, obj):
+        if not obj.pk:
+            return '-'
+        url = reverse('admin:studies_studyparticipant_change', args=[obj.pk])
+        return format_html('<a href="{}">View consents</a>', url)
+
+
 @admin.register(StudyParticipant)
 class StudyParticipantAdmin(admin.ModelAdmin):
-    list_display = ('study', 'pseudo_id')
+    list_display = ('study', 'pseudo_id', 'consents_summary')
     fields = ('study', 'pseudo_id')
-    readonly_fields = ('pseudo_id',)
+    readonly_fields = ('study', 'pseudo_id')
+    inlines = [ConsentInline]
 
-    @admin.display(description='Participant')
-    def participant_display(self, obj):
-        return f"[deleted-{obj.pseudo_id}]"
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(study__researchers=request.user.profile)
+
+    def has_add_permission(self, request):
+        return False
+
+    @admin.display(description='Consents (complete / total)')
+    def consents_summary(self, obj):
+        rc, rt, oc, ot = _consent_summary(obj)
+        return f"required {rc}/{rt}, optional {oc}/{ot}"
 
 
 @admin.register(Consent)
 class ConsentAdmin(admin.ModelAdmin):
     list_display = (
         'study',
-        'participant_username',
         'participant_pseudo_id',
         'source_type',
         'data_source_status',
         'is_complete',
         'consent_date'
     )
-    researcher_readonly_fields = (
+    # Fields shown to researchers — identifies the participant by pseudonymous id
+    # only, never by username/email or the participant/study_participant FKs
+    # (whose __str__ could expose identity).
+    researcher_fields = (
         'study',
-        'participant',
+        'participant_pseudo_id',
         'source_type',
-        'data_source',
-        'consent_text_accepted',
+        'data_source_status',
+        'is_optional',
         'is_complete',
+        'consent_text_accepted',
         'consent_date',
-        'revocation_date'
+        'revocation_date',
     )
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         if request.user.is_superuser:
             return qs
-        
+
         return qs.filter(study__researchers=request.user.profile)
+
+    def get_fields(self, request, obj=None):
+        if request.user.is_superuser:
+            return super().get_fields(request, obj)
+        return self.researcher_fields
 
     def get_readonly_fields(self, request, obj=None):
         if request.user.is_superuser:
             return ('participant', 'study', 'source_type', 'consent_date')
-        return self.researcher_readonly_fields
-
-
-    @admin.display(description='Participant')
-    def participant_username(self, obj):
-        return obj.participant.user.username
+        return self.researcher_fields
 
     @admin.display(description='Participant ID')
     def participant_pseudo_id(self, obj):
@@ -142,81 +253,12 @@ class StudySourceConfigurationAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 
-class ConsentInline(admin.TabularInline):
-    model = Consent
-    list_display = ('participant_username', 'consent_date', 'revocation_date', 'is_complete')
-    readonly_fields = (
-        'participant_username',
-        'participant_pseudo_id',
-        'source_type',
-        'data_source_info',
-        'consent_text_accepted',
-        'is_complete',
-        'consent_date',
-        'revocation_date',
-    )
-    fields = (
-        'participant_username',
-        'participant_pseudo_id',
-        'source_type',
-        'data_source_info',
-        'is_complete',
-    )
-    can_delete = False
-    extra = 0
-
-    def get_fields(self, request, obj=None):
-        fields = super().get_fields(request, obj)
-        if request.user.is_superuser and 'change_link' not in fields:
-            return tuple(fields) + ('change_link',)
-        return fields
-
-    def get_readonly_fields(self, request, obj=None):
-        readonly = super().get_readonly_fields(request, obj)
-        if request.user.is_superuser and 'change_link' not in readonly:
-            return tuple(readonly) + ('change_link',)
-        return readonly
-
-    @admin.display(description='')
-    def change_link(self, obj):
-        if not obj.pk:
-            return '-'
-        url = reverse('admin:studies_consent_change', args=[obj.pk])
-        return format_html('<a href="{}">Edit</a>', url)
-
-    @admin.display(description='Participant')
-    def participant_username(self, obj):
-        return obj.participant.user.username
-
-    @admin.display(description='Participant ID')
-    def participant_pseudo_id(self, obj):
-        if obj.study_participant:
-            return obj.study_participant.pseudo_id
-        return "-"
-
-    @admin.display(description='Data Source')
-    def data_source_info(self, obj):
-        if not obj.data_source:
-            return "Not linked"
-        source = obj.data_source.get_real_instance()
-        status_color = 'green' if source.status == 'active' else 'orange'
-        return format_html(
-            '<span style="color: {};">{}</span> ({})',
-            status_color,
-            source.name,
-            source.status
-        )
-
-    def has_add_permission(self, request, obj=None):
-        return False
-
-
 @admin.register(Study)
 class StudyAdmin(admin.ModelAdmin):
     form = StudyAdminForm
     list_display = ('title',)
     filter_horizontal = ('researchers',)
-    inlines = [StudyAssetInline, SourceConfigurationInline, ConsentInline]
+    inlines = [StudyAssetInline, SourceConfigurationInline, StudyParticipantInline]
     
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if db_field.name in (

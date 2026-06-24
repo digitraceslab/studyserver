@@ -141,8 +141,9 @@ class ConsentModelTest(TestCase):
             source_type='aware',
             study_participant=self.study_participant,
         )
-        expected = f"Consent of {self.user.username} for {self.study.title}"
+        expected = f"Consent of participant {self.study_participant.pseudo_id} for {self.study.title}"
         self.assertEqual(str(consent), expected)
+        self.assertNotIn(self.user.username, str(consent))
 
     def test_accept_configuration_snapshots_params(self):
         """accept_configuration copies all four fields and sets consent_date."""
@@ -321,7 +322,8 @@ class StudyParticipantTest(TestCase):
 
     def test_str_with_participant(self):
         sp = StudyParticipant.objects.create(participant=self.profile, study=self.study)
-        self.assertIn(self.user.username, str(sp))
+        self.assertIn(str(sp.pseudo_id), str(sp))
+        self.assertNotIn(self.user.username, str(sp))
 
     def test_str_after_profile_deletion(self):
         sp = StudyParticipant.objects.create(participant=self.profile, study=self.study)
@@ -330,7 +332,8 @@ class StudyParticipantTest(TestCase):
         sp.refresh_from_db()
         self.assertIsNone(sp.participant)
         self.assertEqual(sp.pseudo_id, pseudo_id)
-        self.assertIn('deleted', str(sp))
+        self.assertIn(str(pseudo_id), str(sp))
+        self.assertNotIn(self.user.username, str(sp))
 
     def test_unique_per_study(self):
         StudyParticipant.objects.create(participant=self.profile, study=self.study)

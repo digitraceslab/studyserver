@@ -213,8 +213,9 @@ class StudyParticipant(models.Model):
         unique_together = ('participant', 'study')
 
     def __str__(self):
-        name = self.participant.user.username if self.participant else f"[deleted-{self.pseudo_id}]"
-        return f"{name} in {self.study.title}"
+        # Identify participants by their pseudonymous id only, never by username,
+        # so researcher-facing admin pages don't expose participant identities.
+        return f"Participant {self.pseudo_id} in {self.study.title}"
 
 
 class Consent(models.Model):
@@ -289,10 +290,13 @@ class Consent(models.Model):
         self.save()
 
     def __str__(self):
-        if self.participant:
-            name = self.participant.user.username
-        elif self.study_participant:
-            name = f"[deleted-{self.study_participant.pseudo_id}]"
+        # Identify the participant by pseudonymous id only (never username) so
+        # researcher-facing admin pages don't expose participant identities.
+        if self.study_participant:
+            marker = "" if self.participant else " (deleted)"
+            name = f"participant {self.study_participant.pseudo_id}{marker}"
+        elif self.participant:
+            name = "participant"
         else:
             name = "[deleted]"
         return f"Consent of {name} for {self.study.title}"
