@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Join {{ study.title }}{% endblock %}
+
+{% block content %}
+<h2>Join {{ study.title }}</h2>
+
+{% if join_confirmation_content %}
+{% autoescape off %}
+    {{ join_confirmation_content }}
+{% endautoescape %}
+{% endif %}
+
+<form method="post">
+    {% csrf_token %}
+    <p>
+        <label>
+            <input type="checkbox" name="accept_terms" required>
+            I have read and accept the
+            <a href="{% url 'terms_of_service' %}" target="_blank">Terms of Service</a>
+            and the
+            <a href="{% url 'privacy_statement' %}" target="_blank">Privacy Notice</a>.
+        </label>
+    </p>
+    <button type="submit">Join Study</button>
+    <a href="{% url 'study_detail' %}">Cancel</a>
+</form>
+{% endblock %}

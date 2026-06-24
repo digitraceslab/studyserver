@@ -1,4 +1,6 @@
 from django.shortcuts import render, redirect
+from django.template import engines
+from django.utils.safestring import mark_safe
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
@@ -52,10 +54,34 @@ def home(request):
     return study_detail(request)
 
 
+def _render_study_html(request, html_content):
+    """Render researcher-configured HTML through the Django template engine,
+    wrapped in the standard study page layout."""
+    study = Study.objects.first()
+    template = engines["django"].from_string(html_content)
+    context = {
+        "study": study,
+        "request": request,
+        "user": request.user,
+        "assets": study.get_assets_dict() if study else {},
+    }
+    return render(
+        request,
+        "studies/study_detail_wrapper.html",
+        {"study_page_content": mark_safe(template.render(context))},
+    )
+
+
 def terms_of_service(request):
+    study = Study.objects.first()
+    if study and study.terms_of_service_html:
+        return _render_study_html(request, study.terms_of_service_html)
     return render(request, 'terms_of_service.html')
 
 def privacy_statement(request):
+    study = Study.objects.first()
+    if study and study.privacy_notice_html:
+        return _render_study_html(request, study.privacy_notice_html)
     return render(request, 'privacy_statement.html')
 
 

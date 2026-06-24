@@ -219,7 +219,12 @@ class StudyAdmin(admin.ModelAdmin):
     inlines = [StudyAssetInline, SourceConfigurationInline, ConsentInline]
     
     def formfield_for_dbfield(self, db_field, request, **kwargs):
-        if db_field.name == 'study_page_html':
+        if db_field.name in (
+            'study_page_html',
+            'privacy_notice_html',
+            'terms_of_service_html',
+            'join_confirmation_html',
+        ):
             kwargs['widget'] = AceWidget(mode='html', theme='monokai', width='100%', height='300px')
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 

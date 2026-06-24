@@ -55,6 +55,25 @@ class Study(models.Model):
         help_text="Front page HTML content."
     )
 
+    privacy_notice_html = models.TextField(
+        blank=True,
+        default='',
+        help_text="Privacy notice HTML content. Shown on the privacy notice page when set."
+    )
+
+    terms_of_service_html = models.TextField(
+        blank=True,
+        default='',
+        help_text="Terms of service HTML content. Shown on the terms of service page when set."
+    )
+
+    join_confirmation_html = models.TextField(
+        blank=True,
+        default='',
+        help_text="HTML shown on the study-wide confirmation page when a participant clicks "
+                  "Join, before any participation is created."
+    )
+
     @property
     def raw_content_base_url(self):
         """ Convert a repo URL to its raw content base URL for some known services. """

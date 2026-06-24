@@ -43,6 +43,33 @@ def join_study(request):
     study = get_study()
     profile = request.user.profile
 
+    # GET: show the study-wide confirmation page (terms + privacy) without
+    # creating any participation or consent records.
+    if request.method != "POST":
+        join_confirmation_content = ""
+        if study.join_confirmation_html:
+            template = engines["django"].from_string(study.join_confirmation_html)
+            context = {
+                "study": study,
+                "request": request,
+                "user": request.user,
+                "assets": study.get_assets_dict(),
+            }
+            join_confirmation_content = mark_safe(template.render(context))
+        return render(
+            request,
+            "studies/join_confirmation.html",
+            {"study": study, "join_confirmation_content": join_confirmation_content},
+        )
+
+    # POST: require explicit confirmation before enrolling.
+    if not request.POST.get("accept_terms"):
+        messages.error(
+            request,
+            "You must confirm the terms of service and privacy notice to join the study.",
+        )
+        return redirect("join_study")
+
     study_participant, _ = StudyParticipant.objects.get_or_create(
         participant=profile,
         study=study,

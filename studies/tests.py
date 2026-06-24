@@ -362,9 +362,25 @@ class StudyParticipantTest(TestCase):
 
 class JoinStudyViewTest(StudyTestMixin, TestCase):
 
+    def test_get_shows_confirmation_without_enrolling(self):
+        # Clicking Join (GET) must not create any consent records.
+        url = reverse('join_study')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            Consent.objects.filter(participant=self.profile, study=self.study).exists()
+        )
+
+    def test_post_without_confirmation_does_not_enroll(self):
+        url = reverse('join_study')
+        self.client.post(url, {})
+        self.assertFalse(
+            Consent.objects.filter(participant=self.profile, study=self.study).exists()
+        )
+
     def test_creates_required_consents(self):
         url = reverse('join_study')
-        self.client.get(url)
+        self.client.post(url, {'accept_terms': 'on'})
         consent = Consent.objects.filter(
             participant=self.profile,
             study=self.study,
@@ -375,7 +391,7 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
 
     def test_creates_optional_consents(self):
         url = reverse('join_study')
-        self.client.get(url)
+        self.client.post(url, {'accept_terms': 'on'})
         consent = Consent.objects.filter(
             participant=self.profile,
             study=self.study,
@@ -386,7 +402,7 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
 
     def test_redirects_to_consent_workflow(self):
         url = reverse('join_study')
-        response = self.client.get(url)
+        response = self.client.post(url, {'accept_terms': 'on'})
         expected_url = reverse('consent_workflow')
         self.assertRedirects(response, expected_url, fetch_redirect_response=False)
 
@@ -406,7 +422,7 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
 
     def test_creates_study_participant(self):
         url = reverse('join_study')
-        self.client.get(url)
+        self.client.post(url, {'accept_terms': 'on'})
         sp = StudyParticipant.objects.filter(
             participant=self.profile,
             study=self.study,
@@ -416,7 +432,7 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
 
     def test_consent_has_study_participant(self):
         url = reverse('join_study')
-        self.client.get(url)
+        self.client.post(url, {'accept_terms': 'on'})
         consent = Consent.objects.filter(
             participant=self.profile,
             study=self.study,
@@ -426,8 +442,8 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
 
     def test_joining_twice_does_not_duplicate_consents(self):
         url = reverse('join_study')
-        self.client.get(url)
-        self.client.get(url)
+        self.client.post(url, {'accept_terms': 'on'})
+        self.client.post(url, {'accept_terms': 'on'})
         # Exactly one active consent per source configuration, not two.
         self.assertEqual(
             Consent.objects.filter(
