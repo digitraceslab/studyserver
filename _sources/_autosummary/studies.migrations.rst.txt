@@ -47,3 +47,4 @@ studies.migrations
    0035_normalize_consent_source_type
    0036_studysourceconfiguration_consent_template_html
    0037_studyasset
+   0038_study_join_confirmation_html_and_more
