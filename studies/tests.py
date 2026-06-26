@@ -1487,10 +1487,10 @@ class StudyAdminTest(TestCase):
             'source_config_entries-INITIAL_FORMS': '0',
             'source_config_entries-MIN_NUM_FORMS': '0',
             'source_config_entries-MAX_NUM_FORMS': '1000',
-            'consents-TOTAL_FORMS': '0',
-            'consents-INITIAL_FORMS': '0',
-            'consents-MIN_NUM_FORMS': '0',
-            'consents-MAX_NUM_FORMS': '1000',
+            'participations-TOTAL_FORMS': '0',
+            'participations-INITIAL_FORMS': '0',
+            'participations-MIN_NUM_FORMS': '0',
+            'participations-MAX_NUM_FORMS': '1000',
         })
 
     def test_superuser_can_add_researcher_to_study(self):
