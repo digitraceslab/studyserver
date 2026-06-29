@@ -241,10 +241,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Email
 # https://docs.djangoproject.com/en/4.2/topics/email/
-# Defaults to the console backend so a misconfigured server logs the message
-# instead of silently dropping it via the SMTP-to-localhost:25 default.
+# Sends via the local MTA (SMTP on localhost:25) by default. The From address
+# MUST be a routable domain address — the previous unset default of
+# webmaster@localhost is silently rejected by receivers such as Gmail.
 EMAIL_BACKEND = env(
-    'EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend'
+    'EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend'
 )
 EMAIL_HOST = env('EMAIL_HOST', default='localhost')
 EMAIL_PORT = env.int('EMAIL_PORT', default=25)
@@ -252,4 +253,4 @@ EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=False)
 EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=False)
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='webmaster@localhost')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@polalpha.cs.aalto.fi')
