@@ -1,6 +1,4 @@
 from django.contrib import admin
-from django.urls import reverse
-from django.utils.html import format_html
 
 from studies.models import StudyParticipant
 from .models import Profile, ProtectedIdentifier
@@ -12,20 +10,14 @@ class StudyParticipantInline(admin.TabularInline):
     Researchers never see the user admin, so this exposes no identities to them."""
     model = StudyParticipant
     fk_name = 'participant'
-    fields = ('study', 'pseudo_id', 'change_link')
-    readonly_fields = ('study', 'pseudo_id', 'change_link')
+    fields = ('study', 'pseudo_id')
+    readonly_fields = ('study', 'pseudo_id')
+    show_change_link = True
     can_delete = False
     extra = 0
 
     def has_add_permission(self, request, obj=None):
         return False
-
-    @admin.display(description='')
-    def change_link(self, obj):
-        if not obj.pk:
-            return '-'
-        url = reverse('admin:studies_studyparticipant_change', args=[obj.pk])
-        return format_html('<a href="{}">View consents</a>', url)
 
 
 @admin.register(Profile)
