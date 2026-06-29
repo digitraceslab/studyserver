@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, date
 from unittest.mock import patch
-from django.test import TestCase
+from django.core import mail
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -2050,3 +2051,54 @@ class MarkDataDeletableTest(StudyTestMixin, TestCase):
         # The consent is skipped, so results should be empty and mark_deletable not called.
         self.assertEqual(data['results'], [])
         mock_mark.assert_not_called()
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class SendParticipantEmailAdminTest(StudyTestMixin, TestCase):
+    """The participant admin 'Send email' view sends synchronously via the
+    in-memory backend; the study contact email is used as Reply-To."""
+
+    def setUp(self):
+        super().setUp()
+        self.user.email = 'participant@example.com'
+        self.user.save()
+        self.study.contact_email = 'contact@example.com'
+        self.study.save()
+        self.admin_user = User.objects.create_superuser(
+            'admin', 'admin@example.com', 'adminpass'
+        )
+        self.client.force_login(self.admin_user)
+        self.url = reverse(
+            'admin:studies_studyparticipant_send_email',
+            args=[self.study_participant.pk],
+        )
+
+    def test_get_renders_form(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_post_sends_email_with_reply_to(self):
+        response = self.client.post(
+            self.url, {'subject': 'Hello', 'message': 'Body text'}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+        msg = mail.outbox[0]
+        self.assertEqual(msg.subject, 'Hello')
+        self.assertEqual(msg.body, 'Body text')
+        self.assertEqual(msg.to, ['participant@example.com'])
+        self.assertEqual(msg.reply_to, ['contact@example.com'])
+
+    def test_post_without_contact_email_has_no_reply_to(self):
+        self.study.contact_email = ''
+        self.study.save()
+        self.client.post(self.url, {'subject': 'Hi', 'message': 'Body'})
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].reply_to, [])
+
+    def test_post_participant_without_email_sends_nothing(self):
+        self.user.email = ''
+        self.user.save()
+        self.client.post(self.url, {'subject': 'Hi', 'message': 'Body'})
+        self.assertEqual(len(mail.outbox), 0)

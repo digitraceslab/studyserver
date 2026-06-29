@@ -238,7 +238,9 @@ class StudyParticipant(models.Model):
         recipient = self.participant.user.email
         if not recipient:
             return 0
-        from_email = from_email or self.study.contact_email or settings.DEFAULT_FROM_EMAIL
+        from_email = (
+            from_email or self.study.contact_email or settings.DEFAULT_FROM_EMAIL
+        )
         return send_mail(
             subject,
             message,
