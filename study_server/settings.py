@@ -9,9 +9,11 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
-import environ
-from pathlib import Path
+
 import os
+from pathlib import Path
+
+import environ
 
 try:
     from .local_settings import *
@@ -22,67 +24,70 @@ except ImportError:
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env()
-environ.Env.read_env(BASE_DIR / '.env')
+environ.Env.read_env(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('SECRET_KEY', default='django-insecure-p@jdu6$ugool=+$#lan3&9fyfgy3k5+%vv8owj19zgsl)4^*-y')
+SECRET_KEY = env(
+    "SECRET_KEY",
+    default="django-insecure-p@jdu6$ugool=+$#lan3&9fyfgy3k5+%vv8owj19zgsl)4^*-y",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DEBUG', default=False)
+DEBUG = env.bool("DEBUG", default=False)
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 
 
-LOGIN_REDIRECT_URL = 'home'
-LOGOUT_REDIRECT_URL = 'home'
+LOGIN_REDIRECT_URL = "home"
+LOGOUT_REDIRECT_URL = "home"
 
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'django_ace',
-    'rest_framework',
-    'rest_framework.authtoken',
-    'polymorphic',
-    'users',
-    'data_sources',
-    'survey_datasource',
-    'survey',
-    'studies',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "django_ace",
+    "rest_framework",
+    "rest_framework.authtoken",
+    "polymorphic",
+    "users",
+    "data_sources",
+    "survey_datasource",
+    "survey",
+    "studies",
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'users.middleware.ProfileRequiredMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'csp.middleware.CSPMiddleware',
-    'django_permissions_policy.PermissionsPolicyMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "users.middleware.ProfileRequiredMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "csp.middleware.CSPMiddleware",
+    "django_permissions_policy.PermissionsPolicyMiddleware",
 ]
 
-ROOT_URLCONF = 'study_server.urls'
+ROOT_URLCONF = "study_server.urls"
 
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SECURE_HSTS_SECONDS = 31536000
-    SECURE_REFERRER_POLICY = 'same-origin'
+    SECURE_REFERRER_POLICY = "same-origin"
 
     CORS_ALLOWED_ORIGINS = [
-        env('SERVER_URL', default='localhost'),
+        env("SERVER_URL", default="localhost"),
     ]
     CORS_ALLOW_CREDENTIALS = True
 
@@ -113,43 +118,40 @@ PERMISSIONS_POLICY = {
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [os.path.join(BASE_DIR, "templates")],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
     ],
 }
 
 CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
     }
 }
 
-WSGI_APPLICATION = 'study_server.wsgi.application'
+WSGI_APPLICATION = "study_server.wsgi.application"
 
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': env.db()
-}
-
+DATABASES = {"default": env.db()}
 
 
 # Password validation
@@ -157,56 +159,56 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
 
-AWARE_DB_HOST = env('AWARE_DB_HOST', default='localhost')
-AWARE_DB_PORT = env('AWARE_DB_PORT', default='3306')
-AWARE_DB_NAME = env('AWARE_DB_NAME', default='aware_db')
-AWARE_DB_INSERT_USER = env('AWARE_DB_INSERT_USER', default='user')
-AWARE_DB_INSERT_PASSWORD = env('AWARE_DB_INSERT_PASSWORD', default='password')
-AWARE_DB_RO_USER = env('AWARE_DB_RO_USER', default='user')
-AWARE_DB_RO_PASSWORD = env('AWARE_DB_RO_PASSWORD', default='password')
-STUDY_PASSWORD = env('STUDY_PASSWORD', default='')
+AWARE_DB_HOST = env("AWARE_DB_HOST", default="localhost")
+AWARE_DB_PORT = env("AWARE_DB_PORT", default="3306")
+AWARE_DB_NAME = env("AWARE_DB_NAME", default="aware_db")
+AWARE_DB_INSERT_USER = env("AWARE_DB_INSERT_USER", default="user")
+AWARE_DB_INSERT_PASSWORD = env("AWARE_DB_INSERT_PASSWORD", default="password")
+AWARE_DB_RO_USER = env("AWARE_DB_RO_USER", default="user")
+AWARE_DB_RO_PASSWORD = env("AWARE_DB_RO_PASSWORD", default="password")
+STUDY_PASSWORD = env("STUDY_PASSWORD", default="")
 
-GOOGLE_OAUTH_CLIENT_ID = env('GOOGLE_OAUTH_CLIENT_ID', default='')
-GOOGLE_OAUTH_CLIENT_SECRET = env('GOOGLE_OAUTH_CLIENT_SECRET', default='')
-TIKTOK_CLIENT_KEY = env('TIKTOK_CLIENT_KEY', default='')
-TIKTOK_CLIENT_SECRET = env('TIKTOK_CLIENT_SECRET', default='')
+GOOGLE_OAUTH_CLIENT_ID = env("GOOGLE_OAUTH_CLIENT_ID", default="")
+GOOGLE_OAUTH_CLIENT_SECRET = env("GOOGLE_OAUTH_CLIENT_SECRET", default="")
+TIKTOK_CLIENT_KEY = env("TIKTOK_CLIENT_KEY", default="")
+TIKTOK_CLIENT_SECRET = env("TIKTOK_CLIENT_SECRET", default="")
 
 # Portability server
-PORTABILITY_SERVER_URL = env('PORTABILITY_SERVER_URL', default='http://localhost:8001')
-PORTABILITY_SERVER_TOKEN = env('PORTABILITY_SERVER_TOKEN', default='')
+PORTABILITY_SERVER_URL = env("PORTABILITY_SERVER_URL", default="http://localhost:8001")
+PORTABILITY_SERVER_TOKEN = env("PORTABILITY_SERVER_TOKEN", default="")
 
 # Block real external network calls (portability HTTP, AWARE DB) during tests.
-TEST_RUNNER = 'study_server.test_runner.NoNetworkTestRunner'
+TEST_RUNNER = "study_server.test_runner.NoNetworkTestRunner"
 
 
 # Processing task automation
-CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://localhost:6379/0")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "UTC"
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_WORKER_CONCURRENCY = 1
 CELERY_BEAT_SCHEDULE = {
-    'check-google-exports': {
-        'task': 'data_sources.tasks.process_data_sources',
-        'schedule': 300,
+    "check-google-exports": {
+        "task": "data_sources.tasks.process_data_sources",
+        "schedule": 300,
     },
 }
 
@@ -214,9 +216,9 @@ CELERY_BEAT_SCHEDULE = {
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 
@@ -226,17 +228,17 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files (User uploads)
-MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 # Email
@@ -245,12 +247,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # MUST be a routable domain address — the previous unset default of
 # webmaster@localhost is silently rejected by receivers such as Gmail.
 EMAIL_BACKEND = env(
-    'EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend'
+    "EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend"
 )
-EMAIL_HOST = env('EMAIL_HOST', default='localhost')
-EMAIL_PORT = env.int('EMAIL_PORT', default=25)
-EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
-EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
-EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=False)
-EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=False)
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@polalpha.cs.aalto.fi')
+EMAIL_HOST = env("EMAIL_HOST", default="localhost")
+EMAIL_PORT = env.int("EMAIL_PORT", default=25)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
+EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="studyserver@example.com")

@@ -24,6 +24,23 @@ class PrettyJSONFormField(forms.JSONField):
 class SendParticipantEmailForm(forms.Form):
     subject = forms.CharField(max_length=255)
     message = forms.CharField(widget=forms.Textarea)
+    reply_to = forms.ChoiceField(
+        label='Reply-to',
+        help_text='Where participant replies should be sent.',
+    )
+
+    def __init__(self, *args, study_contact=None, user_email=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        choices = []
+        if study_contact:
+            choices.append((study_contact, f'Study contact ({study_contact})'))
+        if user_email:
+            choices.append((user_email, f'My email ({user_email})'))
+        if choices:
+            self.fields['reply_to'].choices = choices
+        else:
+            # No address to reply to; hide the field rather than block sending.
+            del self.fields['reply_to']
 
 
 def _consent_summary(study_participant):
@@ -151,14 +168,19 @@ class StudyParticipantAdmin(admin.ModelAdmin):
         change_url = reverse(
             'admin:studies_studyparticipant_change', args=[participant.pk]
         )
+        form_kwargs = {
+            'study_contact': participant.study.contact_email,
+            'user_email': request.user.email,
+        }
         if request.method == 'POST':
-            form = SendParticipantEmailForm(request.POST)
+            form = SendParticipantEmailForm(request.POST, **form_kwargs)
             if form.is_valid():
                 try:
                     sent = self._send_email_to_participant(
                         participant,
                         form.cleaned_data['subject'],
                         form.cleaned_data['message'],
+                        form.cleaned_data.get('reply_to'),
                     )
                 except Exception as exc:
                     self.message_user(
@@ -177,7 +199,7 @@ class StudyParticipantAdmin(admin.ModelAdmin):
                     )
                 return redirect(change_url)
         else:
-            form = SendParticipantEmailForm()
+            form = SendParticipantEmailForm(**form_kwargs)
         context = {
             **self.admin_site.each_context(request),
             'opts': self.model._meta,
@@ -204,17 +226,20 @@ class StudyParticipantAdmin(admin.ModelAdmin):
         rc, rt, oc, ot = _consent_summary(obj)
         return f"required {rc}/{rt}, optional {oc}/{ot}"
 
-    def _send_email_to_participant(self, study_participant, subject, message):
+    def _send_email_to_participant(self, study_participant, subject, message,
+                                   reply_to=None):
         """Send one email synchronously, never exposing the recipient address.
 
-        Returns 1 on success, 0 if the participant has no usable email address.
+        The From address stays on the authenticated DEFAULT_FROM_EMAIL domain so
+        it isn't spam-filtered; reply_to (the sender's chosen Reply-to address)
+        is where participant replies go. Returns 1 on success, 0 if the
+        participant has no usable email address.
         """
         if not study_participant.participant:
             return 0
         recipient = study_participant.participant.user.email
         if not recipient:
             return 0
-        reply_to = study_participant.study.contact_email
         email = EmailMessage(
             subject=subject,
             body=message,
