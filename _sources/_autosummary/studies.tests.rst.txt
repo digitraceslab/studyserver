@@ -25,6 +25,7 @@ studies.tests
       MarkDataDeletableTest
       RevokeConsentViewTest
       SelectDataSourceViewTest
+      SendParticipantEmailAdminTest
       StudyAdminTest
       StudyDataApiTest
       StudyDataApiWatermarkTest
