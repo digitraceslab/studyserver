@@ -11,6 +11,7 @@ studies.admin
       ConsentAdmin
       ConsentInline
       PrettyJSONFormField
+      SendParticipantEmailForm
       SourceConfigurationInline
       StudyAdmin
       StudyAssetInline
