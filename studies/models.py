@@ -223,6 +223,30 @@ class StudyParticipant(models.Model):
         # so researcher-facing admin pages don't expose participant identities.
         return f"Participant {self.pseudo_id} in {self.study.title}"
 
+    def send_email(self, subject, message, from_email=None):
+        """Send an email to this participant synchronously.
+
+        Returns the number of messages sent (1 on success, 0 if the participant
+        has no email address). The recipient address is never exposed to the
+        caller, so researcher-facing code can send mail without seeing identities.
+        """
+        from django.conf import settings
+        from django.core.mail import send_mail
+
+        if not self.participant:
+            return 0
+        recipient = self.participant.user.email
+        if not recipient:
+            return 0
+        from_email = from_email or self.study.contact_email or settings.DEFAULT_FROM_EMAIL
+        return send_mail(
+            subject,
+            message,
+            from_email,
+            [recipient],
+            fail_silently=False,
+        )
+
 
 class Consent(models.Model):
     participant = models.ForeignKey(

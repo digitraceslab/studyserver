@@ -1,9 +1,12 @@
 import json
-from django.contrib import admin
+from django.conf import settings
+from django.contrib import admin, messages
+from django.core.mail import EmailMessage
 from django.db import models
 from django import forms
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.html import format_html
-from django.urls import reverse
+from django.urls import path, reverse
 from django_ace import AceWidget
 from .models import Study, Consent, StudyParticipant, StudySourceConfiguration, StudyAsset
 from .forms import StudyAdminForm, SourceConfigurationInlineForm, StudySourceConfigurationForm
@@ -17,6 +20,11 @@ class PrettyJSONFormField(forms.JSONField):
         if isinstance(value, (dict, list)):
             return json.dumps(value, indent=2)
         return super().prepare_value(value)
+
+class SendParticipantEmailForm(forms.Form):
+    subject = forms.CharField(max_length=255)
+    message = forms.CharField(widget=forms.Textarea)
+
 
 def _consent_summary(study_participant):
     """(required_complete, required_total, optional_complete, optional_total) for a participant."""
@@ -121,6 +129,66 @@ class StudyParticipantAdmin(admin.ModelAdmin):
     fields = ('study', 'pseudo_id')
     readonly_fields = ('study', 'pseudo_id')
     inlines = [ConsentInline]
+    change_form_template = 'admin/studies/studyparticipant/change_form.html'
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                '<path:object_id>/send-email/',
+                self.admin_site.admin_view(self.send_email_view),
+                name='studies_studyparticipant_send_email',
+            ),
+        ]
+        return custom + urls
+
+    def send_email_view(self, request, object_id):
+        # Scope to get_queryset so a researcher can only email participants of
+        # their own studies; raises 404 otherwise.
+        participant = get_object_or_404(self.get_queryset(request), pk=object_id)
+        if not self.has_view_permission(request, participant):
+            raise PermissionDenied
+        change_url = reverse(
+            'admin:studies_studyparticipant_change', args=[participant.pk]
+        )
+        if request.method == 'POST':
+            form = SendParticipantEmailForm(request.POST)
+            if form.is_valid():
+                try:
+                    sent = self._send_email_to_participant(
+                        participant,
+                        form.cleaned_data['subject'],
+                        form.cleaned_data['message'],
+                    )
+                except Exception as exc:
+                    self.message_user(
+                        request, f"Failed to send email: {exc}", messages.ERROR
+                    )
+                    return redirect(change_url)
+                if sent:
+                    self.message_user(
+                        request, "Email sent to the participant.", messages.SUCCESS
+                    )
+                else:
+                    self.message_user(
+                        request,
+                        "Participant has no email address; nothing was sent.",
+                        messages.WARNING,
+                    )
+                return redirect(change_url)
+        else:
+            form = SendParticipantEmailForm()
+        context = {
+            **self.admin_site.each_context(request),
+            'opts': self.model._meta,
+            'original': participant,
+            'change_url': change_url,
+            'form': form,
+            'title': 'Send email to participant',
+        }
+        return render(
+            request, 'admin/studies/studyparticipant/send_email.html', context
+        )
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -135,6 +203,26 @@ class StudyParticipantAdmin(admin.ModelAdmin):
     def consents_summary(self, obj):
         rc, rt, oc, ot = _consent_summary(obj)
         return f"required {rc}/{rt}, optional {oc}/{ot}"
+
+    def _send_email_to_participant(self, study_participant, subject, message):
+        """Send one email synchronously, never exposing the recipient address.
+
+        Returns 1 on success, 0 if the participant has no usable email address.
+        """
+        if not study_participant.participant:
+            return 0
+        recipient = study_participant.participant.user.email
+        if not recipient:
+            return 0
+        reply_to = study_participant.study.contact_email
+        email = EmailMessage(
+            subject=subject,
+            body=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[recipient],
+            reply_to=[reply_to] if reply_to else None,
+        )
+        return email.send(fail_silently=False)
 
 
 @admin.register(Consent)
