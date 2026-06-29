@@ -1,0 +1,12 @@
+users.middleware
+================
+
+.. automodule:: users.middleware
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      ProfileRequiredMiddleware
+   
