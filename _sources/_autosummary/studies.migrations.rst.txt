@@ -50,3 +50,4 @@ studies.migrations
    0038_study_join_confirmation_html_and_more
    0039_privacynotice_termsofservice
    0040_migrate_legal_text_to_versioned
+   0041_remove_study_privacy_notice_html_and_more
