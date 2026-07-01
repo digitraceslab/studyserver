@@ -5,6 +5,20 @@
 <p>Hello, {{ user.username }}!</p>
 
 
+{% if pending_participations %}
+    {% for participation in pending_participations %}
+        <div>
+            <h2>{{ participation.study.title }}</h2>
+            <p>
+                <strong>Registration pending.</strong> Your registration has been
+                noted and a researcher will contact you by email. You can't set up
+                data collection until your registration is approved.
+            </p>
+        </div>
+    {% endfor %}
+    <hr>
+{% endif %}
+
 {% if studies_data %}
     {% for study, data in studies_data.items %}
         <div>
@@ -12,7 +26,7 @@
         </div>
     {% endfor %}
     <hr>
-{% else %}
+{% elif not pending_participations %}
     <p>You are not currently enrolled in the study.</p>
     <p>Go to the <a href="{% url 'home' %}">front page</a> to enroll</p>
 {% endif %}

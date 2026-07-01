@@ -143,7 +143,7 @@ class StudyParticipantInline(admin.TabularInline):
     """Participants of a study, shown as rows on the Study page with a
     completed/total consent summary instead of the individual consents."""
     model = StudyParticipant
-    fields = ('pseudo_id', 'consents_summary', 'status', 'change_link')
+    fields = ('pseudo_id', 'researcher_approved', 'consents_summary', 'status', 'change_link')
     readonly_fields = ('pseudo_id', 'consents_summary', 'status', 'change_link')
     can_delete = False
     extra = 0
@@ -171,8 +171,9 @@ class StudyParticipantInline(admin.TabularInline):
 
 @admin.register(StudyParticipant)
 class StudyParticipantAdmin(admin.ModelAdmin):
-    list_display = ('study', 'pseudo_id', 'consents_summary')
-    fields = ('study', 'pseudo_id')
+    list_display = ('study', 'pseudo_id', 'researcher_approved', 'consents_summary')
+    list_editable = ('researcher_approved',)
+    fields = ('study', 'pseudo_id', 'researcher_approved')
     readonly_fields = ('study', 'pseudo_id')
     inlines = [ConsentInline]
     change_form_template = 'admin/studies/studyparticipant/change_form.html'
@@ -530,6 +531,7 @@ class StudyAdmin(admin.ModelAdmin):
         if db_field.name in (
             'study_page_html',
             'join_confirmation_html',
+            'registration_pending_html',
         ):
             kwargs['widget'] = AceWidget(mode='html', theme='monokai', width='100%', height='300px')
         return super().formfield_for_dbfield(db_field, request, **kwargs)
