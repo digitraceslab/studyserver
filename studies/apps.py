@@ -29,6 +29,14 @@ def setup_researcher_group(sender, **kwargs):
         'add_category',
         'change_category',
         'view_category',
+        'add_privacynotice',
+        'change_privacynotice',
+        'view_privacynotice',
+        'delete_privacynotice',
+        'add_termsofservice',
+        'change_termsofservice',
+        'view_termsofservice',
+        'delete_termsofservice',
     ]
 
     perms = Permission.objects.filter(codename__in=required_permissions)
