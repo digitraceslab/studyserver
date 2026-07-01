@@ -55,18 +55,6 @@ class Study(models.Model):
         blank=True, default="", help_text="Front page HTML content."
     )
 
-    privacy_notice_html = models.TextField(
-        blank=True,
-        default="",
-        help_text="Privacy notice HTML content. Shown on the privacy notice page when set.",
-    )
-
-    terms_of_service_html = models.TextField(
-        blank=True,
-        default="",
-        help_text="Terms of service HTML content. Shown on the terms of service page when set.",
-    )
-
     join_confirmation_html = models.TextField(
         blank=True,
         default="",

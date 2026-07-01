@@ -73,15 +73,15 @@ def _render_study_html(request, html_content):
 
 
 def terms_of_service(request):
-    study = Study.objects.first()
-    if study and study.terms_of_service_html:
-        return _render_study_html(request, study.terms_of_service_html)
+    version = TermsOfService.current()
+    if version and version.text:
+        return _render_study_html(request, version.text)
     return render(request, 'terms_of_service.html')
 
 def privacy_statement(request):
-    study = Study.objects.first()
-    if study and study.privacy_notice_html:
-        return _render_study_html(request, study.privacy_notice_html)
+    version = PrivacyNotice.current()
+    if version and version.text:
+        return _render_study_html(request, version.text)
     return render(request, 'privacy_statement.html')
 
 
