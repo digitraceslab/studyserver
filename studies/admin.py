@@ -4,6 +4,7 @@ import uuid
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
+from django.core.exceptions import PermissionDenied
 from django.core.mail import EmailMessage
 from django.db import models
 from django import forms
@@ -178,7 +179,41 @@ class StudyParticipantAdmin(admin.ModelAdmin):
     inlines = [ConsentInline]
     change_form_template = 'admin/studies/studyparticipant/change_form.html'
     change_list_template = 'admin/studies/studyparticipant/change_list.html'
-    actions = ['send_bulk_email']
+    actions = ['approve_participants', 'unapprove_participants', 'send_bulk_email']
+
+    @admin.action(description='Approve selected participants')
+    def approve_participants(self, request, queryset):
+        updated = queryset.update(researcher_approved=True)
+        self.message_user(
+            request, f"Approved {updated} participant(s).", messages.SUCCESS
+        )
+
+    @admin.action(description='Revoke approval of selected participants')
+    def unapprove_participants(self, request, queryset):
+        updated = queryset.update(researcher_approved=False)
+        self.message_user(
+            request, f"Revoked approval of {updated} participant(s).", messages.SUCCESS
+        )
+
+    def set_approval_view(self, request, object_id, approved):
+        # Per-object approve / revoke button on the change page. Scoped to
+        # get_queryset so a researcher can only act on their own participants.
+        participant = get_object_or_404(self.get_queryset(request), pk=object_id)
+        if not self.has_change_permission(request, participant):
+            raise PermissionDenied
+        change_url = reverse(
+            'admin:studies_studyparticipant_change', args=[participant.pk]
+        )
+        if request.method != 'POST':
+            return redirect(change_url)
+        participant.researcher_approved = approved
+        participant.save(update_fields=['researcher_approved'])
+        self.message_user(
+            request,
+            "Participant approved." if approved else "Participant approval revoked.",
+            messages.SUCCESS,
+        )
+        return redirect(change_url)
 
     def get_urls(self):
         urls = super().get_urls()
@@ -187,6 +222,24 @@ class StudyParticipantAdmin(admin.ModelAdmin):
                 'send-email-by-ids/',
                 self.admin_site.admin_view(self.send_email_by_ids_view),
                 name='studies_studyparticipant_send_email_by_ids',
+            ),
+            path(
+                '<path:object_id>/approve/',
+                self.admin_site.admin_view(
+                    lambda request, object_id: self.set_approval_view(
+                        request, object_id, True
+                    )
+                ),
+                name='studies_studyparticipant_approve',
+            ),
+            path(
+                '<path:object_id>/unapprove/',
+                self.admin_site.admin_view(
+                    lambda request, object_id: self.set_approval_view(
+                        request, object_id, False
+                    )
+                ),
+                name='studies_studyparticipant_unapprove',
             ),
             path(
                 '<path:object_id>/send-email/',
