@@ -9,6 +9,7 @@ data\_sources.forms
    .. autosummary::
    
       AwareDataSourceForm
+      BaseDataSourceForm
       DataFilterForm
       JsonUrlDataSourceForm
       NiimportDataSourceForm

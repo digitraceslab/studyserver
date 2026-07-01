@@ -9,8 +9,11 @@ studies.models
    .. autosummary::
    
       Consent
+      PrivacyNotice
       Study
       StudyAsset
       StudyParticipant
       StudySourceConfiguration
+      TermsOfService
+      VersionedText
    
