@@ -1,7 +1,11 @@
 {% extends "admin/base_site.html" %}
 
 {% block content %}
-{% if original %}
+{% if by_ids %}
+<p>Paste the participant pseudo-IDs to email (e.g. a cohort computed off-server).
+IDs that match no participant, or that you have no access to, are skipped and
+reported. Recipient addresses are never shown.</p>
+{% elif original %}
 <p>Send an email to participant <strong>{{ original.pseudo_id }}</strong>. The
 recipient address is not shown to keep the participant's identity private.</p>
 {% else %}
