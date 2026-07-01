@@ -250,6 +250,54 @@ class StudyParticipant(models.Model):
         )
 
 
+class VersionedText(models.Model):
+    """Abstract base for legal text that is versioned instead of overwritten.
+
+    Saving an instance never updates the existing row: each save inserts a new
+    row with a new pk, so every past version is preserved and remains
+    addressable by its pk. The current version is the one with the highest pk.
+    """
+
+    text = models.TextField(blank=True, default="")
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        abstract = True
+        ordering = ["-pk"]
+
+    def save(self, *args, **kwargs):
+        # Force an insert so editing-and-saving creates a new version rather
+        # than mutating the existing one.
+        self.pk = None
+        self._state.adding = True
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def current(cls):
+        """Return the latest version (highest pk), or None if none exist."""
+        return cls.objects.order_by("-pk").first()
+
+    @property
+    def previous_version(self):
+        """The version immediately preceding this one, or None if this is the first."""
+        return type(self).objects.filter(pk__lt=self.pk).order_by("-pk").first()
+
+    def __str__(self):
+        return f"{type(self).__name__} v{self.pk}"
+
+
+class PrivacyNotice(VersionedText):
+    class Meta(VersionedText.Meta):
+        verbose_name = "Privacy Notice"
+        verbose_name_plural = "Privacy Notices"
+
+
+class TermsOfService(VersionedText):
+    class Meta(VersionedText.Meta):
+        verbose_name = "Terms of Service"
+        verbose_name_plural = "Terms of Service"
+
+
 class Consent(models.Model):
     participant = models.ForeignKey(
         Profile,
