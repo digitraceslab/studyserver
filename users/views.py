@@ -16,7 +16,7 @@ from rest_framework.authtoken.models import Token
 from study_server.utils import data_to_csv_response
 from django.db import transaction
 from users.models import Profile, ProtectedIdentifier
-from studies.models import Study, Consent, StudyParticipant
+from studies.models import Study, Consent, StudyParticipant, PrivacyNotice, TermsOfService
 from .forms import CustomUserCreationForm
 from studies.views import study_detail
 from data_sources.models import DataSource
@@ -83,6 +83,16 @@ def privacy_statement(request):
     if study and study.privacy_notice_html:
         return _render_study_html(request, study.privacy_notice_html)
     return render(request, 'privacy_statement.html')
+
+
+def terms_of_service_version(request, pk):
+    version = get_object_or_404(TermsOfService, pk=pk)
+    return _render_study_html(request, version.text)
+
+
+def privacy_statement_version(request, pk):
+    version = get_object_or_404(PrivacyNotice, pk=pk)
+    return _render_study_html(request, version.text)
 
 
 def signup(request):
