@@ -2080,7 +2080,9 @@ class SendParticipantEmailAdminTest(StudyTestMixin, TestCase):
 
     def test_post_sends_email_with_reply_to(self):
         response = self.client.post(
-            self.url, {'subject': 'Hello', 'message': 'Body text'}
+            self.url,
+            {'subject': 'Hello', 'message': 'Body text',
+             'reply_to': 'contact@example.com'},
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(len(mail.outbox), 1)
@@ -2089,10 +2091,37 @@ class SendParticipantEmailAdminTest(StudyTestMixin, TestCase):
         self.assertEqual(msg.body, 'Body text')
         self.assertEqual(msg.to, ['participant@example.com'])
         self.assertEqual(msg.reply_to, ['contact@example.com'])
+        # From stays on the authenticated domain, never the participant address.
+        self.assertEqual(msg.from_email, settings.DEFAULT_FROM_EMAIL)
 
-    def test_post_without_contact_email_has_no_reply_to(self):
+    def test_post_can_reply_to_own_email(self):
+        # The sender may choose their own address instead of the study contact.
+        self.client.post(
+            self.url,
+            {'subject': 'Hi', 'message': 'Body',
+             'reply_to': 'admin@example.com'},
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].reply_to, ['admin@example.com'])
+
+    def test_reply_to_must_be_an_offered_address(self):
+        # An address that is neither the study contact nor the sender's own is
+        # rejected by the choice field; nothing is sent.
+        response = self.client.post(
+            self.url,
+            {'subject': 'Hi', 'message': 'Body',
+             'reply_to': 'attacker@example.com'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_post_without_any_reply_address_has_no_reply_to(self):
+        # With no study contact and no sender email, the field is dropped and
+        # the message goes out with no Reply-To.
         self.study.contact_email = ''
         self.study.save()
+        self.admin_user.email = ''
+        self.admin_user.save()
         self.client.post(self.url, {'subject': 'Hi', 'message': 'Body'})
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].reply_to, [])
@@ -2100,5 +2129,9 @@ class SendParticipantEmailAdminTest(StudyTestMixin, TestCase):
     def test_post_participant_without_email_sends_nothing(self):
         self.user.email = ''
         self.user.save()
-        self.client.post(self.url, {'subject': 'Hi', 'message': 'Body'})
+        self.client.post(
+            self.url,
+            {'subject': 'Hi', 'message': 'Body',
+             'reply_to': 'contact@example.com'},
+        )
         self.assertEqual(len(mail.outbox), 0)

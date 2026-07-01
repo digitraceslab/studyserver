@@ -1,6 +1,7 @@
 import json
 from django.conf import settings
 from django.contrib import admin, messages
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.core.mail import EmailMessage
 from django.db import models
 from django import forms
@@ -29,11 +30,11 @@ class SendParticipantEmailForm(forms.Form):
         help_text='Where participant replies should be sent.',
     )
 
-    def __init__(self, *args, study_contact=None, user_email=None, **kwargs):
+    def __init__(self, *args, study_contacts=None, user_email=None, **kwargs):
         super().__init__(*args, **kwargs)
         choices = []
-        if study_contact:
-            choices.append((study_contact, f'Study contact ({study_contact})'))
+        for contact in study_contacts or []:
+            choices.append((contact, f'Study contact ({contact})'))
         if user_email:
             choices.append((user_email, f'My email ({user_email})'))
         if choices:
@@ -147,6 +148,7 @@ class StudyParticipantAdmin(admin.ModelAdmin):
     readonly_fields = ('study', 'pseudo_id')
     inlines = [ConsentInline]
     change_form_template = 'admin/studies/studyparticipant/change_form.html'
+    actions = ['send_bulk_email']
 
     def get_urls(self):
         urls = super().get_urls()
@@ -169,7 +171,8 @@ class StudyParticipantAdmin(admin.ModelAdmin):
             'admin:studies_studyparticipant_change', args=[participant.pk]
         )
         form_kwargs = {
-            'study_contact': participant.study.contact_email,
+            'study_contacts': [participant.study.contact_email]
+            if participant.study.contact_email else [],
             'user_email': request.user.email,
         }
         if request.method == 'POST':
@@ -207,6 +210,58 @@ class StudyParticipantAdmin(admin.ModelAdmin):
             'change_url': change_url,
             'form': form,
             'title': 'Send email to participant',
+        }
+        return render(
+            request, 'admin/studies/studyparticipant/send_email.html', context
+        )
+
+    @admin.action(description='Send an email to selected participants')
+    def send_bulk_email(self, request, queryset):
+        # Django action-confirmation pattern: the first click renders the email
+        # form (carrying the selection as hidden inputs); the 'send' marker on
+        # the posted form tells us it's the confirmed submission.
+        participants = list(queryset)
+        contacts = []
+        for p in participants:
+            if p.study.contact_email and p.study.contact_email not in contacts:
+                contacts.append(p.study.contact_email)
+        form_kwargs = {'study_contacts': contacts, 'user_email': request.user.email}
+        if 'send' in request.POST:
+            form = SendParticipantEmailForm(request.POST, **form_kwargs)
+            if form.is_valid():
+                subject = form.cleaned_data['subject']
+                message = form.cleaned_data['message']
+                reply_to = form.cleaned_data.get('reply_to')
+                sent = 0
+                for participant in participants:
+                    try:
+                        sent += self._send_email_to_participant(
+                            participant, subject, message, reply_to
+                        )
+                    except Exception as exc:
+                        self.message_user(
+                            request,
+                            f"Failed to send some emails: {exc}",
+                            messages.ERROR,
+                        )
+                        return None
+                self.message_user(
+                    request,
+                    f"Email sent to {sent} of {len(participants)} selected "
+                    "participants (participants without an address are skipped).",
+                    messages.SUCCESS,
+                )
+                return None
+        else:
+            form = SendParticipantEmailForm(**form_kwargs)
+        context = {
+            **self.admin_site.each_context(request),
+            'opts': self.model._meta,
+            'form': form,
+            'title': 'Send email to selected participants',
+            'participants': participants,
+            'selected_pks': [p.pk for p in participants],
+            'action_checkbox_name': ACTION_CHECKBOX_NAME,
         }
         return render(
             request, 'admin/studies/studyparticipant/send_email.html', context

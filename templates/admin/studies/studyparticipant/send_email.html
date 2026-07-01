@@ -1,15 +1,28 @@
 {% extends "admin/base_site.html" %}
 
 {% block content %}
+{% if original %}
 <p>Send an email to participant <strong>{{ original.pseudo_id }}</strong>. The
 recipient address is not shown to keep the participant's identity private.</p>
+{% else %}
+<p>Send an email to the <strong>{{ participants|length }}</strong> selected
+participants. Recipient addresses are not shown to keep participant identities
+private; participants without an address are skipped.</p>
+{% endif %}
 
 <form method="post">
   {% csrf_token %}
   {{ form.as_p }}
+  {% if action_checkbox_name %}
+    {% for pk in selected_pks %}
+      <input type="hidden" name="{{ action_checkbox_name }}" value="{{ pk }}">
+    {% endfor %}
+    <input type="hidden" name="action" value="send_bulk_email">
+    <input type="hidden" name="send" value="1">
+  {% endif %}
   <div class="submit-row">
     <input type="submit" value="Send email" class="default">
-    <a href="{{ change_url }}" class="closelink">Cancel</a>
+    {% if change_url %}<a href="{{ change_url }}" class="closelink">Cancel</a>{% endif %}
   </div>
 </form>
 {% endblock %}
