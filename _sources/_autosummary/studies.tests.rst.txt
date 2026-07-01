@@ -15,6 +15,7 @@ studies.tests
 
    .. autosummary::
    
+      BulkSendParticipantEmailAdminTest
       ConsentCheckboxViewTest
       ConsentModelTest
       ConsentProfileDeletionTest
@@ -26,6 +27,7 @@ studies.tests
       RevokeConsentViewTest
       SelectDataSourceViewTest
       SendParticipantEmailAdminTest
+      SendParticipantEmailByIdsAdminTest
       StudyAdminTest
       StudyDataApiTest
       StudyDataApiWatermarkTest
