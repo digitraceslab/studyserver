@@ -11,7 +11,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.html import format_html
 from django.urls import path, reverse
 from django_ace import AceWidget
-from .models import Study, Consent, StudyParticipant, StudySourceConfiguration, StudyAsset
+from .models import Study, Consent, StudyParticipant, StudySourceConfiguration, StudyAsset, PrivacyNotice, TermsOfService
 from .forms import StudyAdminForm, SourceConfigurationInlineForm, StudySourceConfigurationForm
 from data_sources.models import DataSource
 
@@ -560,4 +560,47 @@ class StudyAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
         if not change:
             obj.researchers.add(request.user.profile)
+
+
+class VersionedTextAdmin(admin.ModelAdmin):
+    """Base admin for versioned legal text. Restricted to full admins
+    (superusers) so researchers can neither see nor edit these models.
+
+    Saving always creates a new version (see VersionedText.save); past
+    versions remain visible in the list and are editable only as read-only
+    references."""
+
+    list_display = ('pk', 'created')
+    ordering = ('-pk',)
+    readonly_fields = ('created',)
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == 'text':
+            kwargs['widget'] = AceWidget(mode='html', theme='monokai', width='100%', height='300px')
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+    def has_module_permission(self, request):
+        return request.user.is_superuser
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_add_permission(self, request):
+        return request.user.is_superuser
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+
+@admin.register(PrivacyNotice)
+class PrivacyNoticeAdmin(VersionedTextAdmin):
+    pass
+
+
+@admin.register(TermsOfService)
+class TermsOfServiceAdmin(VersionedTextAdmin):
+    pass
 
