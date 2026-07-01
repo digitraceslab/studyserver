@@ -1,8 +1,11 @@
+import uuid
 from datetime import datetime, timedelta, date
 from unittest.mock import patch
+from django.conf import settings
 from django.core import mail
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.http import Http404
@@ -2134,4 +2137,189 @@ class SendParticipantEmailAdminTest(StudyTestMixin, TestCase):
             {'subject': 'Hi', 'message': 'Body',
              'reply_to': 'contact@example.com'},
         )
+        self.assertEqual(len(mail.outbox), 0)
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class BulkSendParticipantEmailAdminTest(StudyTestMixin, TestCase):
+    """The changelist 'Send an email to selected participants' action writes one
+    email and sends a separate copy to each selected participant."""
+
+    def setUp(self):
+        super().setUp()
+        self.user.email = 'p1@example.com'
+        self.user.save()
+        self.study.contact_email = 'contact@example.com'
+        self.study.save()
+        # A second participant in the same study.
+        self.user2 = User.objects.create_user(
+            username='participant2', password='testpass', email='p2@example.com'
+        )
+        self.profile2 = Profile.objects.create(
+            user=self.user2, user_type='participant'
+        )
+        self.participant2 = StudyParticipant.objects.create(
+            participant=self.profile2, study=self.study
+        )
+        self.admin_user = User.objects.create_superuser(
+            'admin', 'admin@example.com', 'adminpass'
+        )
+        self.client.force_login(self.admin_user)
+        self.changelist_url = reverse(
+            'admin:studies_studyparticipant_changelist'
+        )
+        self.selected = [self.study_participant.pk, self.participant2.pk]
+
+    def _post(self, extra):
+        data = {
+            'action': 'send_bulk_email',
+            ACTION_CHECKBOX_NAME: self.selected,
+            **extra,
+        }
+        return self.client.post(self.changelist_url, data)
+
+    def test_confirmation_page_renders_without_sending(self):
+        # Selecting the action (no 'send' marker) shows the form, sends nothing.
+        response = self._post({})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_bulk_sends_to_all_selected(self):
+        response = self._post({
+            'send': '1',
+            'subject': 'Hello all',
+            'message': 'Body',
+            'reply_to': 'contact@example.com',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(mail.outbox), 2)
+        recipients = {msg.to[0] for msg in mail.outbox}
+        self.assertEqual(recipients, {'p1@example.com', 'p2@example.com'})
+        for msg in mail.outbox:
+            self.assertEqual(msg.subject, 'Hello all')
+            self.assertEqual(msg.reply_to, ['contact@example.com'])
+            # Recipients are never disclosed to each other.
+            self.assertEqual(len(msg.to), 1)
+
+    def test_bulk_can_reply_to_own_email(self):
+        self._post({
+            'send': '1',
+            'subject': 'Hi',
+            'message': 'Body',
+            'reply_to': 'admin@example.com',
+        })
+        self.assertEqual(len(mail.outbox), 2)
+        for msg in mail.outbox:
+            self.assertEqual(msg.reply_to, ['admin@example.com'])
+
+    def test_bulk_skips_participants_without_email(self):
+        self.user2.email = ''
+        self.user2.save()
+        self._post({
+            'send': '1',
+            'subject': 'Hi',
+            'message': 'Body',
+            'reply_to': 'contact@example.com',
+        })
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['p1@example.com'])
+
+    def test_action_queryset_is_scoped_to_researchers_studies(self):
+        # The bulk action relies on get_queryset to keep researchers from
+        # emailing participants of studies they don't run.
+        from django.contrib.admin.sites import site
+        from django.test import RequestFactory
+        from .admin import StudyParticipantAdmin
+
+        other_study = Study.objects.create(
+            title='Other', description='x',
+            config_url='https://github.com/example/other',
+        )
+        other_user = User.objects.create_user(
+            username='outsider', password='testpass', email='outsider@example.com'
+        )
+        other_profile = Profile.objects.create(
+            user=other_user, user_type='participant'
+        )
+        outsider = StudyParticipant.objects.create(
+            participant=other_profile, study=other_study
+        )
+        request = RequestFactory().get('/')
+        request.user = self.researcher_user
+        model_admin = StudyParticipantAdmin(StudyParticipant, site)
+        qs = model_admin.get_queryset(request)
+        self.assertIn(self.study_participant, qs)
+        self.assertNotIn(outsider, qs)
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class SendParticipantEmailByIdsAdminTest(StudyTestMixin, TestCase):
+    """The 'Email participants by pseudo-ID' view emails a cohort identified by
+    pasted pseudo-IDs, matched against the researcher-scoped queryset."""
+
+    def setUp(self):
+        super().setUp()
+        self.user.email = 'p1@example.com'
+        self.user.save()
+        self.study.contact_email = 'contact@example.com'
+        self.study.save()
+        self.user2 = User.objects.create_user(
+            username='participant2', password='testpass', email='p2@example.com'
+        )
+        self.profile2 = Profile.objects.create(
+            user=self.user2, user_type='participant'
+        )
+        self.participant2 = StudyParticipant.objects.create(
+            participant=self.profile2, study=self.study
+        )
+        self.admin_user = User.objects.create_superuser(
+            'admin', 'admin@example.com', 'adminpass'
+        )
+        self.client.force_login(self.admin_user)
+        self.url = reverse(
+            'admin:studies_studyparticipant_send_email_by_ids'
+        )
+
+    def test_get_renders_form(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_sends_to_pasted_ids(self):
+        pasted = f'{self.study_participant.pseudo_id}\n{self.participant2.pseudo_id}'
+        response = self.client.post(self.url, {
+            'pseudo_ids': pasted,
+            'subject': 'Cohort',
+            'message': 'Body',
+            'reply_to': 'contact@example.com',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(mail.outbox), 2)
+        recipients = {msg.to[0] for msg in mail.outbox}
+        self.assertEqual(recipients, {'p1@example.com', 'p2@example.com'})
+
+    def test_unknown_and_invalid_ids_are_skipped(self):
+        # One real ID, one well-formed but unknown UUID, one garbage token.
+        pasted = (
+            f'{self.study_participant.pseudo_id}, '
+            f'{uuid.uuid4()}, not-a-uuid'
+        )
+        response = self.client.post(self.url, {
+            'pseudo_ids': pasted,
+            'subject': 'Hi',
+            'message': 'Body',
+            'reply_to': 'contact@example.com',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['p1@example.com'])
+
+    def test_no_valid_ids_is_a_form_error(self):
+        response = self.client.post(self.url, {
+            'pseudo_ids': 'not-a-uuid, also-bad',
+            'subject': 'Hi',
+            'message': 'Body',
+            'reply_to': 'contact@example.com',
+        })
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(len(mail.outbox), 0)

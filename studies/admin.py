@@ -1,4 +1,6 @@
 import json
+import re
+import uuid
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
@@ -42,6 +44,32 @@ class SendParticipantEmailForm(forms.Form):
         else:
             # No address to reply to; hide the field rather than block sending.
             del self.fields['reply_to']
+
+
+class SendParticipantEmailByIdsForm(SendParticipantEmailForm):
+    """Email form that also takes a pasted list of participant pseudo-IDs, for
+    targeting a cohort computed off-server. Invalid tokens are collected in
+    ``invalid_pseudo_ids`` so the view can report them."""
+    pseudo_ids = forms.CharField(
+        widget=forms.Textarea,
+        label='Participant pseudo-IDs',
+        help_text='One pseudo-ID per line (spaces or commas also accepted).',
+    )
+    field_order = ['pseudo_ids', 'subject', 'message', 'reply_to']
+
+    def clean_pseudo_ids(self):
+        self.invalid_pseudo_ids = []
+        valid = []
+        for token in re.split(r'[\s,]+', self.cleaned_data['pseudo_ids']):
+            if not token:
+                continue
+            try:
+                valid.append(uuid.UUID(token))
+            except ValueError:
+                self.invalid_pseudo_ids.append(token)
+        if not valid:
+            raise forms.ValidationError('No valid pseudo-IDs found.')
+        return valid
 
 
 def _consent_summary(study_participant):
@@ -148,11 +176,17 @@ class StudyParticipantAdmin(admin.ModelAdmin):
     readonly_fields = ('study', 'pseudo_id')
     inlines = [ConsentInline]
     change_form_template = 'admin/studies/studyparticipant/change_form.html'
+    change_list_template = 'admin/studies/studyparticipant/change_list.html'
     actions = ['send_bulk_email']
 
     def get_urls(self):
         urls = super().get_urls()
         custom = [
+            path(
+                'send-email-by-ids/',
+                self.admin_site.admin_view(self.send_email_by_ids_view),
+                name='studies_studyparticipant_send_email_by_ids',
+            ),
             path(
                 '<path:object_id>/send-email/',
                 self.admin_site.admin_view(self.send_email_view),
@@ -262,6 +296,70 @@ class StudyParticipantAdmin(admin.ModelAdmin):
             'participants': participants,
             'selected_pks': [p.pk for p in participants],
             'action_checkbox_name': ACTION_CHECKBOX_NAME,
+        }
+        return render(
+            request, 'admin/studies/studyparticipant/send_email.html', context
+        )
+
+    def _reply_to_contacts(self, request):
+        """Distinct study contact emails visible to this user, for Reply-to."""
+        contacts = []
+        qs = self.get_queryset(request)
+        for contact in qs.values_list('study__contact_email', flat=True).distinct():
+            if contact and contact not in contacts:
+                contacts.append(contact)
+        return contacts
+
+    def send_email_by_ids_view(self, request):
+        # Email a cohort identified by pseudo-IDs computed off-server. IDs are
+        # matched against get_queryset, so a researcher can only reach
+        # participants of their own studies.
+        changelist_url = reverse('admin:studies_studyparticipant_changelist')
+        form_kwargs = {
+            'study_contacts': self._reply_to_contacts(request),
+            'user_email': request.user.email,
+        }
+        if request.method == 'POST':
+            form = SendParticipantEmailByIdsForm(request.POST, **form_kwargs)
+            if form.is_valid():
+                ids = form.cleaned_data['pseudo_ids']
+                participants = list(
+                    self.get_queryset(request).filter(pseudo_id__in=ids)
+                )
+                found = {p.pseudo_id for p in participants}
+                not_found = [str(i) for i in ids if i not in found]
+                subject = form.cleaned_data['subject']
+                message = form.cleaned_data['message']
+                reply_to = form.cleaned_data.get('reply_to')
+                sent = 0
+                for participant in participants:
+                    try:
+                        sent += self._send_email_to_participant(
+                            participant, subject, message, reply_to
+                        )
+                    except Exception as exc:
+                        self.message_user(
+                            request, f"Failed to send some emails: {exc}",
+                            messages.ERROR,
+                        )
+                        return redirect(changelist_url)
+                self.message_user(
+                    request,
+                    f"Email sent to {sent} participant(s). "
+                    f"{len(not_found)} pseudo-ID(s) matched no participant; "
+                    f"{len(form.invalid_pseudo_ids)} were not valid IDs.",
+                    messages.SUCCESS,
+                )
+                return redirect(changelist_url)
+        else:
+            form = SendParticipantEmailByIdsForm(**form_kwargs)
+        context = {
+            **self.admin_site.each_context(request),
+            'opts': self.model._meta,
+            'form': form,
+            'title': 'Send email to participants by pseudo-ID',
+            'by_ids': True,
+            'change_url': changelist_url,
         }
         return render(
             request, 'admin/studies/studyparticipant/send_email.html', context
