@@ -75,6 +75,10 @@ class Study(models.Model):
         help_text="Whether participants should be asked to provide a tax ID",
     )
 
+    class Meta:
+        verbose_name = "study"
+        verbose_name_plural = "study"
+
     @property
     def raw_content_base_url(self):
         """Convert a repo URL to its raw content base URL for some known services."""
