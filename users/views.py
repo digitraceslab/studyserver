@@ -176,6 +176,15 @@ def get_active_studies(user):
 def get_active_studies_data(profile, request):
     studies_data = {}
     for study in get_active_studies(profile.user):
+        # Hide all consent-related items for a study until the participant's
+        # registration is approved. An unapproved participation is surfaced
+        # separately as a "registration pending" notice.
+        participation = StudyParticipant.objects.filter(
+            participant=profile, study=study
+        ).first()
+        if participation and not participation.researcher_approved:
+            continue
+
         studies_data[study] = {
             'active_consents': [],
             'incomplete_consents': [],
