@@ -3,6 +3,19 @@
 {% block object-tools-items %}
   {% if original.pk %}
   <li>
+    {% if original.researcher_approved %}
+    <form method="post" action="{% url 'admin:studies_studyparticipant_unapprove' original.pk %}" style="display:inline">
+      {% csrf_token %}
+      <button type="submit" class="button" style="cursor:pointer">Revoke approval</button>
+    </form>
+    {% else %}
+    <form method="post" action="{% url 'admin:studies_studyparticipant_approve' original.pk %}" style="display:inline">
+      {% csrf_token %}
+      <button type="submit" class="button" style="cursor:pointer">Approve participant</button>
+    </form>
+    {% endif %}
+  </li>
+  <li>
     <a href="{% url 'admin:studies_studyparticipant_send_email' original.pk %}">Send email</a>
   </li>
   {% endif %}
