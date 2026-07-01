@@ -27,6 +27,12 @@ class Profile(models.Model):
     )
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES)
+    tax_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Tax ID collected for remuneration.",
+    )
 
 
     def delete(self, *args, **kwargs):
