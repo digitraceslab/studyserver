@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}Registration received — {{ study.title }}{% endblock %}
+
+{% block content %}
+<h2>Registration received</h2>
+
+{% if pending_content %}
+{% autoescape off %}
+    {{ pending_content }}
+{% endautoescape %}
+{% else %}
+<p>
+    Your registration for <strong>{{ study.title }}</strong> has been noted. A
+    researcher will review it and contact you by email with the next steps.
+</p>
+<p>You don't need to do anything further for now.</p>
+{% endif %}
+
+<p><a href="{% url 'dashboard' %}">Back to your dashboard</a></p>
+{% endblock %}

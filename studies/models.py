@@ -62,6 +62,14 @@ class Study(models.Model):
         "Join, before any participation is created.",
     )
 
+    registration_pending_html = models.TextField(
+        blank=True,
+        default="",
+        help_text="HTML shown to a participant after they register, while awaiting "
+        "researcher approval. Typically explains that their registration has been "
+        "noted and researchers will contact them by email.",
+    )
+
     @property
     def raw_content_base_url(self):
         """Convert a repo URL to its raw content base URL for some known services."""
@@ -202,6 +210,11 @@ class StudyParticipant(models.Model):
         Study, on_delete=models.CASCADE, related_name="participations"
     )
     pseudo_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    researcher_approved = models.BooleanField(
+        default=False,
+        help_text="A researcher has approved this participant. Until approved, the "
+        "participant cannot consent or collect data.",
+    )
 
     class Meta:
         unique_together = ("participant", "study")

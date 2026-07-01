@@ -55,6 +55,7 @@ class StudyTestMixin:
         self.study_participant = StudyParticipant.objects.create(
             participant=self.profile,
             study=self.study,
+            researcher_approved=True,
         )
         self.client.login(username='participant', password='testpass')
 
@@ -385,6 +386,10 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
             Consent.objects.filter(participant=self.profile, study=self.study).exists()
         )
 
+    def _unapprove(self):
+        self.study_participant.researcher_approved = False
+        self.study_participant.save()
+
     def test_creates_required_consents(self):
         url = reverse('join_study')
         self.client.post(url, {'accept_terms': 'on'})
@@ -412,6 +417,37 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
         response = self.client.post(url, {'accept_terms': 'on'})
         expected_url = reverse('consent_workflow')
         self.assertRedirects(response, expected_url, fetch_redirect_response=False)
+
+    def test_unapproved_join_shows_pending_without_consents(self):
+        # Participant is not yet approved: registration is noted but no consents
+        # are created and the pending page is shown.
+        self._unapprove()
+        url = reverse('join_study')
+        response = self.client.post(url, {'accept_terms': 'on'})
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'studies/registration_pending.html')
+        self.assertFalse(
+            Consent.objects.filter(participant=self.profile, study=self.study).exists()
+        )
+
+    def test_consent_workflow_blocked_until_approved(self):
+        # Directly hitting the consent workflow while unapproved shows the pending
+        # page and creates no consents.
+        self._unapprove()
+        response = self.client.get(reverse('consent_workflow'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'studies/registration_pending.html')
+        self.assertFalse(
+            Consent.objects.filter(participant=self.profile, study=self.study).exists()
+        )
+
+    def test_consent_workflow_creates_consents_after_approval(self):
+        # An approved participant reaching the workflow directly (without re-join)
+        # gets their consents created.
+        self.client.get(reverse('consent_workflow'))
+        self.assertTrue(
+            Consent.objects.filter(participant=self.profile, study=self.study).exists()
+        )
 
     def test_requires_login(self):
         self.client.logout()

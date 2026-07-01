@@ -75,10 +75,31 @@ def join_study(request):
         study=study,
     )
 
+    # Participants must be approved by a researcher before they can consent or
+    # collect data. Registration only records the StudyParticipant; consents are
+    # created once the participant is approved (here or in consent_workflow).
+    if not study_participant.researcher_approved:
+        return render_registration_pending(request, study)
+
+    create_consents_for_participant(study, profile, study_participant)
+
+    messages.info(
+        request,
+        f"You have started the enrollment process for '{study.title}'. Please complete the required steps.",
+    )
+    return redirect("consent_workflow")
+
+
+def create_consents_for_participant(study, profile, study_participant):
+    """Create the study's required/optional consents for an approved participant.
+
+    Idempotent: an active consent for a source configuration is never
+    duplicated, so this is safe to call whenever the participant (re-)enters the
+    flow. Revoked consents are ignored so a participant who withdrew can re-join
+    and get a fresh consent.
+    """
+
     def ensure_consent(source_configuration, is_optional):
-        # Idempotent: don't duplicate an active consent if the participant
-        # re-enters the join flow. Revoked consents are ignored so a participant
-        # who withdrew can re-join and get a fresh consent.
         already = Consent.objects.filter(
             participant=profile,
             study=study,
@@ -102,11 +123,24 @@ def join_study(request):
     for source_configuration in study.source_config_entries.filter(status="optional"):
         ensure_consent(source_configuration, is_optional=True)
 
-    messages.info(
+
+def render_registration_pending(request, study):
+    """Render the 'registration noted, awaiting approval' page for a participant."""
+    pending_content = ""
+    if study.registration_pending_html:
+        template = engines["django"].from_string(study.registration_pending_html)
+        context = {
+            "study": study,
+            "request": request,
+            "user": request.user,
+            "assets": study.get_assets_dict(),
+        }
+        pending_content = mark_safe(template.render(context))
+    return render(
         request,
-        f"You have started the enrollment process for '{study.title}'. Please complete the required steps.",
+        "studies/registration_pending.html",
+        {"study": study, "pending_content": pending_content},
     )
-    return redirect("consent_workflow")
 
 
 @login_required
@@ -395,6 +429,19 @@ def select_data_source_view(request, consent, profile, study):
 def consent_workflow(request):
     study = get_study()
     profile = request.user.profile
+
+    # Approval gate: an unapproved (or not-yet-registered) participant cannot
+    # reach the consent flow, even by navigating directly to this URL.
+    study_participant = StudyParticipant.objects.filter(
+        participant=profile, study=study
+    ).first()
+    if not study_participant or not study_participant.researcher_approved:
+        return render_registration_pending(request, study)
+
+    # An approved participant may have registered before approval, so ensure
+    # their consents exist before continuing.
+    create_consents_for_participant(study, profile, study_participant)
+
     consent_id = request.GET.get("consent_id")
     consent = get_next_consent(profile, study, consent_id)
 

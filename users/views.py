@@ -234,6 +234,12 @@ def dashboard(request):
     context = {}
     context['past_consents'] = get_past_consents(request.user.profile)
     context['studies_data'] = get_active_studies_data(request.user.profile, request)
+    # Studies the participant has registered for but that a researcher has not yet
+    # approved. Until approved they have no consents, so they'd otherwise see
+    # nothing about the study on the dashboard.
+    context['pending_participations'] = StudyParticipant.objects.filter(
+        participant=request.user.profile, researcher_approved=False
+    ).select_related('study')
     context['protected_identifiers'] = request.user.profile.protected_identifiers.order_by('id')
 
     card_template, card_context = get_next_instructions_card(request, context['studies_data'])
