@@ -470,7 +470,7 @@ class StudyAssetInline(admin.TabularInline):
 class SourceConfigurationInline(admin.TabularInline):
     model = StudySourceConfiguration
     form = SourceConfigurationInlineForm
-    extra = 1
+    extra = 0
     fields = ['source_type', 'status', 'data_start', 'data_end', 'change_link']
     readonly_fields = ['change_link']
 
@@ -529,8 +529,6 @@ class StudyAdmin(admin.ModelAdmin):
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if db_field.name in (
             'study_page_html',
-            'privacy_notice_html',
-            'terms_of_service_html',
             'join_confirmation_html',
         ):
             kwargs['widget'] = AceWidget(mode='html', theme='monokai', width='100%', height='300px')
