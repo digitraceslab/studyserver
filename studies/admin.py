@@ -616,8 +616,8 @@ class StudyAdmin(admin.ModelAdmin):
 
 
 class VersionedTextAdmin(admin.ModelAdmin):
-    """Base admin for versioned legal text. Restricted to full admins
-    (superusers) so researchers can neither see nor edit these models.
+    """Base admin for versioned legal text. Access is governed by the standard
+    Django model permissions (see the Researchers group in studies/apps.py).
 
     Saving always creates a new version (see VersionedText.save); past
     versions remain visible in the list and are editable only as read-only
@@ -631,21 +631,6 @@ class VersionedTextAdmin(admin.ModelAdmin):
         if db_field.name == 'text':
             kwargs['widget'] = AceWidget(mode='html', theme='monokai', width='100%', height='300px')
         return super().formfield_for_dbfield(db_field, request, **kwargs)
-
-    def has_module_permission(self, request):
-        return request.user.is_superuser
-
-    def has_view_permission(self, request, obj=None):
-        return request.user.is_superuser
-
-    def has_add_permission(self, request):
-        return request.user.is_superuser
-
-    def has_change_permission(self, request, obj=None):
-        return request.user.is_superuser
-
-    def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser
 
 
 @admin.register(PrivacyNotice)
