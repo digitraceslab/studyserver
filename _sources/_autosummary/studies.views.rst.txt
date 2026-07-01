@@ -10,12 +10,14 @@ studies.views
    
       consent_checkbox_view
       consent_workflow
+      create_consents_for_participant
       create_data_source_flow
       get_existing_sources_for_consent
       get_next_consent
       get_study
       join_study
       mark_data_deletable
+      render_registration_pending
       revoke_consent
       select_data_source_view
       study_data_api
