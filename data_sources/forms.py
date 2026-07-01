@@ -7,22 +7,30 @@ from .models.model_registration import datasourceform, datasourceconfigform
 from studies.models import StudySourceConfiguration
 
 
+class BaseDataSourceForm(forms.ModelForm):
+    """Base form for data source creation that accepts an optional
+    ``configuration`` kwarg passed by the add_data_source view."""
+
+    def __init__(self, *args, **kwargs):
+        self.configuration = kwargs.pop('configuration', {}) or {}
+        super().__init__(*args, **kwargs)
+
+
 @datasourceform(JsonUrlDataSource)
-class JsonUrlDataSourceForm(forms.ModelForm):
+class JsonUrlDataSourceForm(BaseDataSourceForm):
     class Meta:
         model = JsonUrlDataSource
         fields = ['name', 'url']
 
 @datasourceform(AwareDataSource)
-class AwareDataSourceForm(forms.ModelForm):
+class AwareDataSourceForm(BaseDataSourceForm):
     class Meta:
         model = AwareDataSource
         fields = ['name']
 
 @datasourceform(NiimportDataSource)
-class NiimportDataSourceForm(forms.ModelForm):
+class NiimportDataSourceForm(BaseDataSourceForm):
     def __init__(self, *args, **kwargs):
-        self.configuration = kwargs.pop('configuration', {}) or {}
         super().__init__(*args, **kwargs)
         niimport_source_type = self.configuration.get('niimport_source_type')
         if niimport_source_type:
