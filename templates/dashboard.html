@@ -44,6 +44,10 @@
 
 {% include "dashboard_components/protected_identifiers.html" %}
 
+{% if collect_tax_id %}
+    {% include "dashboard_components/tax_id.html" %}
+{% endif %}
+
 <details>
     {% include "dashboard_components/advanced_section.html" %}
 </details>

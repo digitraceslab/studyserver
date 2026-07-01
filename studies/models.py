@@ -70,6 +70,11 @@ class Study(models.Model):
         "noted and researchers will contact them by email.",
     )
 
+    collect_tax_id = models.BooleanField(
+        default=False,
+        help_text="Whether participants should be asked to provide a tax ID",
+    )
+
     @property
     def raw_content_base_url(self):
         """Convert a repo URL to its raw content base URL for some known services."""

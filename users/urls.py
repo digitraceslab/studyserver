@@ -34,4 +34,9 @@ urlpatterns = [
         views.update_protected_identifiers,
         name="update_protected_identifiers",
     ),
+    path(
+        "dashboard/tax-id/",
+        views.update_tax_id,
+        name="update_tax_id",
+    ),
 ]

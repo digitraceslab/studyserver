@@ -251,6 +251,13 @@ def dashboard(request):
     ).select_related('study')
     context['protected_identifiers'] = request.user.profile.protected_identifiers.order_by('id')
 
+    # Show the tax ID form only if an active study the participant is enrolled in
+    # asks for it. Tax IDs are typically collected only toward the end of a study.
+    context['collect_tax_id'] = any(
+        study.collect_tax_id for study in context['studies_data']
+    )
+    context['tax_id'] = request.user.profile.tax_id
+
     card_template, card_context = get_next_instructions_card(request, context['studies_data'])
     if card_template and card_context:
         context['instructions_template'] = card_template
@@ -284,6 +291,22 @@ def update_protected_identifiers(request):
         ])
 
     messages.success(request, "Protected identifiers updated.")
+    return redirect('dashboard')
+
+
+@login_required
+def update_tax_id(request):
+    if request.method != 'POST':
+        return redirect('dashboard')
+
+    if request.user.profile.user_type == 'researcher':
+        return redirect('researcher_dashboard')
+
+    profile = request.user.profile
+    profile.tax_id = request.POST.get('tax_id', '').strip()
+    profile.save(update_fields=['tax_id'])
+
+    messages.success(request, "Tax ID updated.")
     return redirect('dashboard')
 
 

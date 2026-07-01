@@ -1,0 +1,8 @@
+<h2>Tax ID for remuneration</h2>
+<p>Provide your tax ID so that we can process your remuneration.</p>
+
+<form method="post" action="{% url 'update_tax_id' %}">
+    {% csrf_token %}
+    <input type="text" name="tax_id" value="{{ tax_id }}" />
+    <button type="submit" class="btn">Save</button>
+</form>
