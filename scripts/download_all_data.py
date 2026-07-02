@@ -105,22 +105,25 @@ def download_data_for_participant(
     # differing/missing columns stay aligned with the header.
     columns = None
 
+    file_has_header = False
+    if os.path.exists(csv_file):
+        try:
+            columns = list(pd.read_csv(csv_file, nrows=0).columns)
+            file_has_header = True
+        except pd.errors.EmptyDataError:
+            pass
+
     if start_timestamp is None:
         # Default: resume from just before the last saved timestamp, re-fetching
         # a 3s overlap (deduplicate_data.py removes the resulting duplicates).
         existing_max = get_existing_max_timestamp(csv_file)
         if existing_max is not None:
             last_timestamp = max(0, existing_max - 3000)
-            # Append to the existing file, reusing its column order.
-            columns = list(pd.read_csv(csv_file, nrows=0).columns)
-            file_opened = True
             print(f"    Resuming from timestamp {last_timestamp} (last saved - 3s)")
         else:
             last_timestamp = 0
-            file_opened = False
     else:
         last_timestamp = start_timestamp
-        file_opened = False
 
     batch_count = 0
     total_rows = 0
@@ -169,11 +172,11 @@ def download_data_for_participant(
             df = df.reindex(columns=columns)
             df.to_csv(
                 csv_file,
-                mode="w" if not file_opened else "a",
-                header=not file_opened,
+                mode="a",
+                header=not file_has_header,
                 index=False,
             )
-            file_opened = True
+            file_has_header = True
 
             total_rows += row_count
             print(
@@ -268,7 +271,9 @@ def main():
         print(f"Processing {namespaced_type} for {len(participants)} participants")
 
         for participant_id in participants:
-            print(f"  Downloading {namespaced_type} for participant {participant_id}...")
+            print(
+                f"  Downloading {namespaced_type} for participant {participant_id}..."
+            )
             downloaded = download_data_for_participant(
                 base_url,
                 token,
