@@ -35,5 +35,6 @@ studies.tests
       StudyModelTest
       StudyParticipantTest
       StudyTestMixin
+      UnmarkDataDeletableTest
       WithdrawFromStudyViewTest
    

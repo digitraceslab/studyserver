@@ -23,5 +23,6 @@ studies.views
       study_data_api
       study_detail
       study_participants_api
+      unmark_data_deletable
       withdraw_from_study
    

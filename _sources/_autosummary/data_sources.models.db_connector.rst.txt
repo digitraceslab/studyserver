@@ -15,4 +15,5 @@ data\_sources.models.db\_connector
       get_device_ids_for_label
       insert_deletion_request
       query_aware_data
+      remove_deletion_requests
    
