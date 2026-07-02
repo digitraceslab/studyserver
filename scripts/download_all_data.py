@@ -207,8 +207,10 @@ def main():
             f"Usage: {sys.argv[0]} <api_token> <output_dir> [start_timestamp] [end_timestamp]"
         )
         print(f"Example: {sys.argv[0]} your_token_here ./data 0 1776188812150")
+        print(f"Example: {sys.argv[0]} your_token_here ./data - 1776188812150")
         print(f"Example: {sys.argv[0]} your_token_here ./data")
         print("\nTimestamps are Unix milliseconds (use 0 for beginning).")
+        print('Pass "-" as start_timestamp to use the automatic default.')
         print(
             "start_timestamp defaults to the last saved timestamp - 3s, per"
             " participant/data type (0 if nothing downloaded yet)."
@@ -220,7 +222,11 @@ def main():
     token = sys.argv[1]
     output_dir = sys.argv[2]
     try:
-        start_timestamp = int(sys.argv[3]) if len(sys.argv) >= 4 else None
+        # "-" keeps the automatic start (last saved - 3s) while still allowing
+        # an explicit end_timestamp.
+        start_timestamp = (
+            int(sys.argv[3]) if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
+        )
         end_timestamp = (
             int(sys.argv[4]) if len(sys.argv) >= 5 else int(time.time() * 1000)
         )
