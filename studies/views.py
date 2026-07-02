@@ -932,3 +932,87 @@ def mark_data_deletable(request):
             "marked_count": marked_count,
         }
     )
+
+
+@api_view(["POST"])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def unmark_data_deletable(request):
+    """Cancel all pending deletable marks so no further data is deleted."""
+    study = Study.objects.first()
+    if study is None:
+        return JsonResponse({"error": "No study configured"}, status=404)
+
+    if not request.user.is_superuser:
+        if not study.researchers.filter(user=request.user).exists():
+            return JsonResponse({"error": "Unauthorized"}, status=403)
+
+    active_consents = (
+        Consent.objects.filter(
+            study=study,
+            is_complete=True,
+            revocation_date__isnull=True,
+            data_source__status="active",
+        )
+        .select_related("data_source", "study_participant")
+        .order_by("id")
+    )
+
+    results = []
+    for consent in active_consents:
+        if not consent.data_source:
+            continue
+
+        source = consent.data_source.get_real_instance()
+
+        if not source.supports_deletion():
+            continue
+
+        participant_id = (
+            str(consent.study_participant.pseudo_id)
+            if consent.study_participant
+            else None
+        )
+        source_type = consent.source_type
+
+        try:
+            source.unmark_deletable()
+        except Exception as e:
+            results.append(
+                {
+                    "participant_id": participant_id,
+                    "source_type": source_type,
+                    "unmarked": False,
+                    "reason": "source error",
+                    "detail": str(e),
+                }
+            )
+            continue
+
+        with transaction.atomic():
+            cleared = (
+                DeletableWatermark.objects.select_for_update()
+                .filter(
+                    data_source=consent.data_source,
+                    deletable_through__isnull=False,
+                )
+                .update(deletable_through=None, updated_at=timezone.now())
+            )
+
+        results.append(
+            {
+                "participant_id": participant_id,
+                "source_type": source_type,
+                "unmarked": True,
+                "watermarks_cleared": cleared,
+            }
+        )
+
+    unmarked_count = sum(1 for r in results if r.get("unmarked"))
+    return JsonResponse(
+        {
+            "study": study.title,
+            "results": results,
+            "unmarked_count": unmarked_count,
+        }
+    )

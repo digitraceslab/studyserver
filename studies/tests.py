@@ -2092,6 +2092,123 @@ class MarkDataDeletableTest(StudyTestMixin, TestCase):
         mock_mark.assert_not_called()
 
 
+# ----------------------------------------------------------------------------
+# UnmarkDataDeletableTest
+# ----------------------------------------------------------------------------
+class UnmarkDataDeletableTest(StudyTestMixin, TestCase):
+    """Tests for the unmark_data_deletable POST endpoint."""
+
+    def setUp(self):
+        super().setUp()
+        import uuid
+        from rest_framework.test import APIClient
+        from data_sources.models import DeletableWatermark
+
+        self.api_client = APIClient()
+        self.api_client.force_authenticate(user=self.researcher_user)
+
+        self.source = AwareDataSource.objects.create(
+            profile=self.profile,
+            name='deletable-aware-src',
+            status='active',
+            device_id=uuid.uuid4(),
+        )
+        self.consent = Consent.objects.create(
+            participant=self.profile,
+            study=self.study,
+            source_configuration=get_source_config(self.study, 'aware'),
+            data_source=self.source,
+            source_type='aware',
+            is_complete=True,
+            consent_date=timezone.now(),
+            data_start=None,
+            data_end=None,
+            study_participant=self.study_participant,
+        )
+        # Pre-create a watermark keyed on the BARE data_type ('battery').
+        self.watermark = DeletableWatermark.objects.create(
+            data_source=self.source,
+            data_type='battery',
+            downloaded_through=5000,
+            deletable_through=3000,
+        )
+
+    def _post(self, client=None):
+        c = client or self.api_client
+        return c.post(reverse('unmark_data_deletable'), {}, format='json')
+
+    # ------------------------------------------------------------------
+    # 1. Happy path: unmarked True, watermark cleared.
+    # ------------------------------------------------------------------
+    def test_unmarks_and_clears_watermark(self):
+        with patch.object(AwareDataSource, 'unmark_deletable') as mock_unmark:
+            resp = self._post()
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['unmarked_count'], 1)
+        result = data['results'][0]
+        self.assertTrue(result['unmarked'])
+        self.assertEqual(result['watermarks_cleared'], 1)
+        mock_unmark.assert_called_once_with()
+
+        self.watermark.refresh_from_db()
+        self.assertIsNone(self.watermark.deletable_through)
+        self.assertEqual(self.watermark.downloaded_through, 5000)
+
+    # ------------------------------------------------------------------
+    # 2. Hook raises → 'source error'; watermark deletable_through unchanged.
+    # ------------------------------------------------------------------
+    def test_source_error_keeps_watermark(self):
+        with patch.object(AwareDataSource, 'unmark_deletable', side_effect=Exception('boom')):
+            resp = self._post()
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['unmarked_count'], 0)
+        result = data['results'][0]
+        self.assertFalse(result['unmarked'])
+        self.assertEqual(result['reason'], 'source error')
+        self.assertIn('boom', result.get('detail', ''))
+
+        self.watermark.refresh_from_db()
+        self.assertEqual(self.watermark.deletable_through, 3000)
+
+    # ------------------------------------------------------------------
+    # 3. Non-researcher → 403.
+    # ------------------------------------------------------------------
+    def test_non_researcher_forbidden(self):
+        from rest_framework.test import APIClient
+        client = APIClient()
+        client.force_authenticate(user=self.user)  # participant, not researcher
+        resp = self._post(client=client)
+        self.assertEqual(resp.status_code, 403)
+
+    # ------------------------------------------------------------------
+    # 4. Watermark already null → unmarked True, watermarks_cleared 0.
+    # ------------------------------------------------------------------
+    def test_watermark_already_null_reports_zero_cleared(self):
+        self.watermark.deletable_through = None
+        self.watermark.save()
+        with patch.object(AwareDataSource, 'unmark_deletable'):
+            resp = self._post()
+        self.assertEqual(resp.status_code, 200)
+        result = resp.json()['results'][0]
+        self.assertTrue(result['unmarked'])
+        self.assertEqual(result['watermarks_cleared'], 0)
+
+    # ------------------------------------------------------------------
+    # 5. Source without deletion support → skipped entirely.
+    # ------------------------------------------------------------------
+    def test_source_without_deletion_support_skipped(self):
+        with patch.object(AwareDataSource, 'supports_deletion', return_value=False), \
+             patch.object(AwareDataSource, 'unmark_deletable') as mock_unmark:
+            resp = self._post()
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['results'], [])
+        self.assertEqual(data['unmarked_count'], 0)
+        mock_unmark.assert_not_called()
+
+
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
 class SendParticipantEmailAdminTest(StudyTestMixin, TestCase):
     """The participant admin 'Send email' view sends synchronously via the

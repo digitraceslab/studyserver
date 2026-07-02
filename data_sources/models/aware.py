@@ -245,3 +245,7 @@ class AwareDataSource(DataSource):
         return db_connector.insert_deletion_request(
             self.device_label, data_type, delete_before
         )
+
+    def unmark_deletable(self):
+        """Remove all pending AWARE deletion requests for this device."""
+        return db_connector.remove_deletion_requests(self.device_label)
