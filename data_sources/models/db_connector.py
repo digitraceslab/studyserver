@@ -442,12 +442,15 @@ def insert_deletion_request(device_label, table_name, delete_before):
         transformed_table_name = f"{table_name}_transformed"
         requested_at = int(time.time() * 1000)  # Current Unix timestamp in milliseconds
 
-        # Insert deletion requests for each device_uid
+        # Insert deletion requests for each device_uid. delete_before follows
+        # the latest request in both directions: a lower value retracts a
+        # pending request so data past the new bound is no longer deleted
+        # (already-deleted data cannot be restored).
         for device_uid in device_uids:
             insert_query = (
                 "INSERT INTO deletion_requests (table_name, device_uid, delete_before, requested_at, processed_at) "
                 "VALUES (%s, %s, %s, %s, NULL) "
-                "ON DUPLICATE KEY UPDATE delete_before = GREATEST(delete_before, VALUES(delete_before)), processed_at = NULL"
+                "ON DUPLICATE KEY UPDATE delete_before = VALUES(delete_before), processed_at = NULL"
             )
             cursor.execute(
                 insert_query,
@@ -459,6 +462,61 @@ def insert_deletion_request(device_label, table_name, delete_before):
 
     except mysql.connector.Error as e:
         print(f"Error inserting deletion request: {e}")
+        if database is not None:
+            try:
+                database.rollback()
+            except Exception:
+                pass
+        return 0
+
+    finally:
+        # Ensure resources are cleaned up
+        if cursor is not None:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if database is not None:
+            try:
+                database.close()
+            except Exception:
+                pass
+
+
+def remove_deletion_requests(device_label):
+    """Remove all unprocessed deletion requests for devices matching device_label.
+
+    Args:
+        device_label: The AWARE device label to resolve device_uids for
+
+    Returns:
+        Number of deletion requests removed
+    """
+    database = None
+    cursor = None
+    device_uids = []
+
+    try:
+        # Resolve device_uids using existing connection helper
+        database, cursor, device_uids, device_uid_to_device_id = (
+            _connect_and_resolve_device_uids(device_label)
+        )
+        if database is None or not device_uids:
+            return 0
+
+        # Only remove pending requests; processed rows are kept as an audit record.
+        placeholders = ", ".join(["%s"] * len(device_uids))
+        delete_query = (
+            f"DELETE FROM deletion_requests WHERE device_uid IN ({placeholders}) "
+            "AND processed_at IS NULL"
+        )
+        cursor.execute(delete_query, tuple(device_uids))
+
+        database.commit()
+        return cursor.rowcount
+
+    except mysql.connector.Error as e:
+        print(f"Error removing deletion requests: {e}")
         if database is not None:
             try:
                 database.rollback()

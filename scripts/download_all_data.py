@@ -4,9 +4,11 @@
 Script to download ALL data and save as CSV files.
 Usage: python download_all_data.py <api_token> <output_dir> [start_timestamp] [end_timestamp]
 Example: python download_all_data.py your_token_here ./data 0 1776188812150
+Example: python download_all_data.py your_token_here ./data - 1776188812150
 Example: python download_all_data.py your_token_here ./data
 
 Timestamps are Unix milliseconds:
+- "-" as start_timestamp = use the automatic default (last saved - 3s)
 - 0 = download from beginning
 - Use https://www.epochconverter.com/ to convert dates to timestamps
 
@@ -105,22 +107,25 @@ def download_data_for_participant(
     # differing/missing columns stay aligned with the header.
     columns = None
 
+    file_has_header = False
+    if os.path.exists(csv_file):
+        try:
+            columns = list(pd.read_csv(csv_file, nrows=0).columns)
+            file_has_header = True
+        except pd.errors.EmptyDataError:
+            pass
+
     if start_timestamp is None:
         # Default: resume from just before the last saved timestamp, re-fetching
         # a 3s overlap (deduplicate_data.py removes the resulting duplicates).
         existing_max = get_existing_max_timestamp(csv_file)
         if existing_max is not None:
             last_timestamp = max(0, existing_max - 3000)
-            # Append to the existing file, reusing its column order.
-            columns = list(pd.read_csv(csv_file, nrows=0).columns)
-            file_opened = True
             print(f"    Resuming from timestamp {last_timestamp} (last saved - 3s)")
         else:
             last_timestamp = 0
-            file_opened = False
     else:
         last_timestamp = start_timestamp
-        file_opened = False
 
     batch_count = 0
     total_rows = 0
@@ -146,8 +151,7 @@ def download_data_for_participant(
 
             # Check for errors
             if "error" in data:
-                print(f"    Error: {data['error']}")
-                return total_rows
+                raise RuntimeError(f"Server returned an error: {data['error']}")
 
             rows = data.get("data", [])
             row_count = len(rows)
@@ -166,14 +170,22 @@ def download_data_for_participant(
             # deduplicate_data.py).
             if columns is None:
                 columns = list(df.columns)
+            dropped_columns = [c for c in df.columns if c not in columns]
+            if dropped_columns:
+                print(
+                    f"    WARNING: batch contains columns missing from the"
+                    f" existing file and their values are NOT saved:"
+                    f" {dropped_columns}. Re-download this data type into a"
+                    f" fresh file to capture them."
+                )
             df = df.reindex(columns=columns)
             df.to_csv(
                 csv_file,
-                mode="w" if not file_opened else "a",
-                header=not file_opened,
+                mode="a",
+                header=not file_has_header,
                 index=False,
             )
-            file_opened = True
+            file_has_header = True
 
             total_rows += row_count
             print(
@@ -194,8 +206,16 @@ def download_data_for_participant(
             time.sleep(0.1)
 
         except requests.exceptions.RequestException as e:
-            print(f"    Error downloading data: {e}")
-            return total_rows
+            # Include the error message from the response body, if any.
+            message = str(e)
+            if e.response is not None:
+                try:
+                    body = e.response.json()
+                    if "error" in body:
+                        message = f"{e}\nServer says: {body['error']}"
+                except ValueError:
+                    pass
+            raise RuntimeError(f"Error downloading data: {message}") from e
 
 
 def main():
@@ -204,8 +224,10 @@ def main():
             f"Usage: {sys.argv[0]} <api_token> <output_dir> [start_timestamp] [end_timestamp]"
         )
         print(f"Example: {sys.argv[0]} your_token_here ./data 0 1776188812150")
+        print(f"Example: {sys.argv[0]} your_token_here ./data - 1776188812150")
         print(f"Example: {sys.argv[0]} your_token_here ./data")
         print("\nTimestamps are Unix milliseconds (use 0 for beginning).")
+        print('Pass "-" as start_timestamp to use the automatic default.')
         print(
             "start_timestamp defaults to the last saved timestamp - 3s, per"
             " participant/data type (0 if nothing downloaded yet)."
@@ -217,7 +239,11 @@ def main():
     token = sys.argv[1]
     output_dir = sys.argv[2]
     try:
-        start_timestamp = int(sys.argv[3]) if len(sys.argv) >= 4 else None
+        # "-" keeps the automatic start (last saved - 3s) while still allowing
+        # an explicit end_timestamp.
+        start_timestamp = (
+            int(sys.argv[3]) if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
+        )
         end_timestamp = (
             int(sys.argv[4]) if len(sys.argv) >= 5 else int(time.time() * 1000)
         )
@@ -268,7 +294,9 @@ def main():
         print(f"Processing {namespaced_type} for {len(participants)} participants")
 
         for participant_id in participants:
-            print(f"  Downloading {namespaced_type} for participant {participant_id}...")
+            print(
+                f"  Downloading {namespaced_type} for participant {participant_id}..."
+            )
             downloaded = download_data_for_participant(
                 base_url,
                 token,

@@ -182,6 +182,16 @@ class DataSource(PolymorphicModel):
         """
         return None
 
+    def unmark_deletable(self):
+        """Cancel any pending deletion requests previously created by
+        ``mark_deletable``. Data already deleted at the source cannot be restored.
+
+        Default is a no-op. Subclasses that own deletable storage override this.
+        May raise on failure; callers should not clear the deletable watermark
+        if it raises.
+        """
+        return None
+
     def get_confirm_url(self):
         return None
     
