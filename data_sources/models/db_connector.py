@@ -460,14 +460,14 @@ def insert_deletion_request(device_label, table_name, delete_before):
         database.commit()
         return len(device_uids)
 
-    except mysql.connector.Error as e:
-        print(f"Error inserting deletion request: {e}")
+    except mysql.connector.Error:
+        # Propagate so callers report the failure instead of a false success.
         if database is not None:
             try:
                 database.rollback()
             except Exception:
                 pass
-        return 0
+        raise
 
     finally:
         # Ensure resources are cleaned up
@@ -515,14 +515,14 @@ def remove_deletion_requests(device_label):
         database.commit()
         return cursor.rowcount
 
-    except mysql.connector.Error as e:
-        print(f"Error removing deletion requests: {e}")
+    except mysql.connector.Error:
+        # Propagate so callers report the failure instead of a false success.
         if database is not None:
             try:
                 database.rollback()
             except Exception:
                 pass
-        return 0
+        raise
 
     finally:
         # Ensure resources are cleaned up
