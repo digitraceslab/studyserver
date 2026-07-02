@@ -44,3 +44,4 @@ data\_sources.migrations
    0032_niimport_donation_config_fields
    0033_deletablewatermark
    0034_alter_deletablewatermark_deletable_through_and_more
+   0035_alter_datasource_device_id
