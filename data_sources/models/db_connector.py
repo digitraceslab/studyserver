@@ -442,12 +442,15 @@ def insert_deletion_request(device_label, table_name, delete_before):
         transformed_table_name = f"{table_name}_transformed"
         requested_at = int(time.time() * 1000)  # Current Unix timestamp in milliseconds
 
-        # Insert deletion requests for each device_uid
+        # Insert deletion requests for each device_uid. delete_before follows
+        # the latest request in both directions: a lower value retracts a
+        # pending request so data past the new bound is no longer deleted
+        # (already-deleted data cannot be restored).
         for device_uid in device_uids:
             insert_query = (
                 "INSERT INTO deletion_requests (table_name, device_uid, delete_before, requested_at, processed_at) "
                 "VALUES (%s, %s, %s, %s, NULL) "
-                "ON DUPLICATE KEY UPDATE delete_before = GREATEST(delete_before, VALUES(delete_before)), processed_at = NULL"
+                "ON DUPLICATE KEY UPDATE delete_before = VALUES(delete_before), processed_at = NULL"
             )
             cursor.execute(
                 insert_query,
