@@ -80,7 +80,7 @@ class DataSource(PolymorphicModel):
         default='pending'
     )
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='data_sources')
-    device_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    device_id = models.UUIDField(null=True, blank=True, default=None, editable=False)
     name = models.CharField(max_length=100, help_text="A personal name for this source")
     date_added = models.DateTimeField(auto_now_add=True)
     configuration = models.JSONField(blank=True, default=dict)

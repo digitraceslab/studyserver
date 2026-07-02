@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.urls import reverse
 from .base import DataSource
@@ -42,6 +44,12 @@ class JsonUrlDataSource(DataSource):
             if not isinstance(result, list):
                 # Response must be a list. Assuming this is a single object, wrap in a list.
                 result = [result]
+
+            # json_url has no real device, but downstream consumers expect a
+            # stable per-source device_id on every row — generate one on first use.
+            if not self.device_id:
+                self.device_id = uuid.uuid4()
+                self.save()
 
             enriched_data = []
             for row in result:
