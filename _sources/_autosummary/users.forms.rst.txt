@@ -9,4 +9,5 @@ users.forms
    .. autosummary::
    
       CustomUserCreationForm
+      ParticipantCreationForm
    

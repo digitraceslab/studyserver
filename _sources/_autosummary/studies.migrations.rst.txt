@@ -54,3 +54,4 @@ studies.migrations
    0042_study_registration_pending_html_and_more
    0043_study_collect_tax_id
    0044_alter_study_options
+   0045_study_allowed_email_domains_study_max_participants_and_more
