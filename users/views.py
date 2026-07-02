@@ -17,7 +17,7 @@ from study_server.utils import data_to_csv_response
 from django.db import transaction
 from users.models import Profile, ProtectedIdentifier
 from studies.models import Study, Consent, StudyParticipant, PrivacyNotice, TermsOfService
-from .forms import CustomUserCreationForm
+from .forms import CustomUserCreationForm, ParticipantCreationForm
 from studies.views import study_detail
 from data_sources.models import DataSource
 
@@ -97,17 +97,17 @@ def privacy_statement_version(request, pk):
 
 def signup(request):
     if request.method == 'POST':
-        form = CustomUserCreationForm(request.POST)
+        form = ParticipantCreationForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
             user.save()
-            Profile.objects.create( 
+            Profile.objects.create(
                 user=user,
                 user_type='participant'
             )
             return redirect('login')
     else:
-        form = CustomUserCreationForm()
+        form = ParticipantCreationForm()
     return render(request, 'registration/signup.html', {'form': form})
 
 def signup_researcher(request):
@@ -182,7 +182,11 @@ def get_active_studies_data(profile, request):
         participation = StudyParticipant.objects.filter(
             participant=profile, study=study
         ).first()
-        if participation and not participation.researcher_approved:
+        if (
+            study.requires_approval
+            and participation
+            and not participation.researcher_approved
+        ):
             continue
 
         studies_data[study] = {
@@ -247,7 +251,9 @@ def dashboard(request):
     # approved. Until approved they have no consents, so they'd otherwise see
     # nothing about the study on the dashboard.
     context['pending_participations'] = StudyParticipant.objects.filter(
-        participant=request.user.profile, researcher_approved=False
+        participant=request.user.profile,
+        researcher_approved=False,
+        study__requires_approval=True,
     ).select_related('study')
     context['protected_identifiers'] = request.user.profile.protected_identifiers.order_by('id')
 
