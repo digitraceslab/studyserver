@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime
 
@@ -75,6 +76,28 @@ class Study(models.Model):
         help_text="Whether participants should be asked to provide a tax ID",
     )
 
+    allowed_email_domains = models.TextField(
+        blank=True,
+        default="",
+        help_text="Restrict participant email addresses to these domains. "
+        "Separate multiple domains with commas, spaces, or newlines "
+        "(e.g. 'example.edu, example.org'). Leave empty to allow any email address.",
+    )
+
+    max_participants = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Maximum number of participants that can register for the study. "
+        "Leave empty for no limit.",
+    )
+
+    requires_approval = models.BooleanField(
+        default=True,
+        help_text="Participants must be approved by a researcher before they can "
+        "consent or collect data. When off, participants proceed directly after "
+        "registering (approval is never granted automatically).",
+    )
+
     class Meta:
         verbose_name = "study"
         verbose_name_plural = "study"
@@ -115,6 +138,29 @@ class Study(models.Model):
         for asset in self.assets.all():
             assets_dict[asset.name] = asset.file.url
         return assets_dict
+
+    def allowed_domain_list(self):
+        """Allowed email domains, normalized to lowercase without a leading '@'."""
+        return [
+            domain.strip().lstrip("@").lower()
+            for domain in re.split(r"[\s,]+", self.allowed_email_domains)
+            if domain.strip()
+        ]
+
+    def email_allowed(self, email):
+        """True if the email's domain is allowed (or no restriction is set)."""
+        domains = self.allowed_domain_list()
+        if not domains:
+            return True
+        if not email or "@" not in email:
+            return False
+        return email.rsplit("@", 1)[1].lower() in domains
+
+    def is_full(self):
+        """True if the participant limit has been reached."""
+        if self.max_participants is None:
+            return False
+        return self.participations.count() >= self.max_participants
 
     def __str__(self):
         return self.title

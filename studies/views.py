@@ -70,6 +70,33 @@ def join_study(request):
         )
         return redirect("join_study")
 
+    # Backstop for restrictions configured on the study: the email-domain rule
+    # is normally enforced at signup, but the restriction may have been added
+    # after the account was created.
+    if not study.email_allowed(request.user.email):
+        allowed_domains = study.allowed_domain_list()
+        if len(allowed_domains) > 1:
+            formatted_domains = ", ".join(allowed_domains[:-1])
+            messages.error(
+                request,
+                f"Use an email address ending with {formatted_domains} or {allowed_domains[-1]} to join this study.",
+            )
+        else:
+            messages.error(
+                request,
+                f"Use an email address ending with {allowed_domains[0]} to join this study.",
+            )
+        return redirect("home")
+
+    already_registered = StudyParticipant.objects.filter(
+        participant=profile, study=study
+    ).exists()
+    if not already_registered and study.is_full():
+        messages.error(
+            request, "This study is not accepting new participants at the moment."
+        )
+        return redirect("home")
+
     study_participant, _ = StudyParticipant.objects.get_or_create(
         participant=profile,
         study=study,
@@ -78,7 +105,7 @@ def join_study(request):
     # Participants must be approved by a researcher before they can consent or
     # collect data. Registration only records the StudyParticipant; consents are
     # created once the participant is approved (here or in consent_workflow).
-    if not study_participant.researcher_approved:
+    if study.requires_approval and not study_participant.researcher_approved:
         return render_registration_pending(request, study)
 
     create_consents_for_participant(study, profile, study_participant)
@@ -435,7 +462,9 @@ def consent_workflow(request):
     study_participant = StudyParticipant.objects.filter(
         participant=profile, study=study
     ).first()
-    if not study_participant or not study_participant.researcher_approved:
+    if not study_participant or (
+        study.requires_approval and not study_participant.researcher_approved
+    ):
         return render_registration_pending(request, study)
 
     # An approved participant may have registered before approval, so ensure
