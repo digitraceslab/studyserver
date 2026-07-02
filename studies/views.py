@@ -694,9 +694,20 @@ def study_data_api(request):
                         wm_l.save(update_fields=["downloaded_through", "updated_at"])
         else:
             # Gap detected: refuse
+            downloaded_desc = (
+                "no data has been downloaded yet"
+                if D is None
+                else f"data has only been downloaded through timestamp {D}"
+            )
             return JsonResponse(
                 {
-                    "error": "gap: requested timestamp is ahead of the download cursor",
+                    "error": (
+                        f"gap: requested start timestamp {timestamp} is ahead of "
+                        f"the download cursor ({downloaded_desc} for this "
+                        f"participant/data type). Advancing would mark skipped "
+                        f"rows as downloaded. Start at or before the cursor, or "
+                        f"request without advance=true."
+                    ),
                     "downloaded_through": D,
                 },
                 status=400,

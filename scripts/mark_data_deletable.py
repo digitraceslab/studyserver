@@ -4,19 +4,21 @@
 Script to mark downloaded data as deletable based on the CSV files produced by
 download_all_data.py.
 
-Usage: python mark_data_deletable.py <api_token> <data_dir>
+Usage: python mark_data_deletable.py <api_token> <data_dir> [end_timestamp]
 
 For each downloaded CSV file, the script:
 1. Reads the namespaced data type (<source_type>:<data_type>) and the max
    timestamp actually downloaded (from the CSV contents).
-2. Calculates current time - 1 day.
-3. Uses the LOWER of (max downloaded timestamp, current_time - 1 day) as the cutoff.
-4. Marks data up to that timestamp as deletable.
+2. Uses the LOWER of (max downloaded timestamp, end_timestamp) as the cutoff.
+3. Marks data up to that timestamp as deletable.
+
+end_timestamp is Unix milliseconds and defaults to current time - 1 day.
 
 Works with ALL data source types (aware, survey, etc.) — no assumptions about
 data types are made, everything is discovered from the CSV files.
 
 Example: python mark_data_deletable.py your_token_here ./data
+Example: python mark_data_deletable.py your_token_here ./data 1772376332969
 """
 
 import csv
@@ -85,19 +87,31 @@ def find_csv_files(data_dir):
 
 
 def main():
-    if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <api_token> <data_dir>")
+    if len(sys.argv) not in (3, 4):
+        print(f"Usage: {sys.argv[0]} <api_token> <data_dir> [end_timestamp]")
         print(f"\nExample: {sys.argv[0]} your_token_here ./data")
+        print(f"Example: {sys.argv[0]} your_token_here ./data 1772376332969")
         print(
             "\n<data_dir> is the directory produced by download_all_data.py."
             " For each downloaded CSV the cutoff is"
-            " min(max downloaded timestamp, current_time - 1 day)."
+            " min(max downloaded timestamp, end_timestamp)."
+        )
+        print(
+            "end_timestamp is Unix milliseconds and defaults to"
+            " current time - 1 day."
         )
         print("Works with ALL data source types")
         sys.exit(1)
 
     token = sys.argv[1]
     data_dir = sys.argv[2]
+    try:
+        end_timestamp = (
+            int(sys.argv[3]) if len(sys.argv) == 4 else get_one_day_ago_timestamp()
+        )
+    except ValueError:
+        print("Error: end_timestamp must be an integer (Unix milliseconds)")
+        sys.exit(1)
     base_url = "http://localhost:8000"
 
     if not os.path.isdir(data_dir):
@@ -106,13 +120,11 @@ def main():
 
     print("=== Data Deletion Marking Workflow ===")
     print("Strategy: for each downloaded CSV, mark up to")
-    print("min(max downloaded timestamp, current_time - 1 day)")
+    print("min(max downloaded timestamp, end_timestamp)")
     print("Works with ALL data source types (aware, survey, etc.)")
     print()
 
-    # Calculate one-day-ago timestamp once (same for all)
-    one_day_ago = get_one_day_ago_timestamp()
-    print(f"Current time - 1 day: {one_day_ago}")
+    print(f"End timestamp: {end_timestamp}")
     print()
 
     csv_files = list(find_csv_files(data_dir))
@@ -139,10 +151,10 @@ def main():
 
         print(f"    Data type: {data_type}")
         print(f"    Max downloaded timestamp: {max_timestamp}")
-        print(f"    Current - 1 day: {one_day_ago}")
+        print(f"    End timestamp: {end_timestamp}")
 
         # Use the lower of the two timestamps
-        through_timestamp = min(max_timestamp, one_day_ago)
+        through_timestamp = min(max_timestamp, end_timestamp)
         print(f"    Using cutoff: {through_timestamp}")
 
         # Mark as deletable
@@ -167,7 +179,7 @@ def main():
     # Summary
     print("=== Summary ===")
     print(f"CSV files that resulted in newly marked data: {total_marked}")
-    print("For each, used min(max downloaded timestamp, current_time - 1 day)")
+    print("For each, used min(max downloaded timestamp, end_timestamp)")
     print("Data can now be deleted by the aware_migrations daemon")
 
 

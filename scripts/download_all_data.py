@@ -4,9 +4,11 @@
 Script to download ALL data and save as CSV files.
 Usage: python download_all_data.py <api_token> <output_dir> [start_timestamp] [end_timestamp]
 Example: python download_all_data.py your_token_here ./data 0 1776188812150
+Example: python download_all_data.py your_token_here ./data - 1776188812150
 Example: python download_all_data.py your_token_here ./data
 
 Timestamps are Unix milliseconds:
+- "-" as start_timestamp = use the automatic default (last saved - 3s)
 - 0 = download from beginning
 - Use https://www.epochconverter.com/ to convert dates to timestamps
 
@@ -149,8 +151,7 @@ def download_data_for_participant(
 
             # Check for errors
             if "error" in data:
-                print(f"    Error: {data['error']}")
-                return total_rows
+                raise RuntimeError(f"Server returned an error: {data['error']}")
 
             rows = data.get("data", [])
             row_count = len(rows)
@@ -169,6 +170,14 @@ def download_data_for_participant(
             # deduplicate_data.py).
             if columns is None:
                 columns = list(df.columns)
+            dropped_columns = [c for c in df.columns if c not in columns]
+            if dropped_columns:
+                print(
+                    f"    WARNING: batch contains columns missing from the"
+                    f" existing file and their values are NOT saved:"
+                    f" {dropped_columns}. Re-download this data type into a"
+                    f" fresh file to capture them."
+                )
             df = df.reindex(columns=columns)
             df.to_csv(
                 csv_file,
@@ -197,8 +206,16 @@ def download_data_for_participant(
             time.sleep(0.1)
 
         except requests.exceptions.RequestException as e:
-            print(f"    Error downloading data: {e}")
-            return total_rows
+            # Include the error message from the response body, if any.
+            message = str(e)
+            if e.response is not None:
+                try:
+                    body = e.response.json()
+                    if "error" in body:
+                        message = f"{e}\nServer says: {body['error']}"
+                except ValueError:
+                    pass
+            raise RuntimeError(f"Error downloading data: {message}") from e
 
 
 def main():
