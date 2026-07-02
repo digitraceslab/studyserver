@@ -36,6 +36,18 @@ def get_one_day_ago_timestamp():
     return int(one_day_ago.timestamp() * 1000)
 
 
+def format_timestamp(timestamp):
+    """Format a Unix-ms timestamp together with its human-readable local time"""
+    dt = datetime.fromtimestamp(timestamp / 1000)
+    return f"{timestamp} ({dt:%Y-%m-%d %H:%M:%S})"
+
+
+def confirm(prompt):
+    """Ask for confirmation. Enter, y or Y accepts; anything else rejects."""
+    answer = input(prompt).strip()
+    return answer in ("", "y", "Y")
+
+
 def read_csv_summary(csv_file):
     """Read a downloaded CSV and return (namespaced_data_type, max_timestamp).
 
@@ -124,7 +136,7 @@ def main():
     print("Works with ALL data source types (aware, survey, etc.)")
     print()
 
-    print(f"End timestamp: {end_timestamp}")
+    print(f"End timestamp: {format_timestamp(end_timestamp)}")
     print()
 
     csv_files = list(find_csv_files(data_dir))
@@ -149,13 +161,23 @@ def main():
             print(f"    No timestamped rows, skipping")
             continue
 
+        participant_id = os.path.basename(os.path.dirname(csv_file))
+        print(f"    Participant: {participant_id}")
         print(f"    Data type: {data_type}")
-        print(f"    Max downloaded timestamp: {max_timestamp}")
-        print(f"    End timestamp: {end_timestamp}")
+        print(f"    Max downloaded timestamp: {format_timestamp(max_timestamp)}")
+        print(f"    End timestamp: {format_timestamp(end_timestamp)}")
 
         # Use the lower of the two timestamps
         through_timestamp = min(max_timestamp, end_timestamp)
-        print(f"    Using cutoff: {through_timestamp}")
+
+        print(
+            f"    Operation: mark {data_type} deletable through"
+            f" {format_timestamp(through_timestamp)}"
+        )
+        if not confirm("    Mark deletable? (Y)es/No: "):
+            print("    Skipped")
+            print()
+            continue
 
         # Mark as deletable
         result = mark_data_deletable(base_url, token, data_type, through_timestamp)
