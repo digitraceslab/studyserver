@@ -311,6 +311,12 @@ class StudyParticipantAdmin(admin.ModelAdmin):
                     )
                     return redirect(change_url)
                 if sent:
+                    self._send_researcher_copy(
+                        request,
+                        form.cleaned_data["subject"],
+                        form.cleaned_data["message"],
+                        [participant],
+                    )
                     self.message_user(
                         request, "Email sent to the participant.", messages.SUCCESS
                     )
@@ -353,11 +359,15 @@ class StudyParticipantAdmin(admin.ModelAdmin):
                 message = form.cleaned_data["message"]
                 reply_to = form.cleaned_data.get("reply_to")
                 sent = 0
+                sent_to = []
                 for participant in participants:
                     try:
-                        sent += self._send_email_to_participant(
+                        n = self._send_email_to_participant(
                             participant, subject, message, reply_to
                         )
+                        sent += n
+                        if n:
+                            sent_to.append(participant)
                     except Exception as exc:
                         self.message_user(
                             request,
@@ -365,6 +375,7 @@ class StudyParticipantAdmin(admin.ModelAdmin):
                             messages.ERROR,
                         )
                         return None
+                self._send_researcher_copy(request, subject, message, sent_to)
                 self.message_user(
                     request,
                     f"Email sent to {sent} of {len(participants)} selected "
@@ -418,11 +429,15 @@ class StudyParticipantAdmin(admin.ModelAdmin):
                 message = form.cleaned_data["message"]
                 reply_to = form.cleaned_data.get("reply_to")
                 sent = 0
+                sent_to = []
                 for participant in participants:
                     try:
-                        sent += self._send_email_to_participant(
+                        n = self._send_email_to_participant(
                             participant, subject, message, reply_to
                         )
+                        sent += n
+                        if n:
+                            sent_to.append(participant)
                     except Exception as exc:
                         self.message_user(
                             request,
@@ -430,6 +445,7 @@ class StudyParticipantAdmin(admin.ModelAdmin):
                             messages.ERROR,
                         )
                         return redirect(changelist_url)
+                self._send_researcher_copy(request, subject, message, sent_to)
                 self.message_user(
                     request,
                     f"Email sent to {sent} participant(s). "
@@ -489,6 +505,27 @@ class StudyParticipantAdmin(admin.ModelAdmin):
             reply_to=[reply_to] if reply_to else None,
         )
         return email.send(fail_silently=False)
+
+    def _send_researcher_copy(self, request, subject, message, participants):
+        """Email the sending researcher a copy listing who received the message."""
+        if not request.user.email or not participants:
+            return
+        id_list = "\n".join(str(p.pseudo_id) for p in participants)
+        body = (
+            f"Copy of an email sent to {len(participants)} participant(s) "
+            "with the following pseudo-IDs:\n"
+            f"{id_list}\n\n"
+            "--- Message ---\n"
+            f"{message}"
+        )
+        email = EmailMessage(
+            subject=f"[Copy] {subject}",
+            body=body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[request.user.email],
+        )
+        # A failed copy must not make the participant send look failed.
+        email.send(fail_silently=True)
 
 
 @admin.register(Consent)

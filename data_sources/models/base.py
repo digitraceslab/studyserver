@@ -1,8 +1,10 @@
 import uuid
+
 from django.apps import apps
-from django.db import models
 from django.core.exceptions import ValidationError
+from django.db import models
 from polymorphic.models import PolymorphicModel
+
 from users.models import Profile
 
 
@@ -24,7 +26,9 @@ class DataSource(PolymorphicModel):
         if cls.FORM_CLASS:
             DataSource._data_source_forms[cls.SOURCE_TYPE] = cls.FORM_CLASS
         if cls.CONFIG_FORM_CLASS:
-            DataSource._data_source_config_forms[cls.SOURCE_TYPE] = cls.CONFIG_FORM_CLASS
+            DataSource._data_source_config_forms[cls.SOURCE_TYPE] = (
+                cls.CONFIG_FORM_CLASS
+            )
 
     @classmethod
     def get_class_for_type(cls, source_type):
@@ -69,7 +73,6 @@ class DataSource(PolymorphicModel):
         """Return registered PolymorphicParentModelAdmin child models."""
         return tuple(cls._data_source_admin_child_models)
 
-
     status = models.CharField(
         max_length=20,
         choices=(
@@ -77,26 +80,30 @@ class DataSource(PolymorphicModel):
             ("processing", "Processing"),
             ("active", "Active"),
         ),
-        default='pending'
+        default="pending",
     )
-    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='data_sources')
+    profile = models.ForeignKey(
+        Profile, on_delete=models.CASCADE, related_name="data_sources"
+    )
     device_id = models.UUIDField(null=True, blank=True, default=None, editable=False)
     name = models.CharField(max_length=100, help_text="A personal name for this source")
     date_added = models.DateTimeField(auto_now_add=True)
     configuration = models.JSONField(blank=True, default=dict)
     data_start = models.DateField(null=True, blank=True)
     data_end = models.DateField(null=True, blank=True)
-    
+
     config_token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     oauth_state = models.CharField(max_length=100, blank=True, null=True)
-    
+
     requires_confirmation = False
     requires_setup = False
 
     def save(self, *args, **kwargs):
         # Check if device_id already exists for a different user
         if self.device_id:
-            existing = DataSource.objects.filter(device_id=self.device_id).exclude(id=self.id)
+            existing = DataSource.objects.filter(device_id=self.device_id).exclude(
+                id=self.id
+            )
             if existing.exists():
                 # Check if any of the existing records belong to a different user
                 if existing.exclude(profile_id=self.profile_id).exists():
@@ -113,9 +120,9 @@ class DataSource(PolymorphicModel):
 
     @classmethod
     def display_type_for_configuration(cls, configuration):
-        source_type = cls.SOURCE_TYPE or ''
+        source_type = cls.SOURCE_TYPE or ""
         if source_type:
-            return source_type.replace('_', ' ').title()
+            return source_type.replace("_", " ").title()
         return "Data Source"
 
     @classmethod
@@ -128,7 +135,11 @@ class DataSource(PolymorphicModel):
         """
         target = cls.get_class_for_type(source_type)
         if not target:
-            return source_type.replace('_', ' ').title() if isinstance(source_type, str) else str(source_type)
+            return (
+                source_type.replace("_", " ").title()
+                if isinstance(source_type, str)
+                else str(source_type)
+            )
         return target.display_type_for_configuration(configuration or {})
 
     def _matches_configuration(self, configuration):
@@ -144,7 +155,7 @@ class DataSource(PolymorphicModel):
 
     def show_link(self):
         """Whether the data source shoudl display a link on the dashboard.
-        
+
         Returns:
             link: None or Tuple of (url, display_text)
         """
@@ -153,7 +164,7 @@ class DataSource(PolymorphicModel):
     def get_instructions_card(self, request, consent_id=None, study_id=None):
         """HTML card shown in instructions and dashboard."""
         return None
-    
+
     def get_setup_url(self):
         """URL to redirect to after creating the source"""
         return None
@@ -194,19 +205,17 @@ class DataSource(PolymorphicModel):
 
     def get_confirm_url(self):
         return None
-    
+
     def confirm(self, request):
         """Confirm the source and download any initial data if needed."""
         return None, None
-    
+
     def has_active_consent(self):
-        Consent = apps.get_model('studies', 'Consent')
+        Consent = apps.get_model("studies", "Consent")
         return Consent.objects.filter(
-            data_source=self,
-            revocation_date__isnull=True,
-            is_complete=True
+            data_source=self, revocation_date__isnull=True, is_complete=True
         ).exists()
-    
+
     def process(self, *args, **kwargs):
         if not self.has_active_consent():
             print(f"No active consent for {self} ({self.pk}). Skipping processing.")
@@ -221,8 +230,8 @@ class DataSource(PolymorphicModel):
     def get_data_types(self):
         """Returns a list of available data type names for this source."""
         raise NotImplementedError("Subclasses must implement this method.")
-    
-    def fetch_data(self, data_type='battery', timestamp=0, limit=1000):
+
+    def fetch_data(self, data_type="battery", timestamp=0, limit=1000):
         """Fetches and returns data from the source using a timestamp cursor.
 
         Parameters:
@@ -243,7 +252,7 @@ class DataSource(PolymorphicModel):
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def count_rows(self, data_type='battery', start_date=None, end_date=None):
+    def count_rows(self, data_type="battery", start_date=None, end_date=None):
         """Return the number of rows available for the given data_type and filters.
 
         Subclasses should override to provide an efficient count operation.
