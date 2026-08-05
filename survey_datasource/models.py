@@ -24,8 +24,9 @@ class SurveyDataSource(DataSource):
         verbose_name = "Survey Data Source"
         verbose_name_plural = "Survey Data Sources"
 
-    def show_link(self):
-        """Show a link to the next incomplete survey for this user, if any."""
+    def show_links(self):
+        """Show links to all surveys this user has not yet filled."""
+        links = []
         surveys = Survey.objects.all()
         for survey in surveys:
             responses = Response.objects.filter(
@@ -34,8 +35,8 @@ class SurveyDataSource(DataSource):
             )
             if not responses.exists():
                 survey_name = survey.name if survey.name else f"Survey {survey.id}"
-                return (f"/survey/{survey.id}/", f"Go to {survey_name}")
-        return None
+                links.append((f"/survey/{survey.id}/", f"Go to {survey_name}"))
+        return links
 
     def get_data_types(self):
         """Return a list of available surveys as data types."""

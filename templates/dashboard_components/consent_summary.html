@@ -38,9 +38,9 @@
     </br>Data source is not yet active.
 {% endif %}
 
-{% if consent.link %}
+{% for link in consent.links %}
     </br>
-    <a href="{{ consent.link.0 }}" style="color: blue; text-decoration: underline; margin-left: 10px;">
-        {{ consent.link.1 }}
+    <a href="{{ link.0 }}" style="color: blue; text-decoration: underline; margin-left: 10px;">
+        {{ link.1 }}
     </a>
-{% endif %}
+{% endfor %}
