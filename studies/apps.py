@@ -38,6 +38,13 @@ def setup_researcher_group(sender, **kwargs):
         "change_termsofservice",
         "view_termsofservice",
         "delete_termsofservice",
+        "add_questioncondition",
+        "change_questioncondition",
+        "view_questioncondition",
+        "delete_questioncondition",
+        "add_questionextra",
+        "change_questionextra",
+        "view_questionextra",
     ]
 
     perms = Permission.objects.filter(codename__in=required_permissions)

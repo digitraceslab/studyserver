@@ -30,6 +30,7 @@ urlpatterns = [
     path('studies/', include('studies.urls')),
     path('data-sources/', include('data_sources.urls')),
     path('download/<path:file_path>/', study_server_views.download_static_file, name='download_static_file'),
+    path('survey/', include('survey_extensions.urls')),
     path('survey/', include('survey.urls')),
 ]
 
