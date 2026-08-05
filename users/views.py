@@ -209,7 +209,7 @@ def get_active_studies_data(profile, request):
             if consent.data_source:
                 source = consent.data_source.get_real_instance()
                 consent_data['source'] = source
-                consent_data['link'] = consent.data_source.show_link()
+                consent_data['links'] = consent.data_source.show_links()
             
             if consent.is_optional:
                 studies_data[study]['optional_consents'].append(consent_data)

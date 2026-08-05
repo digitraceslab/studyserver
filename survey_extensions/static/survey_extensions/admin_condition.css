@@ -1,0 +1,13 @@
+/* Compact one-line condition row in the Survey admin's question inline.
+   The admin gives every fieldBox label a fixed width; the operator and value
+   fields have empty labels, so drop them and let the "Show only if" label
+   take its natural width. */
+.fieldBox.field-condition_operator > label,
+.fieldBox.field-condition_value > label {
+    display: none;
+}
+
+.fieldBox.field-condition_question > label {
+    width: auto;
+    min-width: 0;
+}
