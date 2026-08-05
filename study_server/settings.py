@@ -195,6 +195,8 @@ PORTABILITY_SERVER_TOKEN = env("PORTABILITY_SERVER_TOKEN", default="")
 # Block real external network calls (portability HTTP, AWARE DB) during tests.
 TEST_RUNNER = "study_server.test_runner.NoNetworkTestRunner"
 
+# Set larger max post count to allow saving a large survey
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
 
 # Processing task automation
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
@@ -218,11 +220,8 @@ CELERY_BEAT_SCHEDULE = {
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
 LANGUAGE_CODE = "en-us"
-
 TIME_ZONE = "UTC"
-
 USE_I18N = True
-
 USE_TZ = True
 
 
