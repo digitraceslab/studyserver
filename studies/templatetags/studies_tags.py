@@ -36,16 +36,16 @@ def get_asset(assets_dict, asset_name, fallback_url=None):
 
 
 @register.simple_tag
-def study_custom_css_url():
+def study_custom_css():
     """
-    URL of the study's uploaded custom CSS file, or None if not set.
+    The study's custom CSS text, or an empty string if not set.
 
     Usage in template:
-        {% study_custom_css_url as custom_css_url %}
+        {% study_custom_css as custom_css %}
     """
     from studies.models import Study
 
     study = Study.objects.first()
-    if study and study.custom_css:
-        return study.custom_css.url
-    return None
+    if study:
+        return study.custom_css
+    return ""

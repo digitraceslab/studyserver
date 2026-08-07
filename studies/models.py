@@ -71,11 +71,10 @@ class Study(models.Model):
         "noted and researchers will contact them by email.",
     )
 
-    custom_css = models.FileField(
-        upload_to="study_assets/",
+    custom_css = models.TextField(
         blank=True,
-        null=True,
-        help_text="Optional CSS file applied on all pages (mainly the dashboard).",
+        default="",
+        help_text="Custom CSS applied on all pages (mainly the dashboard).",
     )
 
     collect_tax_id = models.BooleanField(

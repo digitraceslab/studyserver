@@ -19,8 +19,8 @@
         .warning { background-color: #fff3cd; color: #856404; }
         .info { background-color: #d1ecf1; color: #0c5460; }
     </style>
-    {% study_custom_css_url as custom_css_url %}
-    {% if custom_css_url %}<link rel="stylesheet" href="{{ custom_css_url }}">{% endif %}
+    {% study_custom_css as custom_css %}
+    {% if custom_css %}<style>{{ custom_css|safe }}</style>{% endif %}
 </head>
 <body>
     {% if messages %}
