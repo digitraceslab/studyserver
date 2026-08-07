@@ -56,3 +56,4 @@ studies.migrations
    0044_alter_study_options
    0045_study_allowed_email_domains_study_max_participants_and_more
    0046_study_custom_css
+   0047_alter_study_custom_css
