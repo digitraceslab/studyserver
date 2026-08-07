@@ -33,3 +33,19 @@ def get_asset(assets_dict, asset_name, fallback_url=None):
         if asset_url:
             return asset_url
     return fallback_url
+
+
+@register.simple_tag
+def study_custom_css_url():
+    """
+    URL of the study's uploaded custom CSS file, or None if not set.
+
+    Usage in template:
+        {% study_custom_css_url as custom_css_url %}
+    """
+    from studies.models import Study
+
+    study = Study.objects.first()
+    if study and study.custom_css:
+        return study.custom_css.url
+    return None
