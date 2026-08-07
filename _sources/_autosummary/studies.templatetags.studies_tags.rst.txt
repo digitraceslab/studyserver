@@ -10,5 +10,5 @@ studies.templatetags.studies\_tags
    
       asset_url
       get_asset
-      study_custom_css_url
+      study_custom_css
    
