@@ -672,6 +672,10 @@ class StudyAdmin(admin.ModelAdmin):
             kwargs["widget"] = AceWidget(
                 mode="html", theme="monokai", width="100%", height="300px"
             )
+        if db_field.name == "custom_css":
+            kwargs["widget"] = AceWidget(
+                mode="css", theme="monokai", width="100%", height="300px"
+            )
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
     def get_queryset(self, request):
