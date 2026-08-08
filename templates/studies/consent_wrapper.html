@@ -1,9 +1,13 @@
 {% extends 'base.html' %}
 
+{% block body_class %}page-consent{% endblock %}
+
 {% block content %}
+<div class="consent-content">
 {% autoescape off %}
     {{ content }}
 {% endautoescape %}
+</div>
 
 <br/>
 <a href="{% url 'dashboard' %}" class="btn btn-primary">Go to Dashboard</a>

@@ -1,6 +1,6 @@
 {% if form.fields.source_id.choices|length > 1 %}
 <h3>Use Existing Source</h3>
-<form method="post">
+<form method="post" class="source-select-form">
     {% csrf_token %}
     <input type="hidden" name="action" value="select">
     {{ form.source_id }}
@@ -10,7 +10,7 @@
 <p>or</p>
 {% endif %}
 
-<form method="post">
+<form method="post" class="source-create-form">
     {% csrf_token %}
     <input type="hidden" name="action" value="create">
     <button type="submit">Create New {{ source_type_label|default:consent.source_type }}</button>

@@ -1,7 +1,11 @@
 {% extends 'base.html' %}
 
+{% block body_class %}page-study{% endblock %}
+
 {% block content %}
+<div class="study-page-content">
 {% autoescape off %}
     {{ study_page_content }}
 {% endautoescape %}
+</div>
 {% endblock %}

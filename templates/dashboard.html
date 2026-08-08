@@ -1,13 +1,16 @@
 {% extends 'base.html' %}
 
+{% block body_class %}page-dashboard{% endblock %}
+
 {% block content %}
 <h1>Your Dashboard</h1>
-<p>Hello, {{ user.username }}!</p>
+<p class="dashboard-greeting">Hello, {{ user.username }}!</p>
 
 
 {% if pending_participations %}
+    <section class="pending-section">
     {% for participation in pending_participations %}
-        <div>
+        <div class="pending-participation">
             <h2>{{ participation.study.title }}</h2>
             <p>
                 <strong>Registration pending.</strong> Your registration has been
@@ -17,30 +20,22 @@
         </div>
     {% endfor %}
     <hr>
+    </section>
 {% endif %}
 
 {% if studies_data %}
     {% for study, data in studies_data.items %}
-        <div>
+        <div class="study-section">
             {% include "dashboard_components/study_detail.html" %}
         </div>
     {% endfor %}
     <hr>
 {% elif not pending_participations %}
+    <div class="not-enrolled-message">
     <p>You are not currently enrolled in the study.</p>
     <p>Go to the <a href="{% url 'home' %}">front page</a> to enroll</p>
+    </div>
 {% endif %}
-
-{% if past_consents %}
-    <h2>Past Studies</h2>
-    <ul>
-        {% for item in past_consents %}
-            <li>{{ item.consent.study.title }}: {{ item.type_name }} (Withdrawn on {{ item.consent.revocation_date|date:"Y-m-d" }})</li>
-        {% endfor %}
-    </ul>
-    <hr>
-{% endif %}
-
 
 {% include "dashboard_components/protected_identifiers.html" %}
 
@@ -48,11 +43,11 @@
     {% include "dashboard_components/tax_id.html" %}
 {% endif %}
 
-<details>
+<details class="advanced-section">
     {% include "dashboard_components/advanced_section.html" %}
 </details>
 
-<form method="post" action="{% url 'logout' %}">
+<form method="post" action="{% url 'logout' %}" class="logout-form">
     {% csrf_token %}
     <button type="submit" class="btn">Logout</button>
 </form>

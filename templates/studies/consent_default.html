@@ -1,8 +1,10 @@
 {% block content %}
-<h2>Consent to Share {{ source_type }} Data</h2>
+<div class="consent-section">
+<h2 class="consent-title">Consent to Share {{ source_type }} Data</h2>
 <p>By checking the box below, you consent to share your {{ source_type }} data with this study.</p>
 
 <div id="consent-form">
     {{ consent_form }}
+</div>
 </div>
 {% endblock %}

@@ -1,46 +1,50 @@
 {{ consent.source.display_type }}:
 {% if consent.source.status == 'active' %}
-    <span style="color: green;">Complete.</span>
+    <span class="consent-status consent-status-active">Complete.</span>
     </br>This data source is set up.
     {% if optional %}
-        <a href="{% url 'revoke_consent' consent.consent.id %}" style="color: red; margin-left: 10px;">
+        <a href="{% url 'revoke_consent' consent.consent.id %}" class="revoke-link">
             (Revoke)
         </a>
     {% endif %}
 {% elif consent.source.status == 'pending' %}
-    <span style="color: orange;">Pending Setup.</span>
+    <span class="consent-status consent-status-pending">Pending Setup.</span>
     </br>Setup is required for this data source.
     {% if consent.source.get_setup_url %}
         {% if optional %}
-            <a href="{% url 'revoke_consent' consent.consent.id %}" style="color: red; margin-left: 10px;">
+            <a href="{% url 'revoke_consent' consent.consent.id %}" class="revoke-link">
                 (Revoke)
             </a>
         {% endif %}
         {% if consent.source.display_type == "Google Portability Data" %}
-            <div style="font-size:90%; margin-top:6px; color:#333; max-width:40rem;">
+            <div class="google-policy-note">
                 The use of information received from the Data Portability API adheres to the Data Portability API user data and developer policy, including the Limited Use Requirements.
             </div>
         {% endif %}
     {% endif %}
 {% elif consent.source.status == 'processing' %}
-    <span style="color: orange;">Waiting for data.</span>
+    <span class="consent-status consent-status-processing">Waiting for data.</span>
     </br>This data source is set up and awaiting data.
     {% if consent.source.get_confirm_url %}
-        <a href="{{ consent.source.get_confirm_url }}?consent_id={{ consent.consent.id }}" style="color: blue; text-decoration: underline; margin-left: 10px;">
+        <a href="{{ consent.source.get_confirm_url }}?consent_id={{ consent.consent.id }}" class="data-check-link">
             Check for data
         </a>
     {% endif %}
-    <a href="{% url 'revoke_consent' consent.consent.id %}" style="color: red; margin-left: 10px;">
+    <a href="{% url 'revoke_consent' consent.consent.id %}" class="revoke-link">
         (Revoke)
     </a>
 {% else %}
-    <span style="color: red;">Inactive.</span>
+    <span class="consent-status consent-status-inactive">Inactive.</span>
     </br>Data source is not yet active.
+{% endif %}
+
+{% if consent.consent.consent_date %}
+    <br><span class="consent-date">Consented on {{ consent.consent.consent_date|date:"Y-m-d H:i" }}</span>
 {% endif %}
 
 {% for link in consent.links %}
     </br>
-    <a href="{{ link.0 }}" style="color: blue; text-decoration: underline; margin-left: 10px;">
+    <a href="{{ link.0 }}" class="data-check-link">
         {{ link.1 }}
     </a>
 {% endfor %}

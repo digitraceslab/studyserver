@@ -1,11 +1,13 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
 
+{% block body_class %}page-data-source-detail{% endblock %}
+
 {% block content %}
 
 <h1>Data for: {{ source.name }} ({{ source.display_type }})</h1>
 
-<form method="get" style="display: flex; gap: 1rem; align-items: center;">
+<form method="get" class="data-filter-form">
     {{ form.as_p }}
     <button type="submit">Filter</button>
 </form>
@@ -14,7 +16,7 @@
 
 {% if rows %}
 <h3>Total: {{ total_count }} rows ({{ num_pages }} page(s) of 100)</h3>
-<table border="1" style="width:100%; border-collapse: collapse;">
+<table border="1" class="data-table">
     <thead>
         <tr>
             {% for header in headers %}
@@ -45,7 +47,7 @@
     <p>Please select a data type to view data.</p>
 {% endif %}
 
-<a href="{% url 'dashboard' %}">Back to Dashboard</a>
+<a href="{% url 'dashboard' %}" class="back-link">Back to Dashboard</a>
 {% endblock %}
 
 {% load custom_filters %}

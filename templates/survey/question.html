@@ -1,4 +1,4 @@
-<table class="table table-hover">
+<table class="table table-hover question-table">
     <!--<thead>
       <tr>
         <th> Question  </th>
@@ -8,17 +8,18 @@
     <tbody>
 {% for form in response_form %}
 	{% if form.field.widget.attrs.category == category.name or category.name == 'No category' and not form.field.widget.attrs.category %}
-        <tr class="{% if form.errors%} danger {% endif %}">
+        <tr class="question-row {% if form.errors%} danger {% endif %}">
             <td>
-	            {{ form.label|safe }}
+	            <span class="question-label">{{ form.label|safe }}</span>
 	            {% if form.field.show_required|default:form.field.required %}
-	                <span class="glyphicon glyphicon-asterisk" style="color:red"> </span>
+	                <span class="glyphicon glyphicon-asterisk question-required"> </span>
 	            {% endif %}
-	            <span class="help-inline" style="color:red">
+	            <span class="help-inline question-errors">
 	                <strong> {% for error in  form.errors %}{{ error }}{% endfor %} </strong>
 	            </span> <br>
+                <div class="question-fields">
                 {% if form.field.widget.input_type == 'select' %}
-                <select name="{{form.name}}"{% if form.field.widget.attrs.disabled %} disabled{% endif %}>
+                <select name="{{form.name}}" class="question-select"{% if form.field.widget.attrs.disabled %} disabled{% endif %}>
                 {% endif %}
 	            {% for field in form %}
 		    {{ field }} <br>
@@ -26,6 +27,7 @@
                 {% if form.field.widget.input_type == 'select' %}
                 </select>
                 {% endif %}
+                </div>
             </td>
         </tr>
 	{% endif %}

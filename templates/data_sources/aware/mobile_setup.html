@@ -1,4 +1,5 @@
 {% load static %}
+{% load studies_tags %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -12,9 +13,12 @@
         .label { font-weight: bold; }
         .value { background-color: #eee; padding: 0.5em; border-radius: 5px; word-wrap: break-word; }
         button { padding: 0.5em 1em; margin-top: 0.5em; }
+        .install-warning-image { max-width: 50%; height: auto; }
     </style>
+    {% study_custom_css as custom_css %}
+    {% if custom_css %}<style>{{ custom_css|safe }}</style>{% endif %}
 </head>
-<body>
+<body class="page-aware-mobile-setup">
     <h1>AWARE Device Setup</h1>
 
     <ol>
@@ -39,7 +43,7 @@
             following warning:
             
             </p>
-            <img src="{% static 'aware/aware_install_warning.jpg' %}" alt="" style="max-width: 50%; height: auto;"/>
+            <img src="{% static 'aware/aware_install_warning.jpg' %}" alt="" class="install-warning-image"/>
             
             <p>
             Aware is safe to install. Select "more details" and "Install anyway" to proceed with the installation.

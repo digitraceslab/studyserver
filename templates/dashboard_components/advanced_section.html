@@ -1,7 +1,7 @@
     <summary><strong>Advanced: View Your Data & API Access</strong></summary>
 
 <h2>Your Data Sources</h2>
-<ul>
+<ul class="data-sources-list">
 {% for source in user.profile.data_sources.all %}
     <li>
         <strong>{{ source.name }}</strong> ({{ source.display_type }})
@@ -20,7 +20,7 @@
     <li>You have not added any data sources yet.</li>
 {% endfor %}
 </ul>
-<a href="{% url 'select_data_source_type' %}">Add Data Source</a>
+<a href="{% url 'select_data_source_type' %}" class="add-source-link">Add Data Source</a>
 
 <h2>API Access</h2>
 <p><a href="{% url 'manage_token' %}">Manage API Token</a></p>
