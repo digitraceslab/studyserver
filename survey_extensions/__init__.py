@@ -1,11 +1,10 @@
-"""Extends django-survey-and-report with conditional questions and "other" free-text.
+"""Privacy hardening for django-survey-and-report.
 
-Adds QuestionCondition (show a question only when a previous answer matches)
-and QuestionExtra (adds an "Other, please specify" option to radio/select
-questions), without forking the survey package.
+Disables the library's CSV/Tex response exports (admin actions and the
+/survey/csv/<pk>/ route), which include respondent usernames; survey data must
+only leave the server through the pseudonymized data-source pipeline.
 
-Note: constructing ``Answer(question=..., body=other_text)`` directly (as
-opposed to going through ``ExtendedResponseForm.save()``) will hit
-``Answer.check_answer_body`` and raise, since the raw "other" text is not one
-of the question's stored choices.
+The conditional questions and "other, please specify" features used to live
+here but are now implemented in the survey library itself; this app keeps the
+migrations that moved that data over.
 """
