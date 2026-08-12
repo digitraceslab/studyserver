@@ -1,3 +1,4 @@
+<section class="identifiers-section">
 <h2>Protected identifiers</h2>
 <p>
     List identifiers that should be removed from the data. These could be usernames, email addresses,
@@ -5,7 +6,7 @@
     identifiers are replaced with a random string in the data.
 </p>
 
-<form method="post" action="{% url 'update_protected_identifiers' %}">
+<form method="post" action="{% url 'update_protected_identifiers' %}" class="identifiers-form">
     {% csrf_token %}
     <div id="identifier-list">
         {% for identifier in protected_identifiers %}
@@ -23,3 +24,4 @@
     ">+ Add identifier</button>
     <button type="submit" class="btn">Save</button>
 </form>
+</section>

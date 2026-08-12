@@ -1,7 +1,7 @@
-<h2>{{ study.title }}</h2>
+<h2 class="study-title">{{ study.title }}</h2>
 
 You have enrolled in {{ study.title }}.
-<ul>
+<ul class="study-links">
     <li> <a href="{% url 'study_detail' %}">See the Study Page</a> </li>
     <li>
         <a href="{% url 'withdraw_from_study' %}">Withdraw from the study.</a>
@@ -9,10 +9,10 @@ You have enrolled in {{ study.title }}.
 </ul>
 
 {% for item in data.incomplete_sources %}
-<div>
+<div class="source-setup-section">
     <h3> Setup Required for {{ item.source.display_type }} </h3>
 
-    After following the setup instructions, <a href="{{ item.source.get_confirm_url }}">Click here to check for data</a>
+    After following the setup instructions, <a href="{{ item.source.get_confirm_url }}" class="source-check-link">Click here to check for data</a>
 
     {% if forloop.first %}
         {% include instructions_template %}
@@ -23,7 +23,7 @@ You have enrolled in {{ study.title }}.
 {% endfor %}
 
 {% for item in data.incomplete_consents %}
-<div>
+<div class="consent-required-section">
     <h3>Consent Required for {{ item.type_name }}</h3>
     <a href="{% url 'consent_workflow' %}?consent_id={{ item.consent.id }}">
         <button>Continue Consent Workflow</button>
@@ -32,11 +32,11 @@ You have enrolled in {{ study.title }}.
 {% endfor %}
 
 {% if data.active_consents %}
-    <div>
+    <div class="active-consents-section">
         <h3>Completed Required Data Sources for {{ study.title }}</h3>
-        <ul>
+        <ul class="consent-list">
         {% for consent in data.active_consents %}
-            <li>
+            <li class="consent-summary">
                 {% include "dashboard_components/consent_summary.html" with consent=consent study=study optional=False %}
             </li>
         {% endfor %}
@@ -45,12 +45,12 @@ You have enrolled in {{ study.title }}.
 {% endif %}
 
 {% if data.optional_consents %}
-    <div>
+    <div class="optional-consents-section">
         <h3>Optional Data Sources for {{ study.title }}</h3>
-        <ul>
+        <ul class="consent-list">
         {% for opt_item in data.optional_consents %}
             {% if opt_item.consent.is_complete and opt_item.source %}
-                <li>
+                <li class="consent-summary">
                     {% include "dashboard_components/consent_summary.html" with consent=opt_item study=study optional=True %}
                 </li>
             {% else %}

@@ -2,13 +2,17 @@
 
 {% block title %}Registration received — {{ study.title }}{% endblock %}
 
+{% block body_class %}page-registration-pending{% endblock %}
+
 {% block content %}
 <h2>Registration received</h2>
 
 {% if pending_content %}
+<div class="pending-content">
 {% autoescape off %}
     {{ pending_content }}
 {% endautoescape %}
+</div>
 {% else %}
 <p>
     Your registration for <strong>{{ study.title }}</strong> has been noted. A
@@ -17,5 +21,5 @@
 <p>You don't need to do anything further for now.</p>
 {% endif %}
 
-<p><a href="{% url 'dashboard' %}">Back to your dashboard</a></p>
+<p class="back-link"><a href="{% url 'dashboard' %}">Back to your dashboard</a></p>
 {% endblock %}

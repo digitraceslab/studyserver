@@ -4,51 +4,55 @@
         {% if source.requires_setup %}
             {% if forloop.first and first_instructions_html %}
                 {# Show full instructions inline for first item #}
+                <div class="setup-instructions">
                 {% autoescape off %}
                     {{ first_instructions_html }}
                 {% endautoescape %}
+                </div>
             {% else %}
                 <p><strong>Setup Required</strong></p>
                 <a href="{{ source.get_setup_url }}?consent_id={{ consent.id }}">
-                    <button>
+                    <button class="setup-instructions-button">
                         View Setup Instructions
                     </button>
                 </a>
             {% endif %}
         {% endif %}
-            
+
         {% if source.requires_confirmation %}
-            <p style="margin-top: 10px;"><strong>Or if you've already set up:</strong></p>
+            <p class="setup-alt-note"><strong>Or if you've already set up:</strong></p>
             <a href="{{ source.get_confirm_url }}?consent_id={{ consent.id }}">
-                <button>
+                <button class="check-data-button">
                     Check for Data
                 </button>
             </a>
         {% endif %}
     {% endif %}
 
-    <div>        
+    <div class="source-setup-actions">
         {% if forloop.first and first_instructions_html %}
             {# Show full instructions inline for first item #}
+            <div class="setup-instructions">
             {% autoescape off %}
                 {{ first_instructions_html }}
             {% endautoescape %}
+            </div>
         {% else %}
             {# Show links for remaining items #}
             {% if source.status == 'pending' %}
                 {% if source.requires_setup %}
                     <p><strong>Setup Required</strong></p>
                     <a href="{{ source.get_setup_url }}?consent_id={{ consent.id }}">
-                        <button>
+                        <button class="setup-instructions-button">
                             View Setup Instructions
                         </button>
                     </a>
                 {% endif %}
-                
+
                 {% if source.requires_confirmation %}
-                    <p style="margin-top: 10px;"><strong>Or if you've already set up:</strong></p>
+                    <p class="setup-alt-note"><strong>Or if you've already set up:</strong></p>
                     <a href="{{ source.get_confirm_url }}?consent_id={{ consent.id }}">
-                        <button>
+                        <button class="check-data-button">
                             Check for Data
                         </button>
                     </a>
@@ -60,10 +64,10 @@
 
 {% elif consent.consent_text_accepted %}
     {# Consent accepted, needs data source #}
-    <div>
+    <div class="source-choice-section">
         {% if consent.selection_form.fields.source_id.choices|length > 1 %}
             <h5>Use Existing Source</h5>
-            <form method="post" action="{% url 'consent_workflow' %}">
+            <form method="post" action="{% url 'consent_workflow' %}" class="source-select-form">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="select">
                 {{ consent.selection_form.source_id }}
@@ -71,18 +75,18 @@
             </form>
             <p><strong>or</strong></p>
         {% endif %}
-        
+
         <h5>Create New {{ source_type_label|default:consent.source_type }}</h5>
-        <form method="post" action="{% url 'consent_workflow' %}">
+        <form method="post" action="{% url 'consent_workflow' %}" class="source-create-form">
             {% csrf_token %}
             <input type="hidden" name="action" value="create">
-            <button type="submit" style="padding: 8px 16px;">Create New {{ source_type_label|default:consent.source_type }}</button>
+            <button type="submit" class="create-source-button">Create New {{ source_type_label|default:consent.source_type }}</button>
         </form>
     </div>
 
 {% else %}
     {# No consent yet - show consent form #}
-    <div>
+    <div class="consent-prompt">
         <p><strong>Please read and accept the
         <a href="{% url 'consent_workflow' %}">
             consent form

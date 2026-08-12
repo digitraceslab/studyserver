@@ -1,9 +1,11 @@
 {% extends 'base.html' %}
 
+{% block body_class %}page-select-source-type{% endblock %}
+
 {% block content %}
 <h1>Add a New Data Source</h1>
 <p>Please select the type of data source you would like to add:</p>
-<ul>
+<ul class="source-type-list">
     {% for type in types %}
         <li><a href="{% url 'add_data_source' type.slug %}">{{ type.label }}</a></li>
     {% endfor %}

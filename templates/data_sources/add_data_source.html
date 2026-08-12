@@ -1,9 +1,11 @@
 {% extends 'base.html' %}
 
+{% block body_class %}page-add-data-source{% endblock %}
+
 {% block content %}
 
 <h1>Add a new data source</h1>
-<form method="post">
+<form method="post" class="data-source-form">
     {% csrf_token %}
     {{ form.as_p }}
     <button type="submit">Save Data Source</button>

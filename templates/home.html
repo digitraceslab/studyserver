@@ -1,16 +1,18 @@
 {% extends 'base.html' %}
 
+{% block body_class %}page-home{% endblock %}
+
 {% block content %}
 <h1>Welcome to the Study Server</h1>
 {% if user.is_authenticated %}
-  <p>Hello, {{ user.username }}!</p>
-  <p><a href="{% url 'dashboard' %}">Go to your Dashboard</a></p>
+  <p class="home-greeting">Hello, {{ user.username }}!</p>
+  <p class="dashboard-link"><a href="{% url 'dashboard' %}">Go to your Dashboard</a></p>
 
-<form method="post" action="{% url 'logout' %}">
+<form method="post" action="{% url 'logout' %}" class="logout-form">
     {% csrf_token %}
     <button type="submit" class="btn">Logout</button>
 </form>
 {% else %}
-  <p><a href="{% url 'login' %}">Login</a> or <a href="{% url 'signup' %}">Sign Up</a></p>
+  <p class="auth-links"><a href="{% url 'login' %}">Login</a> or <a href="{% url 'signup' %}">Sign Up</a></p>
 {% endif %}
 {% endblock %}

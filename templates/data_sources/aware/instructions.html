@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% block body_class %}page-aware-instructions{% endblock %}
+
 {% block content %}
 
 {% include 'instructions_card.html' %}
@@ -7,10 +9,10 @@
 <h3>Setup AWARE Data Source: {{ instructions_context.source.name }}</h3>
 
 {% if consent_id %}
-    <a href="{% url 'consent_workflow' %}?consent_id={{ consent_id }}">Back to Join Study</a>
+    <a href="{% url 'consent_workflow' %}?consent_id={{ consent_id }}" class="back-link">Back to Join Study</a>
     <br>
 {% endif %}
 
-<a href="{% url 'dashboard' %}">Back to Dashboard</a>
+<a href="{% url 'dashboard' %}" class="back-link">Back to Dashboard</a>
 
 {% endblock %}

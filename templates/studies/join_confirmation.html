@@ -2,16 +2,20 @@
 
 {% block title %}Join {{ study.title }}{% endblock %}
 
+{% block body_class %}page-join{% endblock %}
+
 {% block content %}
 <h2>Join {{ study.title }}</h2>
 
 {% if join_confirmation_content %}
+<div class="join-confirmation-content">
 {% autoescape off %}
     {{ join_confirmation_content }}
 {% endautoescape %}
+</div>
 {% endif %}
 
-<form method="post">
+<form method="post" class="join-form">
     {% csrf_token %}
     <p>
         <label>
@@ -23,6 +27,6 @@
         </label>
     </p>
     <button type="submit">Join Study</button>
-    <a href="{% url 'study_detail' %}">Cancel</a>
+    <a href="{% url 'study_detail' %}" class="cancel-link">Cancel</a>
 </form>
 {% endblock %}

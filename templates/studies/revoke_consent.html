@@ -1,15 +1,17 @@
 {% extends 'base.html' %}
 
+{% block body_class %}page-revoke-consent{% endblock %}
+
 {% block content %}
 
     <h2>Revoke Consent for {{ consent.data_source.display_type|default:consent.source_type }}</h2>
 
     <p>Are you sure you want to revoke your consent for {{ consent.data_source.display_type|default:consent.source_type }} in the study "{{ study.title }}"?</p>
 
-    <form method="post">
+    <form method="post" class="revoke-form">
         {% csrf_token %}
         <button type="submit">Yes, Revoke Consent</button>
-        <a href="{% url 'study_detail' %}">Cancel</a>
+        <a href="{% url 'study_detail' %}" class="cancel-link">Cancel</a>
     </form>
 
 {% endblock %}
