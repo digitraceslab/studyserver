@@ -73,7 +73,7 @@ django-permissions-policy==4.30.0
     # via -r requirements.in
 django-polymorphic==4.11.4
     # via -r requirements.in
-django-survey-and-report[sankey]==1.4.12
+django-survey-and-report[sankey] @ git+https://github.com/AaltoRSE/django-survey@master
     # via -r requirements.in
 djangorestframework==3.17.1
     # via -r requirements.in

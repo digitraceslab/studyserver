@@ -9,7 +9,11 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('survey', '0015_alter_answer_id_alter_category_id_alter_question_id_and_more'),
+        # Deliberately the last survey migration shipped in every install.
+        # A locally-generated 0015 (BigAutoField alters from our
+        # DEFAULT_AUTO_FIELD setting) exists applied on some machines, but
+        # nothing may assume it is present.
+        ('survey', '0014_survey_redirect_url'),
     ]
 
     operations = [
