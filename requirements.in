@@ -17,4 +17,4 @@ cryptography
 sphinx
 myst-parser
 sphinx-rtd-theme
-django-survey-and-report[sankey]
+django-survey-and-report[sankey] @ git+https://github.com/AaltoRSE/django-survey@master

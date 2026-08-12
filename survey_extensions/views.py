@@ -1,6 +1,7 @@
 import logging
 
 from django.conf import settings
+from django.http import Http404
 from django.shortcuts import redirect, render, reverse
 
 from survey.decorators import survey_available
@@ -9,6 +10,16 @@ from survey.views import SurveyDetail
 from survey_extensions.forms import ExtendedResponseForm
 
 LOGGER = logging.getLogger(__name__)
+
+
+def survey_csv_disabled(request, primary_key=None):
+    """Shadow the library's /survey/csv/<pk>/ export.
+
+    The library serves the full response matrix, including respondent
+    usernames, to any logged-in user. Survey data must only leave the server
+    through the pseudonymized data-source pipeline.
+    """
+    raise Http404
 
 
 class ExtendedSurveyDetail(SurveyDetail):

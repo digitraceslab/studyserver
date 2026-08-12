@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib import admin
 
+from survey.actions import make_published
 from survey.admin import CategoryInline, SurveyAdmin
 from survey.admin import QuestionInline as BaseQuestionInline
 from survey.models import Question, Survey
@@ -204,6 +205,10 @@ class SurveyQuestionInline(BaseQuestionInline):
 
 class ExtendedSurveyAdmin(SurveyAdmin):
     inlines = [CategoryInline, SurveyQuestionInline]
+    # The library's CSV/Tex export actions include respondent usernames;
+    # survey data must only leave through the pseudonymized data-source
+    # pipeline, so only the publish action is kept.
+    actions = [make_published]
 
     def save_formset(self, request, form, formset, change):
         super().save_formset(request, form, formset, change)
