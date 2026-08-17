@@ -41,10 +41,10 @@
             <p>
             Since Aware is downloaded from outside the Google Play Store, you may see the
             following warning:
-            
+
             </p>
             <img src="{% static 'aware/aware_install_warning.jpg' %}" alt="" class="install-warning-image"/>
-            
+
             <p>
             Aware is safe to install. Select "more details" and "Install anyway" to proceed with the installation.
             </p>
@@ -66,7 +66,7 @@
             <p>
                 In the AWARE app, select "Join a Study". The app will ask for a URL. Copy the following URL and paste it into the AWARE app:
             </p>
-            
+
             <div class="item">
                 <p id="configUrl" class="value">{{ config_url }}</p>
                 <button onclick="copyToClipboard('configUrl')">Copy URL</button>
@@ -80,6 +80,58 @@
 
         <li>
             On the next screen, read the study description and click "Sign Up!".
+        </li>
+
+        <li>
+           <p>
+           		On the next screen, you will see a list of sensors that Aware collects data from.
+           </p>
+           <img src="{% static 'aware/aware_install_warning.jpg' %}" alt="" class="install-warning-image"/>
+
+           <p>
+           If a sensor is marked with a gray background, it is currently off.
+           Check each sensors page and verify required options are turned on:
+           <ul>
+             <li>Accelerometer</li>
+             <ul>
+             	<li>Turn on "Activate"</li>
+             </ul>
+             <li>Applications</li>
+             <ul>
+             	<li>Turn on "Screentext", "Application usage" and "Application notifications</li>
+             </ul>
+             <li>Battery</li>
+             <ul>
+             	<li>Turn on "Activate"</li>
+             </ul>
+             <li>Communication</li>
+             <ul>
+             	<li>Turn on "Call events" and "Message events"</li>
+             </ul>
+             <li>Mobile ESM/EMA</li>
+             <ul>
+            	<li>Turn on "Activate"</li>
+             </ul>
+             <li>Locations</li>
+             <ul>
+             	<li>Turn on "GPS"</li>
+             </ul>
+             <li>Timezone</li>
+             <ul>
+             	<li>Turn on "Active"</li>
+             </ul>
+             <li>screen usage</li>
+             <ul>
+             	<li>Turn on "Screen usage"</li>
+             </ul>
+             <li>Screenshot</li>
+             <ul>
+             	<li>Turn on "Active"</li>
+             </ul>
+             <li>screentext</li>
+             <li>timezone</li>
+           </ul>
+           </p>
         </li>
     </ol>
 
