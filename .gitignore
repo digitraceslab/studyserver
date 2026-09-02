@@ -29,3 +29,4 @@ docs/source/_autosummary/
 # Automation
 celerybeat-schedule*
 
+staticfiles/
