@@ -45,6 +45,10 @@ def setup_researcher_group(sender, **kwargs):
         "add_questionextra",
         "change_questionextra",
         "view_questionextra",
+        "add_csssnippet",
+        "change_csssnippet",
+        "view_csssnippet",
+        "delete_csssnippet",
     ]
 
     perms = Permission.objects.filter(codename__in=required_permissions)
