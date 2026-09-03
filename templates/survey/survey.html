@@ -1,88 +1,9 @@
-{% extends 'survey/base.html' %}
-{% load i18n %}
-{% load survey_extras %}
-{% load static %}
+{% extends "survey/survey.html" %}
 {% load studies_tags %}
-
-{% block title %} {{survey.name}} {% endblock title %}
-
-{% block extrajs %}
-  {{response_form.media}}
-  {% if asset_context.flatpickr %}
-    <script type="text/javascript" src="{% static 'survey/js/flatpickr.min.js' %}"></script>
-  {% endif %}
-  <script src="{% static 'survey/js/conditional.js' %}" defer></script>
-{% endblock %}
+{# Extends the django-survey page of the same name (next template loader) and only adds the study's custom CSS. #}
 
 {% block extracss %}
   {{ block.super }}
-  {% if asset_context.flatpickr %}
-    <link href="{% static 'survey/css/flatpickr.min.css'%}" rel="stylesheet" type="text/css"/>
-  {% endif %}
-  <style>
-    .question-required { color: red; }
-    .question-errors { color: red; }
-  </style>
   {% study_custom_css as custom_css %}
   {% if custom_css %}<style>{{ custom_css|safe }}</style>{% endif %}
-{% endblock %}
-
-
-
-{% block body %}
-	<div class="survey-page">
-	<h1 class="survey-title"> {{survey.name}} </h1>
-	<div class="survey-description"> {{survey.description|safe}} </div>
-	<div class="survey-form-section">
-      {% if step and step != 0 %}
-		<form action="{% url 'survey-detail-step' id=survey.id step=step %}" method="post">
-	{% else %}
-		<form action="{% url 'survey-detail' id=survey.id %}" method="post">
-	{% endif %}
-	    {% csrf_token %}
-        {% for category in categories %}
-            <h3 class="survey-category-title"> {{category}} </h3>
-            <p class="survey-category-description"> {{category.description|default_if_none:""}} </p>
-			<div class="panel-group" id="accordion">
-				<div class="panel panel-default">
-				    <div class="panel-heading">
-				        <h3 class="panel-title"> <a
-				        data-toggle="collapse show"
-				        data-parent="#accordion"
-				        href="#collapse{{category.slugify}}">
-				            {% trans "Answer this part" %}
-			            </a></h3>
-				    </div>
-                    <div class="category-container">
-				        <div id="collapse{{category.slugify}}" class="panel-collapse collapse show {% if not survey.editable_answers and response_form.response is not None %}in{% endif %}
-				        {{ response_form|collapse_form:category }}">
-				            <div class="panel-body">
-	                           {% include "survey/question.html" %}
-                            </div>
-		                </div>
-                </div>
-            </div>
-        {% empty %}
-            <h3 class="survey-category-title"> {% trans "Questions" %} </h3>
-            {% include "survey/question.html" %}
-        {% endfor %}
-
-        <br>
-		{% if survey.editable_answers or response_form.response is None %}
-	    {% if response_form.has_next_step %}
-				    <input
-  			          class="btn btn-default btn-lg survey-submit"
-				        type="submit"
-				        value="{% trans "Next!" %}"
-        			>
-				{% else %}
-				    <input
-  			          class="btn btn-default btn-lg survey-submit"
-				        type="submit"
-				        value="{% trans "I'm done!" %}"
-        			>
-				{% endif %}
-		{% endif %}
-	</form></div>
-	</div>
 {% endblock %}
