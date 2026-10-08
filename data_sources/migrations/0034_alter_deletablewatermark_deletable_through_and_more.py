@@ -3,9 +3,13 @@
 from django.db import migrations, models
 
 
+_COLUMNS = ("deletable_through", "deleted_through", "downloaded_through")
+
+
 # Postgres cannot implicitly cast timestamptz -> bigint, so each column is
 # altered with an explicit USING clause converting to Unix time in milliseconds.
-# RunSQL performs the DDL; state_operations keeps Django's model state in sync.
+# The DDL is Postgres-only; on other backends (SQLite dev databases) it is
+# skipped and the state_operations alone keep Django's model state in sync.
 def _alter_to_bigint_ms(column):
     return (
         f'ALTER TABLE "data_sources_deletablewatermark" '
@@ -22,6 +26,20 @@ def _alter_to_timestamptz(column):
     )
 
 
+def _forwards(apps, schema_editor):
+    if schema_editor.connection.vendor != "postgresql":
+        return
+    for column in _COLUMNS:
+        schema_editor.execute(_alter_to_bigint_ms(column))
+
+
+def _backwards(apps, schema_editor):
+    if schema_editor.connection.vendor != "postgresql":
+        return
+    for column in _COLUMNS:
+        schema_editor.execute(_alter_to_timestamptz(column))
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -29,16 +47,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(
-            sql=[
-                _alter_to_bigint_ms('deletable_through'),
-                _alter_to_bigint_ms('deleted_through'),
-                _alter_to_bigint_ms('downloaded_through'),
-            ],
-            reverse_sql=[
-                _alter_to_timestamptz('deletable_through'),
-                _alter_to_timestamptz('deleted_through'),
-                _alter_to_timestamptz('downloaded_through'),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunPython(_forwards, _backwards),
             ],
             state_operations=[
                 migrations.AlterField(
