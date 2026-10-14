@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.db import models
 from django.utils.timezone import datetime, timezone
 from data_sources.models import DataSource
@@ -25,16 +27,14 @@ class SurveyDataSource(DataSource):
         verbose_name_plural = "Survey Data Sources"
 
     def show_links(self):
-        """Show links to the requested surveys this user has not yet filled.
+        """Show links to the open surveys this user has not yet filled.
 
-        The surveys are the ids listed in the configuration's
-        requested_data_types; with none listed, no survey is shown."""
+        A survey is open when it is published and today is within its
+        publication period, the same check django-survey's survey list and
+        survey_available decorator apply."""
         links = []
-        requested = (self.configuration or {}).get("requested_data_types") or ""
-        if isinstance(requested, str):
-            requested = requested.split(",")
-        survey_ids = [int(item) for item in (str(item).strip() for item in requested) if item.isdigit()]
-        surveys = Survey.objects.filter(id__in=survey_ids)
+        today = date.today()
+        surveys = Survey.objects.filter(is_published=True, publish_date__lte=today, expire_date__gte=today)
         for survey in surveys:
             responses = Response.objects.filter(
                 survey = survey,
