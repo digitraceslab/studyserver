@@ -25,9 +25,16 @@ class SurveyDataSource(DataSource):
         verbose_name_plural = "Survey Data Sources"
 
     def show_links(self):
-        """Show links to all surveys this user has not yet filled."""
+        """Show links to the requested surveys this user has not yet filled.
+
+        The surveys are the ids listed in the configuration's
+        requested_data_types; with none listed, no survey is shown."""
         links = []
-        surveys = Survey.objects.all()
+        requested = (self.configuration or {}).get("requested_data_types") or ""
+        if isinstance(requested, str):
+            requested = requested.split(",")
+        survey_ids = [int(item) for item in (str(item).strip() for item in requested) if item.isdigit()]
+        surveys = Survey.objects.filter(id__in=survey_ids)
         for survey in surveys:
             responses = Response.objects.filter(
                 survey = survey,
@@ -82,6 +89,7 @@ class SurveyDataSource(DataSource):
                         'survey': survey.name,
                         'question': answer.question.text,
                         'answer': answer.body,
+                        'other': answer.other_text,
                         # timestamp is canonically Unix time in milliseconds across all sources.
                         'timestamp': row_ts,
                     })
