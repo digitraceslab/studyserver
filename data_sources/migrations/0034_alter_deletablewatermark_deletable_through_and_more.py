@@ -8,8 +8,25 @@ _COLUMNS = ("deletable_through", "deleted_through", "downloaded_through")
 
 # Postgres cannot implicitly cast timestamptz -> bigint, so each column is
 # altered with an explicit USING clause converting to Unix time in milliseconds.
-# The DDL is Postgres-only; on other backends (SQLite dev databases) it is
-# skipped and the state_operations alone keep Django's model state in sync.
+# MySQL (dev/test only) gets a plain type change without converting existing
+# values. On SQLite the DDL is skipped: its loose column types accept the
+# integers, and the state_operations alone keep Django's model state in sync.
+def _mysql_alter_to_bigint(column):
+    return (
+        f'ALTER TABLE `data_sources_deletablewatermark` '
+        f'MODIFY `{column}` bigint NULL;'
+    )
+
+
+def _mysql_alter_to_datetime(column):
+    # Millisecond integers are not valid datetimes, so they are cleared first.
+    return [
+        f'UPDATE `data_sources_deletablewatermark` SET `{column}` = NULL;',
+        f'ALTER TABLE `data_sources_deletablewatermark` '
+        f'MODIFY `{column}` datetime(6) NULL;',
+    ]
+
+
 def _alter_to_bigint_ms(column):
     return (
         f'ALTER TABLE "data_sources_deletablewatermark" '
@@ -27,17 +44,22 @@ def _alter_to_timestamptz(column):
 
 
 def _forwards(apps, schema_editor):
-    if schema_editor.connection.vendor != "postgresql":
-        return
+    vendor = schema_editor.connection.vendor
     for column in _COLUMNS:
-        schema_editor.execute(_alter_to_bigint_ms(column))
+        if vendor == "postgresql":
+            schema_editor.execute(_alter_to_bigint_ms(column))
+        elif vendor == "mysql":
+            schema_editor.execute(_mysql_alter_to_bigint(column))
 
 
 def _backwards(apps, schema_editor):
-    if schema_editor.connection.vendor != "postgresql":
-        return
+    vendor = schema_editor.connection.vendor
     for column in _COLUMNS:
-        schema_editor.execute(_alter_to_timestamptz(column))
+        if vendor == "postgresql":
+            schema_editor.execute(_alter_to_timestamptz(column))
+        elif vendor == "mysql":
+            for statement in _mysql_alter_to_datetime(column):
+                schema_editor.execute(statement)
 
 
 class Migration(migrations.Migration):

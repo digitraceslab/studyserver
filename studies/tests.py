@@ -2331,6 +2331,16 @@ class BulkSendParticipantEmailAdminTest(StudyTestMixin, TestCase):
         }
         return self.client.post(self.changelist_url, data)
 
+    def _participant_mails(self):
+        """Outbox messages sent to participants (everything but the researcher copy)."""
+        return [msg for msg in mail.outbox if msg.to != ['admin@example.com']]
+
+    def _researcher_copy(self):
+        """Return the single copy emailed to the sending admin; fail if not exactly one."""
+        copies = [msg for msg in mail.outbox if msg.to == ['admin@example.com']]
+        self.assertEqual(len(copies), 1)
+        return copies[0]
+
     def test_confirmation_page_renders_without_sending(self):
         # Selecting the action (no 'send' marker) shows the form, sends nothing.
         response = self._post({})
@@ -2345,10 +2355,15 @@ class BulkSendParticipantEmailAdminTest(StudyTestMixin, TestCase):
             'reply_to': 'contact@example.com',
         })
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(len(mail.outbox), 2)
-        recipients = {msg.to[0] for msg in mail.outbox}
+        participant_mails = self._participant_mails()
+        self.assertEqual(len(participant_mails), 2)
+        recipients = {msg.to[0] for msg in participant_mails}
         self.assertEqual(recipients, {'p1@example.com', 'p2@example.com'})
-        for msg in mail.outbox:
+        copy = self._researcher_copy()
+        self.assertEqual(copy.subject, '[Copy] Hello all')
+        self.assertIn(str(self.study_participant.pseudo_id), copy.body)
+        self.assertIn(str(self.participant2.pseudo_id), copy.body)
+        for msg in participant_mails:
             self.assertEqual(msg.subject, 'Hello all')
             self.assertEqual(msg.reply_to, ['contact@example.com'])
             # Recipients are never disclosed to each other.
@@ -2361,9 +2376,11 @@ class BulkSendParticipantEmailAdminTest(StudyTestMixin, TestCase):
             'message': 'Body',
             'reply_to': 'admin@example.com',
         })
-        self.assertEqual(len(mail.outbox), 2)
-        for msg in mail.outbox:
+        participant_mails = self._participant_mails()
+        self.assertEqual(len(participant_mails), 2)
+        for msg in participant_mails:
             self.assertEqual(msg.reply_to, ['admin@example.com'])
+        self._researcher_copy()
 
     def test_bulk_skips_participants_without_email(self):
         self.user2.email = ''
@@ -2374,8 +2391,12 @@ class BulkSendParticipantEmailAdminTest(StudyTestMixin, TestCase):
             'message': 'Body',
             'reply_to': 'contact@example.com',
         })
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ['p1@example.com'])
+        participant_mails = self._participant_mails()
+        self.assertEqual(len(participant_mails), 1)
+        self.assertEqual(participant_mails[0].to, ['p1@example.com'])
+        copy = self._researcher_copy()
+        self.assertIn(str(self.study_participant.pseudo_id), copy.body)
+        self.assertNotIn(str(self.participant2.pseudo_id), copy.body)
 
     def test_action_queryset_is_scoped_to_researchers_studies(self):
         # The bulk action relies on get_queryset to keep researchers from

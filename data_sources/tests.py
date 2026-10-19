@@ -3,7 +3,7 @@ import os
 import tempfile
 import uuid
 from datetime import date, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pandas as pd
 import requests
@@ -452,7 +452,7 @@ class NiimportDataSourceTest(TestCase):
         self.user = User.objects.create_user(username="testuser", password="testpass")
         self.profile = Profile.objects.create(user=self.user)
 
-    @patch("data_sources.models.portability_client.create_donation")
+    @patch("data_sources.models.portability_client.PortabilityClient.create_donation")
     def test_create_niimport_source_redirects_to_portability(self, mock_create):
         mock_create.return_value = {
             "id": 1,
@@ -489,9 +489,158 @@ class DataSourceTest(TestCase):
     PORTABILITY_SERVER_TOKEN="test-token",
 )
 class PortabilityClientTest(TestCase):
-    """Unit tests for portability_client — all HTTP calls are patched."""
+    """Unit tests for PortabilityClient — all HTTP calls are patched.
 
-    EXPECTED_HEADERS = {"Authorization": "Token test-token"}
+    Each test uses a fresh client. Tests of the donation endpoints start it
+    with a stored session token so no login request is made.
+    """
+
+    EXPECTED_HEADERS = {"Authorization": "Token session-token"}
+
+    def setUp(self):
+        self.client_api = portability_client.PortabilityClient()
+        self.client_api.session_token = "session-token"
+
+    @patch("data_sources.models.portability_client.requests.post")
+    def test_login_exchanges_researcher_token_and_stores_session(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "session_token": "new-session", "expires_at": "2026-10-20T00:00:00Z"
+        }
+        mock_post.return_value = mock_response
+        api = portability_client.PortabilityClient()
+
+        result = api.login()
+
+        mock_post.assert_called_once_with(
+            "http://test-server/api/session/",
+            json={"token": "test-token"},
+            timeout=portability_client.REQUEST_TIMEOUT,
+        )
+        mock_response.raise_for_status.assert_called_once()
+        self.assertEqual(result, "new-session")
+        self.assertEqual(api.session_token, "new-session")
+
+    @patch("data_sources.models.portability_client.requests.get")
+    @patch("data_sources.models.portability_client.requests.post")
+    def test_request_without_session_logs_in_first(self, mock_post, mock_get):
+        mock_post.return_value.json.return_value = {"session_token": "new-session"}
+        mock_get.return_value.json.return_value = {"id": 5}
+        api = portability_client.PortabilityClient()
+
+        api.get_donation(5)
+
+        mock_post.assert_called_once()
+        self.assertEqual(
+            mock_get.call_args[1]["headers"], {"Authorization": "Token new-session"}
+        )
+
+    @patch("data_sources.models.portability_client.requests.post")
+    def test_login_propagates_http_error(self, mock_post):
+        mock_post.return_value.raise_for_status.side_effect = requests.HTTPError(
+            "401 Unauthorized"
+        )
+        api = portability_client.PortabilityClient()
+
+        with self.assertRaises(requests.HTTPError):
+            api.login()
+        self.assertIsNone(api.session_token)
+
+    @patch("data_sources.models.portability_client.requests.delete")
+    def test_logout_deletes_session_and_clears_token(self, mock_delete):
+        mock_response = MagicMock()
+        mock_delete.return_value = mock_response
+
+        self.client_api.logout()
+
+        mock_delete.assert_called_once_with(
+            "http://test-server/api/session/",
+            headers=self.EXPECTED_HEADERS,
+            timeout=portability_client.REQUEST_TIMEOUT,
+        )
+        mock_response.raise_for_status.assert_called_once()
+        self.assertIsNone(self.client_api.session_token)
+
+    @patch("data_sources.models.portability_client.requests.delete")
+    def test_logout_without_session_does_nothing(self, mock_delete):
+        api = portability_client.PortabilityClient()
+
+        api.logout()
+
+        mock_delete.assert_not_called()
+
+    @patch("data_sources.models.portability_client.requests.get")
+    @patch("data_sources.models.portability_client.requests.post")
+    def test_expired_session_logs_in_again_and_retries(self, mock_post, mock_get):
+        expired = MagicMock(status_code=401)
+        ok = MagicMock(status_code=200)
+        ok.json.return_value = {"id": 5, "status": "processed"}
+        mock_get.side_effect = [expired, ok]
+        mock_post.return_value.json.return_value = {"session_token": "new-session"}
+
+        result = self.client_api.get_donation(5)
+
+        self.assertEqual(
+            [c[1]["headers"] for c in mock_get.call_args_list],
+            [self.EXPECTED_HEADERS, {"Authorization": "Token new-session"}],
+        )
+        mock_post.assert_called_once_with(
+            "http://test-server/api/session/",
+            json={"token": "test-token"},
+            timeout=portability_client.REQUEST_TIMEOUT,
+        )
+        self.assertEqual(self.client_api.session_token, "new-session")
+        self.assertEqual(result, {"id": 5, "status": "processed"})
+
+    @patch("data_sources.models.portability_client.requests.post")
+    def test_expired_session_logs_in_again_and_retries_post(self, mock_post):
+        expired = MagicMock(status_code=401)
+        login = MagicMock(status_code=200)
+        login.json.return_value = {"session_token": "new-session"}
+        ok = MagicMock(status_code=201)
+        ok.json.return_value = {"id": 1, "token": "abc", "status": "pending"}
+        mock_post.side_effect = [expired, login, ok]
+
+        result = self.client_api.create_donation("niimport_portability")
+
+        donation_url = "http://test-server/api/donations/"
+        payload = {"source_type": "niimport_portability"}
+        timeout = portability_client.REQUEST_TIMEOUT
+        self.assertEqual(
+            mock_post.call_args_list,
+            [
+                call(donation_url, json=payload, headers=self.EXPECTED_HEADERS,
+                     timeout=timeout),
+                call("http://test-server/api/session/", json={"token": "test-token"},
+                     timeout=timeout),
+                call(donation_url, json=payload,
+                     headers={"Authorization": "Token new-session"}, timeout=timeout),
+            ],
+        )
+        self.assertEqual(self.client_api.session_token, "new-session")
+        self.assertEqual(result, {"id": 1, "token": "abc", "status": "pending"})
+
+    @patch("data_sources.models.portability_client.requests.delete")
+    @patch("data_sources.models.portability_client.requests.post")
+    def test_expired_session_logs_in_again_and_retries_delete(self, mock_post, mock_delete):
+        expired = MagicMock(status_code=401)
+        ok = MagicMock(status_code=204)
+        mock_delete.side_effect = [expired, ok]
+        mock_post.return_value.json.return_value = {"session_token": "new-session"}
+
+        self.client_api.delete_donation(3)
+
+        self.assertEqual(
+            [c[1]["headers"] for c in mock_delete.call_args_list],
+            [self.EXPECTED_HEADERS, {"Authorization": "Token new-session"}],
+        )
+        mock_post.assert_called_once_with(
+            "http://test-server/api/session/",
+            json={"token": "test-token"},
+            timeout=portability_client.REQUEST_TIMEOUT,
+        )
+        self.assertEqual(self.client_api.session_token, "new-session")
+        ok.raise_for_status.assert_called_once()
 
     @patch("data_sources.models.portability_client.requests.post")
     def test_create_donation_correct_url_headers_payload(self, mock_post):
@@ -499,7 +648,7 @@ class PortabilityClientTest(TestCase):
         mock_response.json.return_value = {"id": 1, "token": "abc", "status": "pending"}
         mock_post.return_value = mock_response
 
-        result = portability_client.create_donation("niimport_portability")
+        result = self.client_api.create_donation("niimport_portability")
 
         mock_post.assert_called_once_with(
             "http://test-server/api/donations/",
@@ -516,7 +665,7 @@ class PortabilityClientTest(TestCase):
         mock_response.json.return_value = {"id": 2, "token": "xyz", "status": "pending"}
         mock_post.return_value = mock_response
 
-        result = portability_client.create_donation(
+        result = self.client_api.create_donation(
             "tiktok_portability",
             data_start_date="2024-01-01",
             data_end_date="2024-12-31",
@@ -537,10 +686,11 @@ class PortabilityClientTest(TestCase):
         mock_response.json.return_value = {"id": 5, "status": "processed"}
         mock_get.return_value = mock_response
 
-        result = portability_client.get_donation(5)
+        result = self.client_api.get_donation(5)
 
         mock_get.assert_called_once_with(
             "http://test-server/api/donations/5/",
+            params=None,
             headers=self.EXPECTED_HEADERS,
             timeout=portability_client.REQUEST_TIMEOUT,
         )
@@ -553,7 +703,7 @@ class PortabilityClientTest(TestCase):
         mock_response.json.return_value = {"data": [{"row": 1}], "count": 1}
         mock_get.return_value = mock_response
 
-        result = portability_client.get_data(
+        result = self.client_api.get_data(
             7,
             data_type="activity",
             start_date="2024-01-01",
@@ -582,7 +732,7 @@ class PortabilityClientTest(TestCase):
         mock_response = MagicMock()
         mock_delete.return_value = mock_response
 
-        portability_client.delete_donation(3)
+        self.client_api.delete_donation(3)
 
         mock_delete.assert_called_once_with(
             "http://test-server/api/donations/3/",
@@ -598,7 +748,7 @@ class PortabilityClientTest(TestCase):
         mock_get.return_value = mock_response
 
         with self.assertRaises(requests.HTTPError):
-            portability_client.get_donation(99)
+            self.client_api.get_donation(99)
 
     @patch("data_sources.models.portability_client.requests.post")
     def test_create_donation_propagates_http_error(self, mock_post):
@@ -609,7 +759,7 @@ class PortabilityClientTest(TestCase):
         mock_post.return_value = mock_response
 
         with self.assertRaises(requests.HTTPError):
-            portability_client.create_donation("niimport_portability")
+            self.client_api.create_donation("niimport_portability")
 
 
 # ---------------------------------------------------------------------------
@@ -641,7 +791,7 @@ class PortabilityModelTestMixin:
         self.assertEqual(source.get_setup_url(), expected)
 
     @override_settings(PORTABILITY_SERVER_URL="http://portability")
-    @patch("data_sources.models.portability_client.create_donation")
+    @patch("data_sources.models.portability_client.PortabilityClient.create_donation")
     def test_get_setup_url_creates_donation_if_missing(self, mock_create):
         token = uuid.uuid4()
         mock_create.return_value = {"id": 1, "token": str(token)}
@@ -661,7 +811,7 @@ class PortabilityModelTestMixin:
 
     # -- get_data_types ------------------------------------------------------
 
-    @patch("data_sources.models.portability_client.get_data")
+    @patch("data_sources.models.portability_client.PortabilityClient.get_data")
     def test_get_data_types_returns_list(self, mock_get_data):
         mock_get_data.return_value = {"data_types": ["activity", "posts"]}
         source = self._make_source(donation_id=42)
@@ -676,7 +826,7 @@ class PortabilityModelTestMixin:
         self.assertEqual(source.get_data_types(), [])
 
     @patch(
-        "data_sources.models.portability_client.get_data",
+        "data_sources.models.portability_client.PortabilityClient.get_data",
         side_effect=Exception("network error"),
     )
     def test_get_data_types_exception_returns_empty(self, _mock):
@@ -686,7 +836,7 @@ class PortabilityModelTestMixin:
 
     # -- fetch_data ----------------------------------------------------------
 
-    @patch("data_sources.models.portability_client.get_data")
+    @patch("data_sources.models.portability_client.PortabilityClient.get_data")
     def test_fetch_data_returns_data_list_with_correct_params(self, mock_get_data):
         rows = [{"row": 1}, {"row": 2}]
         mock_get_data.return_value = {"data": rows}
@@ -715,7 +865,8 @@ class PortabilityModelTestMixin:
         self.assertEqual(source.fetch_data("activity"), [])
 
     @patch(
-        "data_sources.models.portability_client.get_data", side_effect=Exception("boom")
+        "data_sources.models.portability_client.PortabilityClient.get_data",
+        side_effect=Exception("boom"),
     )
     def test_fetch_data_exception_returns_empty(self, _mock):
         source = self._make_source(donation_id=7)
@@ -724,7 +875,7 @@ class PortabilityModelTestMixin:
 
     # -- count_rows ----------------------------------------------------------
 
-    @patch("data_sources.models.portability_client.get_data")
+    @patch("data_sources.models.portability_client.PortabilityClient.get_data")
     def test_count_rows_returns_count(self, mock_get_data):
         mock_get_data.return_value = {"count": 99}
         source = self._make_source(donation_id=7)
@@ -738,7 +889,8 @@ class PortabilityModelTestMixin:
         self.assertEqual(source.count_rows("activity"), 0)
 
     @patch(
-        "data_sources.models.portability_client.get_data", side_effect=Exception("boom")
+        "data_sources.models.portability_client.PortabilityClient.get_data",
+        side_effect=Exception("boom"),
     )
     def test_count_rows_exception_returns_zero(self, _mock):
         source = self._make_source(donation_id=7)
@@ -747,20 +899,20 @@ class PortabilityModelTestMixin:
 
     # -- revoke_before_delete ------------------------------------------------
 
-    @patch("data_sources.models.portability_client.delete_donation")
+    @patch("data_sources.models.portability_client.PortabilityClient.delete_donation")
     def test_revoke_before_delete_calls_delete_donation(self, mock_delete):
         source = self._make_source(donation_id=5)
         source.revoke_before_delete()
         mock_delete.assert_called_once_with(5)
 
-    @patch("data_sources.models.portability_client.delete_donation")
+    @patch("data_sources.models.portability_client.PortabilityClient.delete_donation")
     def test_revoke_before_delete_without_donation_id_skips_call(self, mock_delete):
         source = self._make_source(donation_id=None)
         source.revoke_before_delete()
         mock_delete.assert_not_called()
 
     @patch(
-        "data_sources.models.portability_client.delete_donation",
+        "data_sources.models.portability_client.PortabilityClient.delete_donation",
         side_effect=Exception("server down"),
     )
     def test_revoke_before_delete_swallows_exception(self, _mock):
@@ -771,7 +923,7 @@ class PortabilityModelTestMixin:
 
     # -- _process_data -------------------------------------------------------
 
-    @patch("data_sources.models.portability_client.get_donation")
+    @patch("data_sources.models.portability_client.PortabilityClient.get_donation")
     def test_process_data_processed_sets_active_status(self, mock_get_donation):
         mock_get_donation.return_value = {"status": "processed"}
         source = self._make_source(donation_id=10)
@@ -782,7 +934,7 @@ class PortabilityModelTestMixin:
         self.assertEqual(source.processing_status, "processed")
         self.assertEqual(source.status, "active")
 
-    @patch("data_sources.models.portability_client.get_donation")
+    @patch("data_sources.models.portability_client.PortabilityClient.get_donation")
     def test_process_data_error_sets_error_processing_status(self, mock_get_donation):
         mock_get_donation.return_value = {"status": "error"}
         source = self._make_source(donation_id=10)
@@ -792,7 +944,7 @@ class PortabilityModelTestMixin:
         source.refresh_from_db()
         self.assertEqual(source.processing_status, "error")
 
-    @patch("data_sources.models.portability_client.get_donation")
+    @patch("data_sources.models.portability_client.PortabilityClient.get_donation")
     def test_process_data_authorized_sets_authorized_processing_status(
         self, mock_get_donation
     ):
@@ -804,7 +956,7 @@ class PortabilityModelTestMixin:
         source.refresh_from_db()
         self.assertEqual(source.processing_status, "authorized")
 
-    @patch("data_sources.models.portability_client.get_donation")
+    @patch("data_sources.models.portability_client.PortabilityClient.get_donation")
     def test_process_data_processing_sets_processing_status(self, mock_get_donation):
         mock_get_donation.return_value = {"status": "processing"}
         source = self._make_source(donation_id=10)
@@ -814,7 +966,7 @@ class PortabilityModelTestMixin:
         source.refresh_from_db()
         self.assertEqual(source.processing_status, "processing")
 
-    @patch("data_sources.models.portability_client.get_donation")
+    @patch("data_sources.models.portability_client.PortabilityClient.get_donation")
     def test_process_data_without_donation_id_returns_without_api_call(
         self, mock_get_donation
     ):
@@ -823,7 +975,7 @@ class PortabilityModelTestMixin:
         mock_get_donation.assert_not_called()
 
     @patch(
-        "data_sources.models.portability_client.get_donation",
+        "data_sources.models.portability_client.PortabilityClient.get_donation",
         side_effect=Exception("timeout"),
     )
     def test_process_data_swallows_exception(self, _mock):
@@ -854,7 +1006,7 @@ class PortabilityViewCreationRollbackTest(TestCase):
         self.client.login(username="testuser", password="testpass")
 
     @patch(
-        "data_sources.models.portability_client.create_donation",
+        "data_sources.models.portability_client.PortabilityClient.create_donation",
         side_effect=Exception("portability server unreachable"),
     )
     def test_niimport_creation_failure_redirects_to_dashboard(self, _mock):
@@ -868,7 +1020,7 @@ class PortabilityViewCreationRollbackTest(TestCase):
         self.assertRedirects(response, reverse("dashboard"))
 
     @patch(
-        "data_sources.models.portability_client.create_donation",
+        "data_sources.models.portability_client.PortabilityClient.create_donation",
         side_effect=Exception("portability server unreachable"),
     )
     def test_niimport_creation_failure_rolls_back_source(self, _mock):
@@ -884,7 +1036,7 @@ class PortabilityViewCreationRollbackTest(TestCase):
         )
 
     @patch(
-        "data_sources.models.portability_client.create_donation",
+        "data_sources.models.portability_client.PortabilityClient.create_donation",
         side_effect=Exception("portability server unreachable"),
     )
     def test_tiktok_creation_failure_redirects_to_dashboard(self, _mock):
@@ -904,7 +1056,7 @@ class PortabilityViewDeleteTest(TestCase):
         self.profile = Profile.objects.create(user=self.user)
         self.client.login(username="testuser", password="testpass")
 
-    @patch("data_sources.models.portability_client.delete_donation")
+    @patch("data_sources.models.portability_client.PortabilityClient.delete_donation")
     def test_delete_niimport_source_calls_delete_donation(self, mock_delete):
         source = NiimportDataSource.objects.create(
             profile=self.profile,
@@ -914,7 +1066,7 @@ class PortabilityViewDeleteTest(TestCase):
         self.client.post(reverse("delete_data_source", args=[source.id]))
         mock_delete.assert_called_once_with(42)
 
-    @patch("data_sources.models.portability_client.delete_donation")
+    @patch("data_sources.models.portability_client.PortabilityClient.delete_donation")
     def test_delete_niimport_source_removes_from_db(self, _mock):
         source = NiimportDataSource.objects.create(
             profile=self.profile,
