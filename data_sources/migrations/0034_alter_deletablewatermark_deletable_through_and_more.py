@@ -8,25 +8,8 @@ _COLUMNS = ("deletable_through", "deleted_through", "downloaded_through")
 
 # Postgres cannot implicitly cast timestamptz -> bigint, so each column is
 # altered with an explicit USING clause converting to Unix time in milliseconds.
-# MySQL (dev/test only) gets a plain type change without converting existing
-# values. On SQLite the DDL is skipped: its loose column types accept the
-# integers, and the state_operations alone keep Django's model state in sync.
-def _mysql_alter_to_bigint(column):
-    return (
-        f'ALTER TABLE `data_sources_deletablewatermark` '
-        f'MODIFY `{column}` bigint NULL;'
-    )
-
-
-def _mysql_alter_to_datetime(column):
-    # Millisecond integers are not valid datetimes, so they are cleared first.
-    return [
-        f'UPDATE `data_sources_deletablewatermark` SET `{column}` = NULL;',
-        f'ALTER TABLE `data_sources_deletablewatermark` '
-        f'MODIFY `{column}` datetime(6) NULL;',
-    ]
-
-
+# Other backends (SQLite, MySQL; dev/test only) get a plain AlterField without
+# converting existing values; see _AlterFieldExceptPostgres.
 def _alter_to_bigint_ms(column):
     return (
         f'ALTER TABLE "data_sources_deletablewatermark" '
@@ -44,22 +27,36 @@ def _alter_to_timestamptz(column):
 
 
 def _forwards(apps, schema_editor):
-    vendor = schema_editor.connection.vendor
+    if schema_editor.connection.vendor != "postgresql":
+        return
     for column in _COLUMNS:
-        if vendor == "postgresql":
-            schema_editor.execute(_alter_to_bigint_ms(column))
-        elif vendor == "mysql":
-            schema_editor.execute(_mysql_alter_to_bigint(column))
+        schema_editor.execute(_alter_to_bigint_ms(column))
 
 
 def _backwards(apps, schema_editor):
-    vendor = schema_editor.connection.vendor
+    if schema_editor.connection.vendor != "postgresql":
+        return
     for column in _COLUMNS:
-        if vendor == "postgresql":
-            schema_editor.execute(_alter_to_timestamptz(column))
-        elif vendor == "mysql":
-            for statement in _mysql_alter_to_datetime(column):
-                schema_editor.execute(statement)
+        schema_editor.execute(_alter_to_timestamptz(column))
+
+
+class _AlterFieldExceptPostgres(migrations.AlterField):
+    """AlterField whose DDL is skipped on Postgres, where _forwards converts the column.
+
+    The column type must really change on other backends too: SQLite's driver
+    parses columns declared ``datetime`` as datetimes, which turns the stored
+    integers into None on read.
+    """
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        if schema_editor.connection.vendor == "postgresql":
+            return
+        super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        if schema_editor.connection.vendor == "postgresql":
+            return
+        super().database_backwards(app_label, schema_editor, from_state, to_state)
 
 
 class Migration(migrations.Migration):
@@ -69,26 +66,20 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.SeparateDatabaseAndState(
-            database_operations=[
-                migrations.RunPython(_forwards, _backwards),
-            ],
-            state_operations=[
-                migrations.AlterField(
-                    model_name='deletablewatermark',
-                    name='deletable_through',
-                    field=models.BigIntegerField(blank=True, help_text='Unix time in milliseconds up to which a researcher has marked data deletable.', null=True),
-                ),
-                migrations.AlterField(
-                    model_name='deletablewatermark',
-                    name='deleted_through',
-                    field=models.BigIntegerField(blank=True, help_text='Unix time in milliseconds up to which the source confirms data has been purged.', null=True),
-                ),
-                migrations.AlterField(
-                    model_name='deletablewatermark',
-                    name='downloaded_through',
-                    field=models.BigIntegerField(blank=True, help_text='Max row timestamp (Unix time in milliseconds) served to researchers so far.', null=True),
-                ),
-            ],
+        migrations.RunPython(_forwards, _backwards),
+        _AlterFieldExceptPostgres(
+            model_name='deletablewatermark',
+            name='deletable_through',
+            field=models.BigIntegerField(blank=True, help_text='Unix time in milliseconds up to which a researcher has marked data deletable.', null=True),
+        ),
+        _AlterFieldExceptPostgres(
+            model_name='deletablewatermark',
+            name='deleted_through',
+            field=models.BigIntegerField(blank=True, help_text='Unix time in milliseconds up to which the source confirms data has been purged.', null=True),
+        ),
+        _AlterFieldExceptPostgres(
+            model_name='deletablewatermark',
+            name='downloaded_through',
+            field=models.BigIntegerField(blank=True, help_text='Max row timestamp (Unix time in milliseconds) served to researchers so far.', null=True),
         ),
     ]
