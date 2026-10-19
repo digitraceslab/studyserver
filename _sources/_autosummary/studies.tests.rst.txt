@@ -24,6 +24,7 @@ studies.tests
       GetNextConsentHelperTest
       JoinStudyViewTest
       MarkDataDeletableTest
+      ResearcherCopyAssertionsMixin
       RevokeConsentViewTest
       SelectDataSourceViewTest
       SendParticipantEmailAdminTest

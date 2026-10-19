@@ -43,8 +43,8 @@ network seams with guards that raise immediately, so any leak fails loudly — n
 instead of reaching an external service.</p>
 <p>Tests that legitimately exercise these paths patch them locally (e.g.
 <code class="docutils literal notranslate"><span class="pre">&#64;patch('data_sources.models.portability_client.requests.post')</span></code> or
-<code class="docutils literal notranslate"><span class="pre">&#64;patch('data_sources.models.portability_client.create_donation')</span></code>), which overrides the guard
-for the duration of that test and is restored to the guard afterwards.</p>
+<code class="docutils literal notranslate"><span class="pre">&#64;patch('data_sources.models.portability_client.PortabilityClient.create_donation')</span></code>), which
+overrides the guard for the duration of that test and is restored to the guard afterwards.</p>
 <p class="rubric">Classes</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
