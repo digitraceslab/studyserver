@@ -1,5 +1,6 @@
 """Client for the portability-server REST API."""
 import logging
+import time
 
 import requests
 from django.conf import settings
@@ -7,6 +8,7 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT = 30
+RATE_LIMIT_WAIT_SECONDS = 10
 
 
 class PortabilityClient:
@@ -19,12 +21,16 @@ class PortabilityClient:
         return f"{settings.PORTABILITY_SERVER_URL}/api"
 
     def login(self):
-        """Exchange the researcher token for a session token, store and return it."""
-        response = requests.post(
-            f"{self.base_url()}/session/",
-            json={"token": settings.PORTABILITY_SERVER_TOKEN},
-            timeout=REQUEST_TIMEOUT,
-        )
+        """Exchange the researcher token for a session token, store and return it.
+
+        On 429 (rate limited) waits RATE_LIMIT_WAIT_SECONDS and retries once.
+        """
+        url = f"{self.base_url()}/session/"
+        payload = {"token": settings.PORTABILITY_SERVER_TOKEN}
+        response = requests.post(url, json=payload, timeout=REQUEST_TIMEOUT)
+        if response.status_code == 429:
+            time.sleep(RATE_LIMIT_WAIT_SECONDS)
+            response = requests.post(url, json=payload, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
         self.session_token = response.json()["session_token"]
         return self.session_token
@@ -48,6 +54,7 @@ class PortabilityClient:
         """GET an API path relative to base_url(). Returns the response dict.
 
         On 401 (expired or revoked session) logs in again and retries once.
+        On 429 (rate limited) waits RATE_LIMIT_WAIT_SECONDS and retries once.
         """
         url = f"{self.base_url()}/{path}"
         response = requests.get(
@@ -58,6 +65,11 @@ class PortabilityClient:
             response = requests.get(
                 url, params=params, headers=self._headers(), timeout=REQUEST_TIMEOUT
             )
+        elif response.status_code == 429:
+            time.sleep(RATE_LIMIT_WAIT_SECONDS)
+            response = requests.get(
+                url, params=params, headers=self._headers(), timeout=REQUEST_TIMEOUT
+            )
         response.raise_for_status()
         return response.json()
 
@@ -65,6 +77,7 @@ class PortabilityClient:
         """POST JSON to an API path relative to base_url(). Returns the response dict.
 
         On 401 (expired or revoked session) logs in again and retries once.
+        On 429 (rate limited) waits RATE_LIMIT_WAIT_SECONDS and retries once.
         """
         url = f"{self.base_url()}/{path}"
         response = requests.post(
@@ -75,6 +88,11 @@ class PortabilityClient:
             response = requests.post(
                 url, json=json, headers=self._headers(), timeout=REQUEST_TIMEOUT
             )
+        elif response.status_code == 429:
+            time.sleep(RATE_LIMIT_WAIT_SECONDS)
+            response = requests.post(
+                url, json=json, headers=self._headers(), timeout=REQUEST_TIMEOUT
+            )
         response.raise_for_status()
         return response.json()
 
@@ -82,11 +100,17 @@ class PortabilityClient:
         """DELETE an API path relative to base_url().
 
         On 401 (expired or revoked session) logs in again and retries once.
+        On 429 (rate limited) waits RATE_LIMIT_WAIT_SECONDS and retries once.
         """
         url = f"{self.base_url()}/{path}"
         response = requests.delete(url, headers=self._headers(), timeout=REQUEST_TIMEOUT)
         if response.status_code == 401:
             self.login()
+            response = requests.delete(
+                url, headers=self._headers(), timeout=REQUEST_TIMEOUT
+            )
+        elif response.status_code == 429:
+            time.sleep(RATE_LIMIT_WAIT_SECONDS)
             response = requests.delete(
                 url, headers=self._headers(), timeout=REQUEST_TIMEOUT
             )
