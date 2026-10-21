@@ -106,6 +106,9 @@ def signup(request):
                 user_type='participant'
             )
             return redirect('login')
+        for errors in form.errors.values():
+            for error in errors:
+                messages.error(request, error)
     else:
         form = ParticipantCreationForm()
     return render(request, 'registration/signup.html', {'form': form})
