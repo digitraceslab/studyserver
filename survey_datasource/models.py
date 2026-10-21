@@ -13,6 +13,8 @@ class SurveyDataSource(DataSource):
     as a data type and each question response as a row of data.
     """
     SOURCE_TYPE = "survey"
+    # Surveys have no setup; the open surveys listed below speak for themselves.
+    ACTIVE_STATUS_TEXT = ""
 
     @classmethod
     def display_type_for_configuration(cls, configuration):
