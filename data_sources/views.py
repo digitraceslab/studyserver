@@ -145,6 +145,9 @@ def add_data_source(request, source_type):
                 return redirect('dashboard')
     
     # Invalid form, re-render
+    for errors in form.errors.values():
+        for error in errors:
+            messages.error(request, error)
     title = f"Add {source_type.replace('_', ' ').title()} Source"
     return render(request, 'data_sources/add_data_source.html', {'form': form, 'title': title})
 
@@ -239,6 +242,10 @@ def view_data_source(request, source_id):
                     if end_ms is None or candidate <= end_ms:
                         has_next = True
                         next_cursor = candidate
+    else:
+        for errors in form.errors.values():
+            for error in errors:
+                messages.error(request, error)
 
     # Preserve filter params (data_type/start_date/end_date) across page links, dropping any existing cursor.
     _q = request.GET.copy()
@@ -279,6 +286,9 @@ def edit_data_source(request, source_id):
             form.save()
             messages.success(request, f"Successfully updated '{real_instance.name}'.")
             return redirect('dashboard')
+        for errors in form.errors.values():
+            for error in errors:
+                messages.error(request, error)
     else:
         form = FormClass(instance=real_instance)
 

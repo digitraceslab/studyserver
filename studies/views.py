@@ -74,7 +74,9 @@ def join_study(request):
     # is normally enforced at signup, but the restriction may have been added
     # after the account was created.
     if not study.email_allowed(request.user.email):
-        allowed_domains = study.allowed_domain_list()
+        allowed_domains = [
+            d for d in study.allowed_domain_list() if d != "example.com"
+        ]
         if len(allowed_domains) > 1:
             formatted_domains = ", ".join(allowed_domains[:-1])
             messages.error(
@@ -312,6 +314,9 @@ def consent_checkbox_view(request, consent, study):
             else:
                 consent.save()
             return redirect(f"{reverse('consent_workflow')}?consent_id={consent.id}")
+        for errors in form.errors.values():
+            for error in errors:
+                messages.error(request, error)
     else:
         form = ConsentAcceptanceForm()
 
@@ -415,6 +420,10 @@ def select_data_source_view(request, consent, profile, study):
                     request,
                     "That data source does not match what this consent requires.",
                 )
+            else:
+                for errors in form.errors.values():
+                    for error in errors:
+                        messages.error(request, error)
         elif action == "create":
             if not consent.source_configuration:
                 from django.http import Http404
