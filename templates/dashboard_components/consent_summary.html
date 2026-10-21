@@ -45,7 +45,11 @@
 
 {% for link in consent.links %}
     </br>
-    <a href="{{ link.0 }}" class="data-check-link">
+    {% if link.0 %}
+        <a href="{{ link.0 }}" class="data-check-link">
+            {{ link.1 }}
+        </a>
+    {% else %}
         {{ link.1 }}
-    </a>
+    {% endif %}
 {% endfor %}

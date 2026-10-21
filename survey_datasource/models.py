@@ -31,6 +31,9 @@ class SurveyDataSource(DataSource):
     def show_links(self):
         """Show links to the open surveys this user has not yet filled.
 
+        Open surveys the user has already filled are listed with an empty
+        url, which the dashboard shows as plain text.
+
         A survey is open when it is published and today is within its
         publication period, the same check django-survey's survey list and
         survey_available decorator apply."""
@@ -42,9 +45,11 @@ class SurveyDataSource(DataSource):
                 survey = survey,
                 user = self.profile.user
             )
+            survey_name = survey.name if survey.name else f"Survey {survey.id}"
             if not responses.exists():
-                survey_name = survey.name if survey.name else f"Survey {survey.id}"
                 links.append((f"/survey/{survey.id}/", f"Go to {survey_name}"))
+            else:
+                links.append(("", f"{survey_name} (completed)"))
         return links
 
     def get_data_types(self):
