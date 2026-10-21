@@ -1,0 +1,12 @@
+users.management.commands.create\_test\_users
+=============================================
+
+.. automodule:: users.management.commands.create_test_users
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Command
+   

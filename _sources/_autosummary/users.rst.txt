@@ -13,6 +13,7 @@
    admin
    apps
    forms
+   management
    middleware
    migrations
    models

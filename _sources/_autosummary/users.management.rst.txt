@@ -1,0 +1,13 @@
+users.management
+================
+
+.. automodule:: users.management
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   commands

@@ -1,0 +1,13 @@
+users.management.commands
+=========================
+
+.. automodule:: users.management.commands
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   create_test_users
