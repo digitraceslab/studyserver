@@ -25,7 +25,9 @@ class ParticipantCreationForm(CustomUserCreationForm):
     def clean_email(self):
         email = self.cleaned_data.get('email')
         if self.study and not self.study.email_allowed(email):
-            domains = ", ".join(self.study.allowed_domain_list())
+            domains = ", ".join(
+                d for d in self.study.allowed_domain_list() if d != "example.com"
+            )
             raise forms.ValidationError(
                 f"Registration is restricted to email addresses in: {domains}."
             )
