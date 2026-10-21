@@ -1,7 +1,8 @@
 {{ consent.source.display_type }}:
 {% if consent.source.status == 'active' %}
-    <span class="consent-status consent-status-active">Complete.</span>
-    </br>This data source is set up.
+    {% if consent.source.ACTIVE_STATUS_TEXT %}
+        <span class="consent-status consent-status-active">{{ consent.source.ACTIVE_STATUS_TEXT }}</span>
+    {% endif %}
     {% if optional %}
         <a href="{% url 'revoke_consent' consent.consent.id %}" class="revoke-link">
             (Revoke)
@@ -44,7 +45,11 @@
 
 {% for link in consent.links %}
     </br>
-    <a href="{{ link.0 }}" class="data-check-link">
+    {% if link.0 %}
+        <a href="{{ link.0 }}" class="data-check-link">
+            {{ link.1 }}
+        </a>
+    {% else %}
         {{ link.1 }}
-    </a>
+    {% endif %}
 {% endfor %}

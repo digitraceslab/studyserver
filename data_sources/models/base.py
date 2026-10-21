@@ -14,6 +14,8 @@ class DataSource(PolymorphicModel):
     # Subclasses can set this to a StudySourceConfiguration ModelForm that adds
     # source-type-specific configuration fields to the admin (e.g. niimport's variant).
     CONFIG_FORM_CLASS = None
+    # Dashboard status shown once the source is active; empty shows nothing.
+    ACTIVE_STATUS_TEXT = "Setup complete: collecting data"
     _data_source_types = {}
     _data_source_forms = {}
     _data_source_config_forms = {}

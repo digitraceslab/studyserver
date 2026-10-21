@@ -5,10 +5,13 @@ import logging
 from django.conf import settings
 from django.db import models
 
-from . import portability_client
 from .base import DataSource
+from .portability_client import PortabilityClient
 
 logger = logging.getLogger(__name__)
+
+# Shared researcher API client; holds the portability-server session token.
+portability_client_api = PortabilityClient()
 
 
 class NiimportDataSource(DataSource):
@@ -96,7 +99,7 @@ class NiimportDataSource(DataSource):
     def _create_donation(self):
         """Create a donation on the Niimport server and store the result."""
         kwargs = self._get_study_config()
-        donation = portability_client.create_donation(
+        donation = portability_client_api.create_donation(
             self.NIIMPORT_SOURCE_TYPE, **kwargs
         )
         self.donation_id = donation["id"]
@@ -114,7 +117,7 @@ class NiimportDataSource(DataSource):
         if not self.donation_id:
             return []
         try:
-            result = portability_client.get_data(self.donation_id)
+            result = portability_client_api.get_data(self.donation_id)
             return result.get("data_types", [])
         except Exception as e:
             logger.warning("Failed to get data types from Niimport server: %s", e)
@@ -126,7 +129,7 @@ class NiimportDataSource(DataSource):
         if not self.donation_id:
             return []
         try:
-            result = portability_client.get_data(
+            result = portability_client_api.get_data(
                 self.donation_id,
                 data_type=data_type,
                 start_date=start_date,
@@ -143,7 +146,7 @@ class NiimportDataSource(DataSource):
         if not self.donation_id:
             return 0
         try:
-            result = portability_client.get_data(
+            result = portability_client_api.get_data(
                 self.donation_id,
                 data_type=data_type,
                 start_date=start_date,
@@ -158,7 +161,7 @@ class NiimportDataSource(DataSource):
     def revoke_before_delete(self):
         if self.donation_id:
             try:
-                portability_client.delete_donation(self.donation_id)
+                portability_client_api.delete_donation(self.donation_id)
             except Exception as e:
                 logger.warning("Failed to delete donation on Niimport server: %s", e)
 
@@ -167,7 +170,7 @@ class NiimportDataSource(DataSource):
         if not self.donation_id:
             return
         try:
-            donation = portability_client.get_donation(self.donation_id)
+            donation = portability_client_api.get_donation(self.donation_id)
             remote_status = donation.get("status", "")
             if remote_status == "processed":
                 self.processing_status = "processed"

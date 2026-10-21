@@ -8,8 +8,8 @@ instead of reaching an external service.
 
 Tests that legitimately exercise these paths patch them locally (e.g.
 ``@patch('data_sources.models.portability_client.requests.post')`` or
-``@patch('data_sources.models.portability_client.create_donation')``), which overrides the guard
-for the duration of that test and is restored to the guard afterwards.
+``@patch('data_sources.models.portability_client.PortabilityClient.create_donation')``), which
+overrides the guard for the duration of that test and is restored to the guard afterwards.
 """
 from unittest import mock
 

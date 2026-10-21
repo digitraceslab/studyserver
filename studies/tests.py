@@ -718,8 +718,26 @@ class SelectDataSourceViewTest(StudyTestMixin, TestCase):
 
 class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
 
+    def _complete_required_consent(self):
+        """Complete the study's required 'aware' consent.
+
+        consent_workflow creates any missing required consents, so the
+        participant is only done once this one exists and is complete.
+        """
+        Consent.objects.create(
+            participant=self.profile,
+            study=self.study,
+            source_configuration=get_source_config(self.study, 'aware'),
+            source_type='aware',
+            consent_text_accepted=True,
+            is_complete=True,
+            consent_date=timezone.now(),
+            study_participant=self.study_participant,
+        )
+
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_redirects_to_dashboard_when_no_incomplete_consents(self, mock_template):
+        self._complete_required_consent()
         url = reverse('consent_workflow')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 302)
@@ -847,6 +865,7 @@ class ConsentWorkflowOrchestratorTest(StudyTestMixin, TestCase):
 
     @patch('studies.services.get_consent_template', return_value=MOCK_CONSENT_TEMPLATE)
     def test_optional_only_consents_redirect_to_dashboard(self, mock_template):
+        self._complete_required_consent()
         source_config = get_source_config(self.study, 'json_url')
         Consent.objects.create(
             participant=self.profile,
@@ -1184,6 +1203,8 @@ class StudyDataApiTest(StudyTestMixin, TestCase):
         superuser = User.objects.create_superuser(
             username='superadmin', password='testpass', email='admin@example.com'
         )
+        # Front-end and API paths need a Profile (ProfileRequiredMiddleware).
+        Profile.objects.create(user=superuser, user_type='researcher')
         self.client.login(username='superadmin', password='testpass')
         url = reverse('study_data_api')
         response = self.client.get(url)
@@ -2209,8 +2230,23 @@ class UnmarkDataDeletableTest(StudyTestMixin, TestCase):
         mock_unmark.assert_not_called()
 
 
+class ResearcherCopyAssertionsMixin:
+    """Splits the outbox of the admin email views into participant mails and
+    the copy sent to the logged-in admin (admin@example.com)."""
+
+    def _participant_mails(self):
+        """Outbox messages sent to participants (everything but the researcher copy)."""
+        return [msg for msg in mail.outbox if msg.to != ['admin@example.com']]
+
+    def _researcher_copy(self):
+        """Return the single copy emailed to the sending admin; fail if not exactly one."""
+        copies = [msg for msg in mail.outbox if msg.to == ['admin@example.com']]
+        self.assertEqual(len(copies), 1)
+        return copies[0]
+
+
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
-class SendParticipantEmailAdminTest(StudyTestMixin, TestCase):
+class SendParticipantEmailAdminTest(ResearcherCopyAssertionsMixin, StudyTestMixin, TestCase):
     """The participant admin 'Send email' view sends synchronously via the
     in-memory backend; the study contact email is used as Reply-To."""
 
@@ -2241,8 +2277,10 @@ class SendParticipantEmailAdminTest(StudyTestMixin, TestCase):
              'reply_to': 'contact@example.com'},
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(len(mail.outbox), 1)
-        msg = mail.outbox[0]
+        participant_mails = self._participant_mails()
+        self.assertEqual(len(participant_mails), 1)
+        msg = participant_mails[0]
+        self.assertEqual(self._researcher_copy().subject, '[Copy] Hello')
         self.assertEqual(msg.subject, 'Hello')
         self.assertEqual(msg.body, 'Body text')
         self.assertEqual(msg.to, ['participant@example.com'])
@@ -2257,8 +2295,10 @@ class SendParticipantEmailAdminTest(StudyTestMixin, TestCase):
             {'subject': 'Hi', 'message': 'Body',
              'reply_to': 'admin@example.com'},
         )
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].reply_to, ['admin@example.com'])
+        participant_mails = self._participant_mails()
+        self.assertEqual(len(participant_mails), 1)
+        self.assertEqual(participant_mails[0].reply_to, ['admin@example.com'])
+        self._researcher_copy()
 
     def test_reply_to_must_be_an_offered_address(self):
         # An address that is neither the study contact nor the sender's own is
@@ -2294,7 +2334,9 @@ class SendParticipantEmailAdminTest(StudyTestMixin, TestCase):
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
-class BulkSendParticipantEmailAdminTest(StudyTestMixin, TestCase):
+class BulkSendParticipantEmailAdminTest(
+    ResearcherCopyAssertionsMixin, StudyTestMixin, TestCase
+):
     """The changelist 'Send an email to selected participants' action writes one
     email and sends a separate copy to each selected participant."""
 
@@ -2345,10 +2387,15 @@ class BulkSendParticipantEmailAdminTest(StudyTestMixin, TestCase):
             'reply_to': 'contact@example.com',
         })
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(len(mail.outbox), 2)
-        recipients = {msg.to[0] for msg in mail.outbox}
+        participant_mails = self._participant_mails()
+        self.assertEqual(len(participant_mails), 2)
+        recipients = {msg.to[0] for msg in participant_mails}
         self.assertEqual(recipients, {'p1@example.com', 'p2@example.com'})
-        for msg in mail.outbox:
+        copy = self._researcher_copy()
+        self.assertEqual(copy.subject, '[Copy] Hello all')
+        self.assertIn(str(self.study_participant.pseudo_id), copy.body)
+        self.assertIn(str(self.participant2.pseudo_id), copy.body)
+        for msg in participant_mails:
             self.assertEqual(msg.subject, 'Hello all')
             self.assertEqual(msg.reply_to, ['contact@example.com'])
             # Recipients are never disclosed to each other.
@@ -2361,9 +2408,11 @@ class BulkSendParticipantEmailAdminTest(StudyTestMixin, TestCase):
             'message': 'Body',
             'reply_to': 'admin@example.com',
         })
-        self.assertEqual(len(mail.outbox), 2)
-        for msg in mail.outbox:
+        participant_mails = self._participant_mails()
+        self.assertEqual(len(participant_mails), 2)
+        for msg in participant_mails:
             self.assertEqual(msg.reply_to, ['admin@example.com'])
+        self._researcher_copy()
 
     def test_bulk_skips_participants_without_email(self):
         self.user2.email = ''
@@ -2374,8 +2423,12 @@ class BulkSendParticipantEmailAdminTest(StudyTestMixin, TestCase):
             'message': 'Body',
             'reply_to': 'contact@example.com',
         })
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ['p1@example.com'])
+        participant_mails = self._participant_mails()
+        self.assertEqual(len(participant_mails), 1)
+        self.assertEqual(participant_mails[0].to, ['p1@example.com'])
+        copy = self._researcher_copy()
+        self.assertIn(str(self.study_participant.pseudo_id), copy.body)
+        self.assertNotIn(str(self.participant2.pseudo_id), copy.body)
 
     def test_action_queryset_is_scoped_to_researchers_studies(self):
         # The bulk action relies on get_queryset to keep researchers from
@@ -2406,7 +2459,9 @@ class BulkSendParticipantEmailAdminTest(StudyTestMixin, TestCase):
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
-class SendParticipantEmailByIdsAdminTest(StudyTestMixin, TestCase):
+class SendParticipantEmailByIdsAdminTest(
+    ResearcherCopyAssertionsMixin, StudyTestMixin, TestCase
+):
     """The 'Email participants by pseudo-ID' view emails a cohort identified by
     pasted pseudo-IDs, matched against the researcher-scoped queryset."""
 
@@ -2447,9 +2502,11 @@ class SendParticipantEmailByIdsAdminTest(StudyTestMixin, TestCase):
             'reply_to': 'contact@example.com',
         })
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(len(mail.outbox), 2)
-        recipients = {msg.to[0] for msg in mail.outbox}
+        participant_mails = self._participant_mails()
+        self.assertEqual(len(participant_mails), 2)
+        recipients = {msg.to[0] for msg in participant_mails}
         self.assertEqual(recipients, {'p1@example.com', 'p2@example.com'})
+        self._researcher_copy()
 
     def test_unknown_and_invalid_ids_are_skipped(self):
         # One real ID, one well-formed but unknown UUID, one garbage token.
@@ -2464,8 +2521,10 @@ class SendParticipantEmailByIdsAdminTest(StudyTestMixin, TestCase):
             'reply_to': 'contact@example.com',
         })
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ['p1@example.com'])
+        participant_mails = self._participant_mails()
+        self.assertEqual(len(participant_mails), 1)
+        self.assertEqual(participant_mails[0].to, ['p1@example.com'])
+        self._researcher_copy()
 
     def test_no_valid_ids_is_a_form_error(self):
         response = self.client.post(self.url, {
