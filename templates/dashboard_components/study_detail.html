@@ -25,7 +25,7 @@ You have enrolled in {{ study.title }}.
 {% for item in data.incomplete_consents %}
 <div class="consent-required-section">
     <h3>Consent Required for {{ item.type_name }}</h3>
-    <a href="{% url 'consent_workflow' %}?consent_id={{ item.consent.id }}">
+    <a href="{% url 'consent_workflow' %}?consent_id={{ item.consent.id }}" class="consent_button continue_consent_button">
         <button>Continue Consent Workflow</button>
     </a>
 </div>

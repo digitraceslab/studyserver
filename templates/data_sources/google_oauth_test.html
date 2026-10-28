@@ -29,7 +29,7 @@
     {% endif %}
 {% else %}
     <p>Click the button below to start OAuth flow:</p>
-    <a href="{% url 'test_google_oauth' %}">
+    <a href="{% url 'test_google_oauth' %}" class="consent_button">
         <button>Test Google OAuth</button>
     </a>
 {% endif %}
