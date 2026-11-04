@@ -105,6 +105,46 @@ class NiimportStudySourceConfigurationForm(forms.ModelForm):
         return instance
 
 
+@datasourceconfigform(AwareDataSource)
+class AwareStudySourceConfigurationForm(forms.ModelForm):
+    """Form for StudySourceConfiguration when source_type is AwareDataSource."""
+
+    aware_config_version = forms.CharField(
+        required=False,
+        label="AWARE config version",
+        help_text="The config file version on the aware server (config_v<version>.json)",
+    )
+
+    class Meta:
+        model = StudySourceConfiguration
+        fields = [
+            "study",
+            "source_type",
+            "status",
+            "requested_data_types",
+            "consent_template_html",
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Pre-populate the version from configuration; a missing key is "".
+        configuration = (self.instance and self.instance.configuration) or {}
+        self.fields["aware_config_version"].initial = configuration.get(
+            "aware_config_version", ""
+        )
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        # Store the version in configuration JSON, preserving any other keys.
+        instance.configuration = {
+            **(instance.configuration or {}),
+            "aware_config_version": self.cleaned_data.get("aware_config_version", ""),
+        }
+        if commit:
+            instance.save()
+        return instance
+
+
 class DataFilterForm(forms.Form):
     data_type = forms.ChoiceField(choices=[])
     start_date = forms.DateField(

@@ -61,6 +61,22 @@ class AwareDataSource(DataSource):
         }
         return context, "data_sources/aware/instructions_card.html"
 
+    def get_config_url(self):
+        """Link to this participant's study config on the aware server at AWARE_DB_HOST.
+
+        The version comes from the first active consent's snapshotted configuration;
+        a missing version is "".
+        """
+        consent = Consent.objects.filter(
+            participant=self.profile,
+            data_source_id=self.id,
+            is_complete=True,
+            revocation_date__isnull=True,
+        ).first()
+        configuration = (consent.configuration if consent else None) or {}
+        version = configuration.get("aware_config_version", "")
+        return f"https://{settings.AWARE_DB_HOST}/v{version}/{self.device_label}/"
+
     def show_links(self):
         """Keep the setup instructions reachable from the dashboard after setup."""
         return [(self.get_setup_url(), "Setup instructions")]
@@ -108,12 +124,7 @@ class AwareDataSource(DataSource):
             return (False, "Invalid configuration token.")
 
         if view_type == "setup":
-            config_url = request.build_absolute_uri(
-                reverse(
-                    "datasource_token_view",
-                    kwargs={"token": self.config_token, "view_type": "config"},
-                )
-            )
+            config_url = self.get_config_url()
 
             context = {
                 "source": self,
