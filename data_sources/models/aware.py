@@ -65,7 +65,7 @@ class AwareDataSource(DataSource):
         """Link to this participant's study config on the aware server at AWARE_DB_HOST.
 
         The version comes from the first active consent's snapshotted configuration;
-        a missing version is "".
+        a missing or empty version is 0.
         """
         consent = Consent.objects.filter(
             participant=self.profile,
@@ -74,7 +74,7 @@ class AwareDataSource(DataSource):
             revocation_date__isnull=True,
         ).first()
         configuration = (consent.configuration if consent else None) or {}
-        version = configuration.get("aware_config_version", "")
+        version = configuration.get("aware_config_version") or "0"
         return f"https://{settings.AWARE_DB_HOST}/v{version}/{self.device_label}/"
 
     def show_links(self):
