@@ -61,6 +61,10 @@ class AwareDataSource(DataSource):
         }
         return context, "data_sources/aware/instructions_card.html"
 
+    def show_links(self):
+        """Keep the setup instructions reachable from the dashboard after setup."""
+        return [(self.get_setup_url(), "Setup instructions")]
+
     def check_for_device(self):
         if self.status == "active":
             return (True, "This device is already active.")
