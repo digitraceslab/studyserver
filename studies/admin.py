@@ -596,7 +596,7 @@ class SourceConfigurationInline(admin.TabularInline):
     model = StudySourceConfiguration
     form = SourceConfigurationInlineForm
     extra = 0
-    fields = ["source_type", "status", "data_start", "data_end", "change_link"]
+    fields = ["source_type", "status", "show_separate_consent_page", "data_start", "data_end", "change_link"]
     readonly_fields = ["change_link"]
 
     @admin.display(description="")
