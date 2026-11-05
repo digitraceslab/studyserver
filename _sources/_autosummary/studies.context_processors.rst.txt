@@ -1,0 +1,12 @@
+studies.context\_processors
+===========================
+
+.. automodule:: studies.context_processors
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      study_context
+   
