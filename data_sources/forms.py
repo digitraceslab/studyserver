@@ -76,6 +76,7 @@ class NiimportStudySourceConfigurationForm(forms.ModelForm):
             "study",
             "source_type",
             "status",
+            "show_separate_consent_page",
             "requested_data_types",
             "configuration",
             "consent_template_html",
@@ -121,6 +122,7 @@ class AwareStudySourceConfigurationForm(forms.ModelForm):
             "study",
             "source_type",
             "status",
+            "show_separate_consent_page",
             "requested_data_types",
             "consent_template_html",
         ]
