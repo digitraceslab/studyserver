@@ -15,8 +15,7 @@
         button { padding: 0.5em 1em; margin-top: 0.5em; }
         .install-warning-image { max-width: 50%; height: auto; }
     </style>
-    {% study_custom_css as custom_css %}
-    {% if custom_css %}<style>{{ custom_css|safe }}</style>{% endif %}
+    {% if study.custom_css %}<style>{{ study.custom_css|safe }}</style>{% endif %}
 </head>
 <body class="page-aware-mobile-setup">
     <h1>AWARE Device Setup</h1>

@@ -34,8 +34,7 @@
         .data-table { width: 100%; border-collapse: collapse; }
         .qr-code { display: block; margin: 10px 0; }
     </style>
-    {% study_custom_css as custom_css %}
-    {% if custom_css %}<style>{{ custom_css|safe }}</style>{% endif %}
+    {% if study.custom_css %}<style>{{ study.custom_css|safe }}</style>{% endif %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
     {% if messages %}
