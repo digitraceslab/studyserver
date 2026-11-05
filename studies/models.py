@@ -236,6 +236,11 @@ class StudySourceConfiguration(models.Model):
         help_text="Consent text shown to the participant for this source. "
         "Overrides the repo-fetched consent_<source_type>.html when set.",
     )
+    show_separate_consent_page = models.BooleanField(
+        default=True,
+        help_text="Show a separate consent page for this source. Turn off when "
+        "consent for this source is already covered on the join page.",
+    )
 
     class Meta:
         verbose_name = "Source Configuration"

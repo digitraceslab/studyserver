@@ -137,7 +137,7 @@ def create_consents_for_participant(study, profile, study_participant):
         ).exists()
         if already:
             return
-        Consent.objects.create(
+        consent = Consent(
             participant=profile,
             study=study,
             source_configuration=source_configuration,
@@ -145,6 +145,11 @@ def create_consents_for_participant(study, profile, study_participant):
             is_optional=is_optional,
             study_participant=study_participant,
         )
+        # Consent for this source was given on the join page, so the
+        # separate consent form is skipped.
+        if not source_configuration.show_separate_consent_page:
+            consent.accept_configuration()
+        consent.save()
 
     for source_configuration in study.source_config_entries.filter(status="required"):
         ensure_consent(source_configuration, is_optional=False)
