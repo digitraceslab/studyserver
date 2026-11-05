@@ -2,11 +2,13 @@
 {% block title %} Terms of Service {% endblock %}
 {% block body_class %}page-terms{% endblock %}
 {% block content %}
+<div class="wrap">
 {# Fallback shown only when no TermsOfService version exists in the database. #}
 {# Researchers publish the real document in the admin (Studies -> Terms of Service). #}
 <h1>Terms of Service</h1>
 <div class="legal-placeholder">
     <p>The terms of service for this study have not been published yet.</p>
     <p>Please check back later, or contact the research team if you have any questions.</p>
+</div>
 </div>
 {% endblock %}

@@ -5,6 +5,7 @@
 {% block body_class %}page-registration-pending{% endblock %}
 
 {% block content %}
+<div class="wrap">
 <h2>Registration received</h2>
 
 {% if pending_content %}
@@ -22,4 +23,5 @@
 {% endif %}
 
 <p class="back-link"><a href="{% url 'dashboard' %}">Back to your dashboard</a></p>
+</div>
 {% endblock %}

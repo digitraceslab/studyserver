@@ -3,6 +3,7 @@
 {% block body_class %}page-aware-instructions{% endblock %}
 
 {% block content %}
+<div class="wrap">
 
 {% include 'instructions_card.html' %}
 
@@ -15,4 +16,5 @@
 
 <a href="{% url 'dashboard' %}" class="back-link">Back to Dashboard</a>
 
+</div>
 {% endblock %}

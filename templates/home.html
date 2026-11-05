@@ -3,6 +3,7 @@
 {% block body_class %}page-home{% endblock %}
 
 {% block content %}
+<div class="wrap">
 <h1>Welcome to the Study Server</h1>
 {% if user.is_authenticated %}
   <p class="home-greeting">Hello, {{ user.username }}!</p>
@@ -15,4 +16,5 @@
 {% else %}
   <p class="auth-links"><a href="{% url 'login' %}">Login</a> or <a href="{% url 'signup' %}">Sign Up</a></p>
 {% endif %}
+</div>
 {% endblock %}

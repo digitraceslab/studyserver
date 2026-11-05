@@ -5,6 +5,7 @@
 {% block body_class %}page-join{% endblock %}
 
 {% block content %}
+<div class="wrap">
 <h2>Join {{ study.title }}</h2>
 
 {% if join_confirmation_content %}
@@ -29,4 +30,5 @@
     <button type="submit">Join Study</button>
     <a href="{% url 'study_detail' %}" class="cancel-link">Cancel</a>
 </form>
+</div>
 {% endblock %}

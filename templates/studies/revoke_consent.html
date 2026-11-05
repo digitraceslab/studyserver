@@ -3,6 +3,7 @@
 {% block body_class %}page-revoke-consent{% endblock %}
 
 {% block content %}
+<div class="wrap">
 
     <h2>Revoke Consent for {{ consent.data_source.display_type|default:consent.source_type }}</h2>
 
@@ -14,4 +15,5 @@
         <a href="{% url 'study_detail' %}" class="cancel-link">Cancel</a>
     </form>
 
+</div>
 {% endblock %}

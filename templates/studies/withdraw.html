@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block body_class %}page-withdraw{% endblock %}
 {% block content %}
+<div class="wrap">
 <h2>Withdraw from {{ study.title }}</h2>
 <p>Are you sure you want to withdraw from this study? This will revoke all your consents and stop data sharing.</p>
 <form method="post" class="withdraw-form">
@@ -8,4 +9,5 @@
     <button type="submit" class="withdraw-button">Yes, Withdraw</button>
     <a href="{% url 'dashboard' %}" class="cancel-link">Cancel</a>
 </form>
+</div>
 {% endblock %}

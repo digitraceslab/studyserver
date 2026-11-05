@@ -3,6 +3,7 @@
 {% block body_class %}page-dashboard{% endblock %}
 
 {% block content %}
+<div class="wrap">
 <h1>Your Dashboard</h1>
 <p class="dashboard-greeting">Hello, {{ user.username }}!</p>
 
@@ -52,4 +53,5 @@
     <button type="submit" class="btn">Logout</button>
 </form>
 
+</div>
 {% endblock %}

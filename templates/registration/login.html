@@ -3,6 +3,7 @@
 {% block body_class %}page-login{% endblock %}
 
 {% block content %}
+<div class="wrap">
 <h2>Login</h2>
 <form method="post" class="login-form">
   {% csrf_token %}
@@ -10,4 +11,5 @@
   <button type="submit">Login</button>
 </form>
 <p class="signup-link"><a href="{% url 'signup' %}">Don't have an account? Sign up</a></p>
+</div>
 {% endblock %}
