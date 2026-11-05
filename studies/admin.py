@@ -616,6 +616,7 @@ class StudySourceConfigurationAdmin(admin.ModelAdmin):
     fields = (
         "source_type",
         "status",
+        "show_separate_consent_page",
         "requested_data_types",
         "configuration",
         "consent_template_html",
