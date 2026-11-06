@@ -5,7 +5,7 @@
 <h1>Google Data Portability OAuth Test</h1>
 
 {% if error %}
-    <div style="color: red; padding: 10px; background: #fee;">
+    <div>
         <strong>Error:</strong> {{ error }}
     </div>
 {% endif %}
@@ -14,17 +14,17 @@
 
 {% if tokens %}
     <h2>Tokens Received</h2>
-    <pre style="background: #f5f5f5; padding: 10px; overflow-x: auto;">{{ tokens|pprint }}</pre>
+    <pre>{{ tokens|pprint }}</pre>
     
     <h2>API Test Results</h2>
     <p><strong>Status:</strong> {{ api_status }}</p>
     
     {% if api_response %}
-        <pre style="background: #f5f5f5; padding: 10px; overflow-x: auto;">{{ api_response|pprint }}</pre>
+        <pre>{{ api_response|pprint }}</pre>
     {% endif %}
     
     {% if api_error %}
-        <div style="color: red; padding: 10px; background: #fee;">
+        <div>
             <pre>{{ api_error }}</pre>
         </div>
     {% endif %}

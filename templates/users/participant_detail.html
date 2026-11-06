@@ -21,23 +21,23 @@
         {% if consent.data_source %}
             Consent text accepted on {{ consent.consent_date|date:"Y-m-d H:i" }}
             {% if consent.data_source.status == 'active' %}
-                <span style="color: green;">Active</span>
+                <span class="consent-status consent-status-active">Active</span>
             {% elif consent.data_source.status == 'pending' %}
-                <span style="color: orange;">Pending Setup</span>
+                <span class="consent-status consent-status-pending">Pending Setup</span>
                 <br>Setup is required for this data source.
                 {% if consent.data_source.get_setup_url %}
                     <a href="{{ consent.data_source.get_setup_url }}">Go to Setup/OAuth</a>
                 {% endif %}
             {% elif consent.data_source.status == 'processing' %}
-                <span style="color: orange;">Waiting for data</span>
+                <span class="consent-status consent-status-processing">Waiting for data</span>
             {% else %}
-                <span style="color: orange;">Inactive</span>
+                <span class="consent-status consent-status-inactive">Inactive</span>
             {% endif %}
         {% elif consent.is_complete %}
             Consent text accepted on {{ consent.consent_date|date:"Y-m-d H:i" }}
-            <span style="color: orange;">Data source not linked</span>
+            <span class="consent-status consent-status-unlinked">Data source not linked</span>
         {% else %}
-            <span style="color: red;">No consent</span>
+            <span class="consent-status consent-status-none">No consent</span>
         {% endif %}
     </p>
 

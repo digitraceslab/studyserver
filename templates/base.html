@@ -3,36 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>{% block title %}Study Server{% endblock %}</title>
-    <style>
-        .messages {
-            list-style: none;
-            padding: 0;
-        }
-        .messages li {
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
-        }
-        .success { background-color: #d4edda; color: #155724; }
-        .error { background-color: #f8d7da; color: #721c24; }
-        .warning { background-color: #fff3cd; color: #856404; }
-        .info { background-color: #d1ecf1; color: #0c5460; }
-        .site-footer { margin-top: 40px; padding: 20px; border-top: 1px solid #ccc; text-align: center; }
-        .consent-status-active { color: green; }
-        .consent-status-pending { color: orange; }
-        .consent-status-processing { color: orange; }
-        .consent-status-inactive { color: red; }
-        .revoke-link { color: red; margin-left: 10px; }
-        .data-check-link { color: blue; text-decoration: underline; margin-left: 10px; }
-        .data-check-label { margin-left: 10px; }
-        .google-policy-note { font-size: 90%; margin-top: 6px; color: #333; max-width: 40rem; }
-        .setup-alt-note { margin-top: 10px; }
-        .create-source-button { padding: 8px 16px; }
-        .withdraw-button { color: red; }
-        .data-filter-form { display: flex; gap: 1rem; align-items: center; }
-        .data-table { width: 100%; border-collapse: collapse; }
-        .qr-code { display: block; margin: 10px 0; }
-    </style>
     {% if study.custom_css %}<style>{{ study.custom_css|safe }}</style>{% endif %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
