@@ -26,6 +26,12 @@ def _parse_config_date(value):
 
 class Study(models.Model):
     title = models.CharField(max_length=200)
+    short_description = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="Short subtitle shown in the site header next to the study title.",
+    )
     description = models.TextField()
     researchers = models.ManyToManyField(
         Profile,

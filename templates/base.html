@@ -22,12 +22,20 @@
         <a class="brand" href="{% url 'study_detail' %}">
           {% if assets.study_logo_png %}<img src="{{ assets.study_logo_png }}" alt="">{% endif %}
           <span class="brand-name">{{ study.title }}</span>
+          {% if study.short_description %}<span class="brand-sub">{{ study.short_description }}</span>{% endif %}
         </a>
         <nav class="nav-links" aria-label="Site">
+          <a href="{% url 'study_detail' %}">Study information</a>
           <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch to dark theme" title="Switch to dark theme">
             <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.6A8.5 8.5 0 1 1 9.4 3.5a6.7 6.7 0 0 0 11.1 11.1z"/></svg>
             <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
           </button>
+          {% if user.is_authenticated %}
+          <a class="btn btn-primary btn-small" href="{% url 'dashboard' %}">Dashboard</a>
+          {% else %}
+          <a class="btn btn-secondary btn-small" href="{% url 'login' %}">Log in</a>
+          <a class="btn btn-primary btn-small" href="{% url 'signup' %}">Sign up</a>
+          {% endif %}
         </nav>
       </div>
     </header>
