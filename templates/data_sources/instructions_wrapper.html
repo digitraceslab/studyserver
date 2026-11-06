@@ -10,6 +10,9 @@
 {% include instructions_template %}
 
 <hr>
-<p class="back-link"><a href="{% url 'dashboard' %}">Back to Dashboard</a></p>
+{% if consent_id %}
+<p class="continue-link"><a href="{% url 'consent_workflow' %}" class="btn btn-primary">Continue</a></p>
+{% endif %}
+<p class="back-link"><a href="{% url 'dashboard' %}">Dashboard</a></p>
 </div>
 {% endblock %}

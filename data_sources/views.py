@@ -323,6 +323,7 @@ def instructions(request, source_id):
         {
             'instructions_context': context,
             'instructions_template': template,
+            'consent_id': consent_id,
         }
     )
 
