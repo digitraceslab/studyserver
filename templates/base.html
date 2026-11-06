@@ -3,9 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <title>{% block title %}Study Server{% endblock %}</title>
+    <script>
+      /* Apply a saved theme choice before the page paints, so it doesn't flash */
+      (function () {
+        try {
+          var saved = localStorage.getItem("polalpha-theme");
+          if (saved === "light" || saved === "dark") {
+            document.documentElement.setAttribute("data-theme", saved);
+          }
+        } catch (e) {}
+      })();
+    </script>
     {% if study.custom_css %}<style>{{ study.custom_css|safe }}</style>{% endif %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
+    <header class="site-header">
+      <div class="wrap nav">
+        <a class="brand" href="{% url 'study_detail' %}">
+          {% if assets.study_logo_png %}<img src="{{ assets.study_logo_png }}" alt="">{% endif %}
+          <span class="brand-name">{{ study.title }}</span>
+        </a>
+        <nav class="nav-links" aria-label="Site">
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch to dark theme" title="Switch to dark theme">
+            <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.6A8.5 8.5 0 1 1 9.4 3.5a6.7 6.7 0 0 0 11.1 11.1z"/></svg>
+            <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+          </button>
+        </nav>
+      </div>
+    </header>
+
     {% if messages %}
     <ul class="messages">
         {% for message in messages %}
@@ -22,5 +48,37 @@
         <a href="{% url 'privacy_statement' %}">Privacy Statement</a> |
         <a href="{% url 'terms_of_service' %}">Terms of Service</a>
     </footer>
+
+    <script>
+      /* Light / dark theme switch. The choice is kept only in this browser (localStorage), never sent anywhere. */
+      (function () {
+        var root = document.documentElement;
+        var button = document.getElementById("theme-toggle");
+        if (!button) return;
+        var media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+        function currentTheme() {
+          var chosen = root.getAttribute("data-theme");
+          if (chosen === "light" || chosen === "dark") return chosen;
+          return media && media.matches ? "dark" : "light";
+        }
+
+        function updateLabel() {
+          var label = currentTheme() === "dark" ? "Switch to light theme" : "Switch to dark theme";
+          button.setAttribute("aria-label", label);
+          button.setAttribute("title", label);
+        }
+
+        button.addEventListener("click", function () {
+          var next = currentTheme() === "dark" ? "light" : "dark";
+          root.setAttribute("data-theme", next);
+          try { localStorage.setItem("polalpha-theme", next); } catch (e) {}
+          updateLabel();
+        });
+
+        if (media && media.addEventListener) media.addEventListener("change", updateLabel);
+        updateLabel();
+      })();
+    </script>
 </body>
 </html>
