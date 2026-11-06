@@ -50,11 +50,13 @@
 
     <main class="page-content">{% block content %}{% endblock %}</main>
 
-    <footer class="site-footer wrap">
+    <footer class="site-footer">
+      <div class="wrap">
         {% if user.is_authenticated %}<a href="{% url 'dashboard' %}">Dashboard</a> | {% else %}<a href="{% url 'login' %}">Login</a> | {% endif %}
         <a href="{% url 'study_detail' %}">Study</a> |
         <a href="{% url 'privacy_statement' %}">Privacy Statement</a> |
         <a href="{% url 'terms_of_service' %}">Terms of Service</a>
+      </div>
     </footer>
 
     <script>
