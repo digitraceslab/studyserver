@@ -95,6 +95,7 @@ class SurveyDataSource(DataSource):
                     data.append({
                         'survey': survey.name,
                         'question': answer.question.text,
+                        'label': answer.question.label,
                         'answer': answer.body,
                         'other': answer.other_text,
                         # timestamp is canonically Unix time in milliseconds across all sources.
