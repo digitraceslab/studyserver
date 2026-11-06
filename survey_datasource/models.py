@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.db import models
+from django.db.models import Q
 from django.utils.timezone import datetime, timezone
 from data_sources.models import DataSource
 from survey.models import Survey, Response
@@ -53,8 +54,10 @@ class SurveyDataSource(DataSource):
         return links
 
     def get_data_types(self):
-        """Return a list of available surveys as data types."""
-        surveys = Survey.objects.all()
+        """Return the surveys this participant can see or has answered, as data types."""
+        surveys = Survey.objects.filter(
+            Q(is_published=True) | Q(responses__user=self.profile.user)
+        ).distinct()
         data_types = []
         for survey in surveys:
             survey_name = survey.name if survey.name else f"Survey {survey.id}"
