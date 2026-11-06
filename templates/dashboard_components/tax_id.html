@@ -5,6 +5,6 @@
 <form method="post" action="{% url 'update_tax_id' %}" class="tax-id-form">
     {% csrf_token %}
     <input type="text" name="tax_id" value="{{ tax_id }}" />
-    <button type="submit" class="btn">Save</button>
+    <button type="submit" class="btn btn-primary">Save</button>
 </form>
 </section>

@@ -30,9 +30,7 @@
     {% endif %}
 {% else %}
     <p>Click the button below to start OAuth flow:</p>
-    <a href="{% url 'test_google_oauth' %}" class="consent_button">
-        <button>Test Google OAuth</button>
-    </a>
+    <a href="{% url 'test_google_oauth' %}" class="consent_button btn btn-primary">Test Google OAuth</a>
 {% endif %}
 
 <p><a href="{% url 'dashboard' %}">Back to Dashboard</a></p>

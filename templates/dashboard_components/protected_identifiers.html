@@ -16,12 +16,12 @@
         </div>
         {% endfor %}
     </div>
-    <button type="button" class="btn" onclick="
+    <button type="button" class="btn btn-primary" onclick="
         var row = document.createElement('div');
         row.className = 'identifier-row';
         row.innerHTML = '<input type=\'text\' name=\'identifier\' value=\'\'> <button type=\'button\' class=\'btn\' onclick=\'this.parentElement.remove()\'>Remove</button>';
         document.getElementById('identifier-list').appendChild(row);
     ">+ Add identifier</button>
-    <button type="submit" class="btn">Save</button>
+    <button type="submit" class="btn btn-primary">Save</button>
 </form>
 </section>

@@ -11,21 +11,13 @@
                 </div>
             {% else %}
                 <p><strong>Setup Required</strong></p>
-                <a href="{{ source.get_setup_url }}?consent_id={{ consent.id }}">
-                    <button class="setup-instructions-button">
-                        View Setup Instructions
-                    </button>
-                </a>
+                <a href="{{ source.get_setup_url }}?consent_id={{ consent.id }}" class="setup-instructions-button btn btn-primary">View Setup Instructions</a>
             {% endif %}
         {% endif %}
 
         {% if source.requires_confirmation %}
             <p class="setup-alt-note"><strong>Or if you've already set up:</strong></p>
-            <a href="{{ source.get_confirm_url }}?consent_id={{ consent.id }}">
-                <button class="check-data-button">
-                    Check for Data
-                </button>
-            </a>
+            <a href="{{ source.get_confirm_url }}?consent_id={{ consent.id }}" class="check-data-button btn btn-primary">Check for Data</a>
         {% endif %}
     {% endif %}
 
@@ -42,20 +34,12 @@
             {% if source.status == 'pending' %}
                 {% if source.requires_setup %}
                     <p><strong>Setup Required</strong></p>
-                    <a href="{{ source.get_setup_url }}?consent_id={{ consent.id }}">
-                        <button class="setup-instructions-button">
-                            View Setup Instructions
-                        </button>
-                    </a>
+                    <a href="{{ source.get_setup_url }}?consent_id={{ consent.id }}" class="setup-instructions-button btn btn-primary">View Setup Instructions</a>
                 {% endif %}
 
                 {% if source.requires_confirmation %}
                     <p class="setup-alt-note"><strong>Or if you've already set up:</strong></p>
-                    <a href="{{ source.get_confirm_url }}?consent_id={{ consent.id }}">
-                        <button class="check-data-button">
-                            Check for Data
-                        </button>
-                    </a>
+                    <a href="{{ source.get_confirm_url }}?consent_id={{ consent.id }}" class="check-data-button btn btn-primary">Check for Data</a>
                 {% endif %}
             {% endif %}
         {% endif %}
@@ -80,7 +64,7 @@
         <form method="post" action="{% url 'consent_workflow' %}" class="source-create-form">
             {% csrf_token %}
             <input type="hidden" name="action" value="create">
-            <button type="submit" class="create-source-button">Create New {{ source_type_label|default:consent.source_type }}</button>
+            <button type="submit" class="create-source-button btn btn-primary">Create New {{ source_type_label|default:consent.source_type }}</button>
         </form>
     </div>
 
