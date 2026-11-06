@@ -58,6 +58,7 @@
 <form method="post" action="{% url 'logout' %}">
     {% csrf_token %}
     <button type="submit" class="btn btn-primary">Logout</button>
+    <a href="{% url 'password_change' %}" class="btn btn-secondary">Change password</a>
 </form>
 
 </div>

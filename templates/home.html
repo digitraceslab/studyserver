@@ -12,6 +12,7 @@
 <form method="post" action="{% url 'logout' %}" class="logout-form">
     {% csrf_token %}
     <button type="submit" class="btn btn-primary">Logout</button>
+    <a href="{% url 'password_change' %}" class="btn btn-secondary">Change password</a>
 </form>
 {% else %}
   <p class="auth-links"><a href="{% url 'login' %}">Login</a> or <a href="{% url 'signup' %}">Sign Up</a></p>
