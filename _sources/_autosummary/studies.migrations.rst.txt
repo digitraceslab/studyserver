@@ -58,3 +58,4 @@ studies.migrations
    0046_study_custom_css
    0047_alter_study_custom_css
    0048_studysourceconfiguration_show_separate_consent_page
+   0049_study_short_description
