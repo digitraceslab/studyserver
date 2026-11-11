@@ -101,10 +101,12 @@ def signup(request):
         if form.is_valid():
             user = form.save(commit=False)
             user.save()
-            Profile.objects.create(
+            profile = Profile.objects.create(
                 user=user,
                 user_type='participant'
             )
+            if user.email:
+                ProtectedIdentifier.objects.create(profile=profile, value=user.email)
             return redirect('login')
         for errors in form.errors.values():
             for error in errors:

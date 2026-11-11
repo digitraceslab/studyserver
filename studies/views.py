@@ -1,4 +1,5 @@
 import base64
+import re
 from datetime import datetime
 from urllib.parse import urlencode
 
@@ -677,6 +678,19 @@ def study_data_api(request):
             if not (row.get("timestamp") is not None and int(row["timestamp"]) > data_end_ms)
         ]
 
+    # Identifiers the participant wants replaced before researchers see the data
+    profile = consent.study_participant.participant
+    # Longest first, so "name@example.com" is replaced before "name" can split it
+    identifiers = sorted(
+        profile.protected_identifiers.values_list("value", "replacement"),
+        key=lambda pair: len(pair[0]),
+        reverse=True,
+    )
+    identifier_patterns = [
+        (re.compile(re.escape(identifier), re.IGNORECASE), replacement)
+        for identifier, replacement in identifiers
+    ]
+
     # Enrich rows
     for row in rows:
         row["data_type"] = data_type
@@ -684,6 +698,12 @@ def study_data_api(request):
         row["origin"] = (consent.configuration or {}).get("niimport_source_type")
         row["participant_id"] = participant_id
         _clean_row(row)
+        for key, value in row.items():
+            if not isinstance(value, str):
+                continue
+            for pattern, replacement in identifier_patterns:
+                value = pattern.sub(lambda _match: replacement, value)
+            row[key] = value
 
     # Advance watermark handling
     if advance:
