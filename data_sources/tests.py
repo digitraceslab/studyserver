@@ -315,6 +315,12 @@ class DataSourcesViewsTest(TestCase):
         # Verify the source still exists
         self.assertTrue(AwareDataSource.objects.filter(id=self.source.id).exists())
 
+    def test_instructions_renders(self):
+        """Tests that the instructions page renders for the owner's source."""
+        response = self.client.get(reverse("instructions", args=[self.source.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "data_sources/instructions_wrapper.html")
+
 
 class DataSourceModelTest(TestCase):
     def setUp(self):

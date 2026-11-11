@@ -87,20 +87,22 @@ class HomeViewTest(TestCase):
 class SignupViewTest(TestCase):
     def setUp(self):
         self.client = Client()
+        Study.objects.create(title='Test Study')
 
     def test_signup_page_loads(self):
         response = self.client.post(reverse('signup'), {
-            'username': 'newuser',
+            'username': 'NewUser@example.com',
             'password1': 'StrongPass123',
             'password2': 'StrongPass123',
         })
         self.assertRedirects(response, reverse('login'))
-        self.assertTrue(User.objects.filter(username='newuser').exists())
+        self.assertTrue(User.objects.filter(username='newuser@example.com').exists())
 
 
 class SignupResearcherViewTest(TestCase):
     def setUp(self):
         self.client = Client()
+        Study.objects.create(title='Test Study')
 
     def test_signup_researcher_page_loads(self):
         response = self.client.get(reverse('signup_researcher'))
@@ -108,12 +110,12 @@ class SignupResearcherViewTest(TestCase):
 
     def test_signup_researcher_creates_user(self):
         response = self.client.post(reverse('signup_researcher'), {
-            'username': 'newresearcher',
+            'username': 'newresearcher@example.com',
             'password1': 'StrongPass123',
             'password2': 'StrongPass123',
         })
         self.assertRedirects(response, reverse('login'))
-        self.assertTrue(User.objects.filter(username='newresearcher').exists())
+        self.assertTrue(User.objects.filter(username='newresearcher@example.com').exists())
 
 
 class ManageTokenViewTest(TestCase):
@@ -200,60 +202,64 @@ class ProfileModelTest(TestCase):
 
 
 class SignupViewExtendedTest(TestCase):
+    def setUp(self):
+        Study.objects.create(title='Test Study')
+
     def test_signup_get_renders_form(self):
         response = self.client.get(reverse('signup'))
         self.assertEqual(response.status_code, 200)
 
     def test_signup_password_mismatch(self):
         response = self.client.post(reverse('signup'), {
-            'username': 'newuser',
+            'username': 'newuser@example.com',
             'password1': 'StrongPass123',
             'password2': 'WrongPass456',
         })
         self.assertEqual(response.status_code, 200)  # stays on page
-        self.assertFalse(User.objects.filter(username='newuser').exists())
+        self.assertFalse(User.objects.filter(username='newuser@example.com').exists())
 
     def test_signup_duplicate_username(self):
-        User.objects.create_user(username='existing', password='pass')
+        User.objects.create_user(username='existing@example.com', password='pass')
         response = self.client.post(reverse('signup'), {
-            'username': 'existing',
+            'username': 'existing@example.com',
             'password1': 'StrongPass123',
             'password2': 'StrongPass123',
         })
         self.assertEqual(response.status_code, 200)  # stays on page
-        self.assertEqual(User.objects.filter(username='existing').count(), 1)
+        self.assertEqual(User.objects.filter(username='existing@example.com').count(), 1)
 
     def test_signup_creates_participant_profile(self):
         self.client.post(reverse('signup'), {
-            'username': 'partuser',
+            'username': 'partuser@example.com',
             'password1': 'StrongPass123',
             'password2': 'StrongPass123',
         })
-        user = User.objects.get(username='partuser')
+        user = User.objects.get(username='partuser@example.com')
         self.assertEqual(user.profile.user_type, 'participant')
 
 
 class SignupResearcherExtendedTest(TestCase):
     def setUp(self):
         Group.objects.get_or_create(name='Researchers')
+        Study.objects.create(title='Test Study')
 
     def test_signup_researcher_creates_researcher_profile(self):
         self.client.post(reverse('signup_researcher'), {
-            'username': 'res1',
+            'username': 'res1@example.com',
             'password1': 'StrongPass123',
             'password2': 'StrongPass123',
         })
-        user = User.objects.get(username='res1')
+        user = User.objects.get(username='res1@example.com')
         self.assertEqual(user.profile.user_type, 'researcher')
         self.assertTrue(user.is_staff)
 
     def test_signup_researcher_adds_to_group(self):
         self.client.post(reverse('signup_researcher'), {
-            'username': 'res2',
+            'username': 'res2@example.com',
             'password1': 'StrongPass123',
             'password2': 'StrongPass123',
         })
-        user = User.objects.get(username='res2')
+        user = User.objects.get(username='res2@example.com')
         self.assertTrue(user.groups.filter(name='Researchers').exists())
 
 
