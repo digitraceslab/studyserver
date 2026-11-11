@@ -9,6 +9,9 @@
     {% if study.custom_css %}<style>{{ study.custom_css|safe }}</style>{% endif %}
 </head>
 <body class="page-aware-mobile-setup">
+<div class="aware-setup-content">
+    <p class="dashboard-link"><a href="{% url 'dashboard' %}">Back to Dashboard</a></p>
+
     <h1>AWARE Device Setup</h1>
 
     <h4>
@@ -80,6 +83,7 @@
            <img src="{% static 'aware/aware_sensors.jpg' %}" alt="" class="install-warning-image"/>
 
     </ol>
+</div>
 
     <script>
         function copyToClipboard(elementId) {
