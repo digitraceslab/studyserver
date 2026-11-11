@@ -9,6 +9,10 @@
 
 <h3>Setup AWARE Data Source: {{ instructions_context.source.name }}</h3>
 
+<p>
+    Installation takes about 5–10 minutes
+</p>
+
 {% if consent_id %}
     <a href="{% url 'consent_workflow' %}?consent_id={{ consent_id }}" class="back-link">Back to Join Study</a>
     <br>
