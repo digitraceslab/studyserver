@@ -49,6 +49,20 @@ def get_study():
 
 @login_required
 def join_study(request):
+    """Join the study (URL name `join_study`, login required).
+
+    GET: show the join confirmation page (terms + privacy). Creates nothing,
+    so a plain link to this URL is safe.
+    POST: enroll; requires the form field `accept_terms`. Creates or reuses the
+    StudyParticipant, then redirects to the registration-pending page (if
+    researcher approval is required and missing) or to `consent_workflow`.
+    On failure (terms not accepted, email domain not allowed, study full) it
+    redirects with an error message.
+
+    The POST path is internal to the studies app: it is submitted only by this
+    view's own confirmation page form. Other components should link here with
+    GET.
+    """
     study = get_study()
     profile = request.user.profile
 
@@ -188,6 +202,17 @@ def render_registration_pending(request, study):
 
 @login_required
 def withdraw_from_study(request):
+    """Withdraw from the study (URL name `withdraw_from_study`, login required).
+
+    GET: show the withdrawal confirmation page. Changes nothing, so a plain
+    link to this URL is safe.
+    POST: revoke all of the participant's active consents in the study, then
+    redirect to `dashboard`.
+
+    The POST path is internal to the studies app: it is submitted only by this
+    view's own confirmation page form. Other components should link here with
+    GET.
+    """
     study = get_study()
     profile = request.user.profile
 
@@ -249,6 +274,12 @@ def revoke_consent(request, consent_id):
 
 
 def study_detail(request):
+    """Show the public study page (URL name `study_detail`).
+
+    GET; no login required and read-only (other methods are not rejected but
+    behave the same). Renders the researcher-configured study page HTML, with
+    `user_in_study` telling the page whether the user has an active consent.
+    """
     study = get_study()
     html_content = study.study_page_html
     if not html_content:
