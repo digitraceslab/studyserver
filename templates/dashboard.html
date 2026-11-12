@@ -89,10 +89,9 @@
         </div>
     {% endif %}
     <hr>
-{% elif not pending_participations %}
-    <div class="not-enrolled-message">
-    <p>You are not currently enrolled in the study.</p>
-    <p>Go to the <a href="{% url 'home' %}">front page</a> to enroll</p>
+{% elif study and not pending_participations %}
+    <div class="join-section">
+        <a href="{% url 'join_study' %}" class="btn btn-primary join-button">Join the study</a>
     </div>
 {% endif %}
 

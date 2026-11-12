@@ -250,11 +250,14 @@ def get_next_instructions_card(request, studies_data):
 
 @login_required
 def dashboard(request):
-    """Participant dashboard (login required).
+    """Participant dashboard for the single study (login required).
 
-    Researchers are redirected to 'researcher_dashboard'. Shows active and past
-    consents, pending approvals, protected identifiers, the tax ID form (when an
-    active study collects it) and the next setup instructions card.
+    Researchers are redirected to 'researcher_dashboard'. Context: 'study'
+    (Study.objects.first(), or None), 'study_data' (that study's entry from
+    get_active_studies_data, or None when the user has no unrevoked consent in
+    it, i.e. is not enrolled), 'pending_participations', 'past_consents',
+    'protected_identifiers', 'collect_tax_id', 'tax_id' and, when a source
+    needs setup, 'instructions_template' / 'instructions_context'.
     """
     if request.user.profile.user_type == 'researcher':
         return redirect('researcher_dashboard')

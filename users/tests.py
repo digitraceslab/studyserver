@@ -165,6 +165,42 @@ class DashboardViewTest(TestCase):
         self.assertContains(response, 'This is an info message.')
 
 
+class DashboardStudyStatusTest(TestCase):
+    """The dashboard's study section follows the user's consents in the study."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='statususer', password='pass')
+        self.profile = Profile.objects.create(user=self.user, user_type='participant')
+        self.study = Study.objects.create(title="Status Study")
+        self.client.login(username='statususer', password='pass')
+
+    def test_title_shows_study_title(self):
+        response = self.client.get(reverse('dashboard'))
+        self.assertContains(response, f'<title>{self.study.title}</title>', html=False)
+        self.assertContains(response, f'<h1>{self.study.title}</h1>', html=False)
+
+    def test_join_button_without_consents(self):
+        response = self.client.get(reverse('dashboard'))
+        self.assertContains(response, f'href="{reverse("join_study")}"')
+
+    def test_join_button_when_all_consents_revoked(self):
+        Consent.objects.create(
+            participant=self.profile, study=self.study,
+            consent_date=timezone.now(), revocation_date=timezone.now(),
+        )
+        response = self.client.get(reverse('dashboard'))
+        self.assertContains(response, f'href="{reverse("join_study")}"')
+
+    def test_enrolled_with_active_consent(self):
+        Consent.objects.create(
+            participant=self.profile, study=self.study, consent_date=timezone.now(),
+        )
+        response = self.client.get(reverse('dashboard'))
+        self.assertContains(response, 'You are enrolled')
+        self.assertContains(response, 'Continue Consent Workflow')
+
+
 class ResearcherDashboardViewTest(TestCase):
     def setUp(self):
         self.client = Client()
