@@ -16,6 +16,7 @@ users.tests
    
       BaseTestCase
       DashboardExtendedTest
+      DashboardStudyStatusTest
       DashboardViewTest
       GetPastConsentsTest
       HomeViewExtendedTest
