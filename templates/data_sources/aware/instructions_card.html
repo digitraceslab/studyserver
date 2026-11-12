@@ -4,7 +4,9 @@
 <ul>
     <li>
     Scan the QR code below with your phone's camera to open a setup page on your phone.
-    <img src="data:image/png;base64,{{ instructions_context.qr_code_image }}" alt="QR Code" class="qr-code">
+    <div class="qr-code-container">
+        <img src="data:image/png;base64,{{ instructions_context.qr_code_image }}" alt="QR Code" class="qr-code">
+    </div>
     Use this link to open the setup page and see the instructions: <a href="{{ instructions_context.qr_link }}">{{ instructions_context.qr_link }}</a>
     </li>
 </ul>
