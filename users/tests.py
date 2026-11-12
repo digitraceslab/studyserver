@@ -12,6 +12,7 @@ from django.http import HttpResponseRedirect
 from study_server.urls import urlpatterns as real_urlpatterns
 from django.contrib.auth.models import AnonymousUser, User as DjangoUser, Group
 import uuid
+from django.utils.http import urlencode
 from users.views import get_past_consents
 from users.models import ProtectedIdentifier
 
@@ -273,6 +274,25 @@ class SignupViewExtendedTest(TestCase):
         user = User.objects.get(username='partuser@example.com')
         self.assertEqual(user.profile.user_type, 'participant')
 
+    def test_signup_preserves_next_to_login(self):
+        next_url = '/studies/#join-or-login'
+        response = self.client.post(reverse('signup'), {
+            'username': 'nextuser@example.com',
+            'password1': 'StrongPass123',
+            'password2': 'StrongPass123',
+            'next': next_url,
+        })
+        login_url = reverse('login') + '?' + urlencode({'next': next_url})
+        self.assertRedirects(response, login_url, fetch_redirect_response=False)
+        login_page = self.client.get(login_url)
+        self.assertContains(login_page, f'name="next" value="{next_url}"')
+        response = self.client.post(login_url, {
+            'username': 'nextuser@example.com',
+            'password': 'StrongPass123',
+            'next': next_url,
+        })
+        self.assertRedirects(response, next_url, fetch_redirect_response=False)
+
 
 class SignupResearcherExtendedTest(TestCase):
     def setUp(self):
@@ -322,6 +342,24 @@ class LoginViewTest(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Invalid username or password')
+
+    def test_login_follows_safe_next(self):
+        response = self.client.post(reverse('login'), {
+            'username': 'loginuser',
+            'password': 'correctpass',
+            'next': '/studies/%23join-or-login',
+        })
+        self.assertRedirects(
+            response, '/studies/#join-or-login', fetch_redirect_response=False
+        )
+
+    def test_login_ignores_unsafe_next(self):
+        response = self.client.post(reverse('login'), {
+            'username': 'loginuser',
+            'password': 'correctpass',
+            'next': 'https://evil.example.com/',
+        })
+        self.assertRedirects(response, reverse('home'), fetch_redirect_response=False)
 
 
 class HomeViewExtendedTest(BaseTestCase):

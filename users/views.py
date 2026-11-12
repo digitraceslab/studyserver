@@ -10,6 +10,8 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import Group
 from django.contrib.auth import login
 from django.contrib.auth.forms import AuthenticationForm
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
@@ -25,22 +27,40 @@ from data_sources.models import DataSource
 
 
 
+def _safe_next(request):
+    """Return the request's `next` parameter (POST, then GET) if it is a safe
+    redirect target on this host, else ''. A percent-encoded fragment marker
+    (%23) is turned into a real '#'."""
+    value = request.POST.get('next') or request.GET.get('next') or ''
+    value = value.replace('%23', '#')
+    if value and url_has_allowed_host_and_scheme(
+        value,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return value
+    return ''
+
+
 def login_view(request):
     """Log a user in with Django's AuthenticationForm.
 
-    On a valid POST, logs in and redirects to 'home'; otherwise shows the form.
+    Accepts a `next` parameter (GET, or POST via the form's hidden field). On a
+    valid POST, logs in and redirects to `next` if it is a safe URL on this
+    host, otherwise to 'home'; on GET or invalid credentials shows the form.
     """
+    next_url = _safe_next(request)
     if request.method == 'POST':
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            return redirect('home')
+            return redirect(next_url or 'home')
         else:
             messages.error(request, "Invalid username or password.")
     else:
         form = AuthenticationForm(request)
-    return render(request, 'users/login.html', {'form': form})
+    return render(request, 'users/login.html', {'form': form, 'next': next_url})
     
     
 def home(request):
@@ -68,9 +88,12 @@ def home(request):
 def signup(request):
     """Register a participant account.
 
-    On a valid POST, creates the user and a 'participant' Profile, stores the
-    email (if any) as a ProtectedIdentifier, and redirects to 'login'.
+    Accepts a `next` parameter (GET, or POST via the form's hidden field). On a
+    valid POST, creates the user and a 'participant' Profile, stores the
+    email (if any) as a ProtectedIdentifier, and redirects to 'login', passing
+    a safe `next` along so the user lands there after logging in.
     """
+    next_url = _safe_next(request)
     if request.method == 'POST':
         form = ParticipantCreationForm(request.POST)
         if form.is_valid():
@@ -82,13 +105,16 @@ def signup(request):
             )
             if user.email:
                 ProtectedIdentifier.objects.create(profile=profile, value=user.email)
-            return redirect('login')
+            login_url = reverse('login')
+            if next_url:
+                login_url += '?' + urlencode({'next': next_url})
+            return redirect(login_url)
         for errors in form.errors.values():
             for error in errors:
                 messages.error(request, error)
     else:
         form = ParticipantCreationForm()
-    return render(request, 'registration/signup.html', {'form': form})
+    return render(request, 'registration/signup.html', {'form': form, 'next': next_url})
 
 def signup_researcher(request):
     """Register a researcher account.

@@ -1,14 +1,16 @@
+<div id="join-or-login">
 {% if user.is_authenticated and user.profile.user_type == 'participant' %}
     {% if user_in_study %}
         <p class="enrollment-status">You are currently enrolled in this study.</p>
     {% else %}
     <p class="join-study-link enrolment-link">
-        <a href="{% url 'join_study' %}">Join this Study</a>
+        <a class="btn btn-primary" href="{% url 'join_study' %}">Join this Study</a>
     </p>
     {% endif %}
 {% elif not user.is_authenticated %}
     <p class="login-prompt enrolment-link">
-        <a href="{% url 'login' %}?next={{ request.path }} ">Login</a> or
-        <a href="{% url 'signup' %}?next={{ request.path }}">Sign Up</a> to join.
+        <a href="{% url 'login' %}?next={{ request.path|urlencode }}%23join-or-login">Login</a> or
+        <a href="{% url 'signup' %}?next={{ request.path|urlencode }}%23join-or-login">Sign Up</a> to join.
     </p>
 {% endif %}
+</div>
