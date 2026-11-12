@@ -14,11 +14,6 @@
         } catch (e) {}
       })();
     </script>
-    {# Zero-specificity defaults (:where) so study CSS can override them. #}
-    <style>
-      :where(.footer-logout-form) { display: inline; }
-      :where(.footer-logout-link) { background: none; border: none; padding: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
-    </style>
     {% if study.custom_css %}<style>{{ study.custom_css|safe }}</style>{% endif %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -37,6 +32,10 @@
           </button>
           {% if user.is_authenticated %}
           <a class="btn btn-primary btn-small" href="{% url 'dashboard' %}">Dashboard</a>
+          <form method="post" action="{% url 'logout' %}" class="nav-logout-form">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-small">Logout</button>
+          </form>
           {% else %}
           <a class="btn btn-secondary btn-small" href="{% url 'login' %}">Login</a>
           <a class="btn btn-primary btn-small" href="{% url 'signup' %}">Sign Up</a>
@@ -62,12 +61,6 @@
         <a href="{% url 'privacy_statement' %}">Privacy Statement</a> |
         <a href="{% url 'terms_of_service' %}">Terms of Service</a> |
         <a href="{% url 'info_sheet' %}">Information Sheet</a>
-        {% if user.is_authenticated %} |
-        <form method="post" action="{% url 'logout' %}" class="footer-logout-form">
-          {% csrf_token %}
-          <button type="submit" class="footer-logout-link">Logout</button>
-        </form>
-        {% endif %}
       </div>
     </footer>
 
