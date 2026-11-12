@@ -687,3 +687,79 @@ class GetPastConsentsTest(TestCase):
         self.client.login(username='past_consent_user', password='pass')
         response = self.client.get(reverse('dashboard'))
         self.assertEqual(response.status_code, 200)
+
+
+class PasswordResetTest(TestCase):
+    """Forgotten-password flow: request, email with link, set new password."""
+
+    EMAIL = 'reset@example.com'
+    NEW_PASSWORD = 'N3w-Secure-Passw0rd!'
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username=self.EMAIL, email=self.EMAIL, password='oldpass'
+        )
+        Profile.objects.create(user=self.user, user_type='participant')
+
+    def _request_reset_link(self):
+        """Post the reset form for the user's email; return the emailed link path."""
+        from django.core import mail
+        import re
+
+        self.client.post(reverse('password_reset'), {'email': self.EMAIL})
+        self.assertEqual(len(mail.outbox), 1)
+        match = re.search(r'https?://[^/\s]+(/\S+)', mail.outbox[0].body)
+        self.assertIsNotNone(match)
+        return match.group(1)
+
+    def test_login_page_links_to_password_reset(self):
+        response = self.client.get(reverse('login'))
+        self.assertContains(response, reverse('password_reset'))
+
+    def test_reset_form_uses_site_template(self):
+        response = self.client.get(reverse('password_reset'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'registration/password_reset_form.html')
+        self.assertContains(response, 'Send reset link')
+
+    def test_known_email_sends_one_mail_with_link(self):
+        from django.core import mail
+
+        response = self.client.post(reverse('password_reset'), {'email': self.EMAIL})
+        self.assertRedirects(response, reverse('password_reset_done'))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.EMAIL])
+        self.assertIn('/accounts/reset/', mail.outbox[0].body)
+
+    def test_unknown_email_sends_nothing_but_shows_done(self):
+        from django.core import mail
+
+        response = self.client.post(
+            reverse('password_reset'), {'email': 'nobody@example.com'}
+        )
+        self.assertRedirects(response, reverse('password_reset_done'))
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_link_redirects_to_set_password_url(self):
+        link = self._request_reset_link()
+        response = self.client.get(link)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response['Location'].endswith('/set-password/'))
+
+    def test_setting_new_password_works_and_link_is_then_invalid(self):
+        link = self._request_reset_link()
+        set_password_url = self.client.get(link)['Location']
+        response = self.client.post(set_password_url, {
+            'new_password1': self.NEW_PASSWORD,
+            'new_password2': self.NEW_PASSWORD,
+        })
+        self.assertRedirects(response, reverse('password_reset_complete'))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(self.NEW_PASSWORD))
+
+        complete = self.client.get(reverse('password_reset_complete'))
+        self.assertContains(complete, reverse('login'))
+
+        reused = self.client.get(link, follow=True)
+        self.assertFalse(reused.context['validlink'])
+        self.assertContains(reused, 'Invalid link')
