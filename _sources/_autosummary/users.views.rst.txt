@@ -18,13 +18,9 @@ users.views
       manage_token
       my_data_api
       participant_detail
-      privacy_statement
-      privacy_statement_version
       researcher_dashboard
       signup
       signup_researcher
-      terms_of_service
-      terms_of_service_version
       update_protected_identifiers
       update_tax_id
    

@@ -15,6 +15,7 @@
    local_settings
    settings
    test_runner
+   tests
    urls
    utils
    views

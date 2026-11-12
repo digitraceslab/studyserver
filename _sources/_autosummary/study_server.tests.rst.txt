@@ -1,0 +1,19 @@
+study\_server.tests
+===================
+
+.. automodule:: study_server.tests
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      create_user
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      BaseHeaderTest
+      PasswordChangeTemplatesTest
+   

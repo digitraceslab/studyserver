@@ -9,6 +9,7 @@ studies.models
    .. autosummary::
    
       Consent
+      InfoSheet
       PrivacyNotice
       Study
       StudyAsset

@@ -25,6 +25,7 @@ users.tests
       ManageTokenViewTest
       MyDataApiTest
       ParticipantDetailTest
+      PasswordResetTest
       ProfileModelTest
       ProtectedIdentifierDashboardTest
       ProtectedIdentifierModelTest

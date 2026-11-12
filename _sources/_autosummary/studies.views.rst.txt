@@ -15,14 +15,20 @@ studies.views
       get_existing_sources_for_consent
       get_next_consent
       get_study
+      info_sheet
+      info_sheet_version
       join_study
       mark_data_deletable
+      privacy_statement
+      privacy_statement_version
       render_registration_pending
       revoke_consent
       select_data_source_view
       study_data_api
       study_detail
       study_participants_api
+      terms_of_service
+      terms_of_service_version
       unmark_data_deletable
       withdraw_from_study
    
