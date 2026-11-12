@@ -371,6 +371,12 @@ class TermsOfService(VersionedText):
         verbose_name_plural = "Terms of Service"
 
 
+class InfoSheet(VersionedText):
+    class Meta(VersionedText.Meta):
+        verbose_name = "Information Sheet"
+        verbose_name_plural = "Information Sheets"
+
+
 class Consent(models.Model):
     participant = models.ForeignKey(
         Profile,

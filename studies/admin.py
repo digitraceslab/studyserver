@@ -23,6 +23,7 @@ from .forms import (
 )
 from .models import (
     Consent,
+    InfoSheet,
     PrivacyNotice,
     Study,
     StudyAsset,
@@ -731,4 +732,9 @@ class PrivacyNoticeAdmin(VersionedTextAdmin):
 
 @admin.register(TermsOfService)
 class TermsOfServiceAdmin(VersionedTextAdmin):
+    pass
+
+
+@admin.register(InfoSheet)
+class InfoSheetAdmin(VersionedTextAdmin):
     pass

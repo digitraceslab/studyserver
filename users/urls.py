@@ -1,20 +1,29 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 
 urlpatterns = [
     path("login/", views.login_view, name="login"),
-    path("terms/", views.terms_of_service, name="terms_of_service"),
-    path("privacy/", views.privacy_statement, name="privacy_statement"),
+    path(
+        "terms/",
+        RedirectView.as_view(pattern_name="terms_of_service", permanent=True),
+        name="terms_of_service_redirect",
+    ),
+    path(
+        "privacy/",
+        RedirectView.as_view(pattern_name="privacy_statement", permanent=True),
+        name="privacy_statement_redirect",
+    ),
     path(
         "terms/version/<int:pk>/",
-        views.terms_of_service_version,
-        name="terms_of_service_version",
+        RedirectView.as_view(pattern_name="terms_of_service_version", permanent=True),
+        name="terms_of_service_version_redirect",
     ),
     path(
         "privacy/version/<int:pk>/",
-        views.privacy_statement_version,
-        name="privacy_statement_version",
+        RedirectView.as_view(pattern_name="privacy_statement_version", permanent=True),
+        name="privacy_statement_version_redirect",
     ),
     path("signup/", views.signup, name="signup"),
     path("signup/researcher/", views.signup_researcher, name="signup_researcher"),

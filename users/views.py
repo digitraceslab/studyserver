@@ -1,6 +1,4 @@
 from django.shortcuts import render, redirect
-from django.template import engines
-from django.utils.safestring import mark_safe
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
@@ -16,7 +14,7 @@ from rest_framework.authtoken.models import Token
 from study_server.utils import data_to_csv_response
 from django.db import transaction
 from users.models import Profile, ProtectedIdentifier
-from studies.models import Study, Consent, StudyParticipant, PrivacyNotice, TermsOfService
+from studies.models import Study, Consent, StudyParticipant
 from .forms import CustomUserCreationForm, ParticipantCreationForm
 from studies.views import study_detail
 from data_sources.models import DataSource
@@ -52,47 +50,6 @@ def home(request):
             return redirect('dashboard')
 
     return study_detail(request)
-
-
-def _render_study_html(request, html_content):
-    """Render researcher-configured HTML through the Django template engine,
-    wrapped in the standard study page layout."""
-    study = Study.objects.first()
-    template = engines["django"].from_string(html_content)
-    context = {
-        "study": study,
-        "request": request,
-        "user": request.user,
-        "assets": study.get_assets_dict() if study else {},
-    }
-    return render(
-        request,
-        "studies/study_detail_wrapper.html",
-        {"study_page_content": mark_safe(template.render(context))},
-    )
-
-
-def terms_of_service(request):
-    version = TermsOfService.current()
-    if version and version.text:
-        return _render_study_html(request, version.text)
-    return render(request, 'terms_of_service.html')
-
-def privacy_statement(request):
-    version = PrivacyNotice.current()
-    if version and version.text:
-        return _render_study_html(request, version.text)
-    return render(request, 'privacy_statement.html')
-
-
-def terms_of_service_version(request, pk):
-    version = get_object_or_404(TermsOfService, pk=pk)
-    return _render_study_html(request, version.text)
-
-
-def privacy_statement_version(request, pk):
-    version = get_object_or_404(PrivacyNotice, pk=pk)
-    return _render_study_html(request, version.text)
 
 
 def signup(request):

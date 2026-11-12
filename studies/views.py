@@ -27,7 +27,15 @@ from study_server.utils import data_to_csv_response
 
 from . import services
 from .forms import ConsentAcceptanceForm, DataSourceSelectionForm
-from .models import Consent, Study, StudyParticipant, StudySourceConfiguration
+from .models import (
+    Consent,
+    InfoSheet,
+    PrivacyNotice,
+    Study,
+    StudyParticipant,
+    StudySourceConfiguration,
+    TermsOfService,
+)
 
 
 def get_study():
@@ -267,6 +275,61 @@ def study_detail(request):
         "studies/study_detail_wrapper.html",
         {"study_page_content": template.render(context)},
     )
+
+
+def _render_versioned_html(request, html_content):
+    """Render researcher-configured HTML through the Django template engine,
+    wrapped in the standard study page layout."""
+    study = Study.objects.first()
+    template = engines["django"].from_string(html_content)
+    context = {
+        "study": study,
+        "request": request,
+        "user": request.user,
+        "assets": study.get_assets_dict() if study else {},
+    }
+    return render(
+        request,
+        "studies/study_detail_wrapper.html",
+        {"study_page_content": mark_safe(template.render(context))},
+    )
+
+
+def terms_of_service(request):
+    version = TermsOfService.current()
+    if version and version.text:
+        return _render_versioned_html(request, version.text)
+    return render(request, 'terms_of_service.html')
+
+def privacy_statement(request):
+    version = PrivacyNotice.current()
+    if version and version.text:
+        return _render_versioned_html(request, version.text)
+    return render(request, 'privacy_statement.html')
+
+
+def terms_of_service_version(request, pk):
+    version = get_object_or_404(TermsOfService, pk=pk)
+    return _render_versioned_html(request, version.text)
+
+
+def privacy_statement_version(request, pk):
+    version = get_object_or_404(PrivacyNotice, pk=pk)
+    return _render_versioned_html(request, version.text)
+
+
+def info_sheet(request):
+    """Show the current information sheet, or a placeholder if none exists."""
+    version = InfoSheet.current()
+    if version and version.text:
+        return _render_versioned_html(request, version.text)
+    return render(request, "studies/info_sheet.html")
+
+
+def info_sheet_version(request, pk):
+    """Show a specific past or current version of the information sheet."""
+    version = get_object_or_404(InfoSheet, pk=pk)
+    return _render_versioned_html(request, version.text)
 
 
 def get_next_consent(profile, study, consent_id=None):

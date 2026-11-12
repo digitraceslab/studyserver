@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %} Information Sheet {% endblock %}
+{% block body_class %}page-info-sheet{% endblock %}
+{% block content %}
+<div class="wrap">
+{# Fallback shown only when no InfoSheet version exists in the database. #}
+{# Researchers publish the real document in the admin (Studies -> Information Sheets). #}
+<h1>Information Sheet</h1>
+<div class="legal-placeholder">
+    <p>The information sheet for this study has not been published yet.</p>
+    <p>Please check back later, or contact the research team if you have any questions.</p>
+</div>
+</div>
+{% endblock %}
