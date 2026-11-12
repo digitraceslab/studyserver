@@ -261,7 +261,10 @@ def dashboard(request):
 
     context = {}
     context['past_consents'] = get_past_consents(request.user.profile)
-    context['studies_data'] = get_active_studies_data(request.user.profile, request)
+    study = Study.objects.first()
+    studies_data = get_active_studies_data(request.user.profile, request)
+    context['study'] = study
+    context['study_data'] = studies_data.get(study)
     # Studies the participant has registered for but that a researcher has not yet
     # approved. Until approved they have no consents, so they'd otherwise see
     # nothing about the study on the dashboard.
@@ -275,11 +278,11 @@ def dashboard(request):
     # Show the tax ID form only if an active study the participant is enrolled in
     # asks for it. Tax IDs are typically collected only toward the end of a study.
     context['collect_tax_id'] = any(
-        study.collect_tax_id for study in context['studies_data']
+        active_study.collect_tax_id for active_study in studies_data
     )
     context['tax_id'] = request.user.profile.tax_id
 
-    card_template, card_context = get_next_instructions_card(request, context['studies_data'])
+    card_template, card_context = get_next_instructions_card(request, studies_data)
     if card_template and card_context:
         context['instructions_template'] = card_template
         context['instructions_context'] = card_context
