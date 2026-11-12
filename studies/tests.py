@@ -2535,3 +2535,10 @@ class SendParticipantEmailByIdsAdminTest(
         })
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(mail.outbox), 0)
+
+
+class InfoSheetPageTest(TestCase):
+    def test_info_sheet_renders(self):
+        response = self.client.get(reverse('info_sheet'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(len(response.content.decode().strip()) > 0)
