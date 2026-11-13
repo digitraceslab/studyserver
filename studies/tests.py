@@ -47,7 +47,6 @@ class StudyTestMixin:
         self.study = Study.objects.create(
             title='Test Study',
             description='A test study',
-            config_url='https://github.com/example/study-repo',
         )
         StudySourceConfiguration.objects.create(study=self.study, source_type='aware', status='required')
         StudySourceConfiguration.objects.create(study=self.study, source_type='json_url', status='optional')
@@ -70,48 +69,10 @@ class StudyModelTest(TestCase):
         self.study = Study.objects.create(
             title='Model Study',
             description='desc',
-            config_url='https://github.com/org/repo',
         )
 
     def test_str_returns_title(self):
         self.assertEqual(str(self.study), 'Model Study')
-
-    def test_raw_content_base_url_github(self):
-        self.study.config_url = 'https://github.com/org/repo'
-        self.study.save()
-        self.assertEqual(
-            self.study.raw_content_base_url,
-            'https://raw.githubusercontent.com/org/repo/main/'
-        )
-
-    def test_raw_content_base_url_plain(self):
-        self.study.config_url = 'https://example.com/config'
-        self.study.save()
-        self.assertEqual(self.study.raw_content_base_url, 'https://example.com/config')
-
-    def test_raw_content_base_url_gitlab(self):
-        self.study.config_url = 'https://gitlab.com/org/repo'
-        self.study.save()
-        self.assertEqual(
-            self.study.raw_content_base_url,
-            'https://gitlab.com/org/repo/-/raw/main/'
-        )
-
-    def test_raw_content_base_url_custom_branch(self):
-        self.study.config_url = 'https://gitlab.com/org/repo'
-        self.study.repo_branch = 'develop'
-        self.study.save()
-        self.assertEqual(
-            self.study.raw_content_base_url,
-            'https://gitlab.com/org/repo/-/raw/develop/'
-        )
-
-    def test_raw_content_base_url_empty(self):
-        self.study.config_url = ''
-        self.study.save()
-        self.assertIsNone(self.study.raw_content_base_url)
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -126,7 +87,6 @@ class ConsentModelTest(TestCase):
         self.study = Study.objects.create(
             title='Consent Study',
             description='desc',
-            config_url='https://github.com/org/repo',
         )
         self.source_config = StudySourceConfiguration.objects.create(
             study=self.study,
@@ -218,7 +178,6 @@ class ConsentProfileDeletionTest(TestCase):
         self.study = Study.objects.create(
             title='Deletion Study',
             description='desc',
-            config_url='https://github.com/org/repo',
         )
         self.source_config = StudySourceConfiguration.objects.create(
             study=self.study,
@@ -280,7 +239,6 @@ class ConsentProfileDeletionTest(TestCase):
     def test_multiple_consents_across_studies_survive(self):
         study2 = Study.objects.create(
             title='Second Study', description='desc',
-            config_url='https://github.com/org/repo2',
         )
         source_config2 = StudySourceConfiguration.objects.create(
             study=study2,
@@ -322,7 +280,6 @@ class StudyParticipantTest(TestCase):
         self.study = Study.objects.create(
             title='SP Study',
             description='desc',
-            config_url='https://github.com/org/repo',
         )
 
     def test_str_with_participant(self):
@@ -349,7 +306,6 @@ class StudyParticipantTest(TestCase):
         study2 = Study.objects.create(
             title='SP Study 2',
             description='desc',
-            config_url='https://github.com/org/repo2',
         )
         sp1 = StudyParticipant.objects.create(participant=self.profile, study=self.study)
         sp2 = StudyParticipant.objects.create(participant=self.profile, study=study2)
@@ -1044,15 +1000,29 @@ class RevokeConsentViewTest(StudyTestMixin, TestCase):
 
 class StudyDetailViewTest(StudyTestMixin, TestCase):
 
-    @patch('studies.services.get_study_page_html', return_value=MOCK_STUDY_PAGE_HTML)
-    def test_renders_for_anonymous_user(self, mock_page):
+    def test_default_page_when_html_empty(self):
+        response = self.client.get(reverse('study_detail'))
+        self.assertContains(response, 'has not been configured yet')
+
+    def test_stored_html_used_when_set(self):
+        self.study.study_page_html = MOCK_STUDY_PAGE_HTML
+        self.study.save()
+        response = self.client.get(reverse('study_detail'))
+        self.assertContains(response, MOCK_STUDY_PAGE_HTML)
+        self.assertNotContains(response, 'has not been configured yet')
+
+    def test_get_asset_missing_returns_placeholder(self):
+        from .templatetags.studies_tags import get_asset, MISSING_ASSET_PLACEHOLDER
+        self.assertEqual(get_asset({}, 'logo.png'), MISSING_ASSET_PLACEHOLDER)
+        self.assertEqual(get_asset({'logo.png': '/a.png'}, 'logo.png'), '/a.png')
+
+    def test_renders_for_anonymous_user(self):
         self.client.logout()
         url = reverse('study_detail')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
-    @patch('studies.services.get_study_page_html', return_value=MOCK_STUDY_PAGE_HTML)
-    def test_user_in_study_true_with_active_consent(self, mock_page):
+    def test_user_in_study_true_with_active_consent(self):
         source_config = get_source_config(self.study, 'aware')
         Consent.objects.create(
             participant=self.profile,
@@ -1068,8 +1038,7 @@ class StudyDetailViewTest(StudyTestMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.study.title)
 
-    @patch('studies.services.get_study_page_html', return_value=MOCK_STUDY_PAGE_HTML)
-    def test_user_in_study_false_with_revoked_consent(self, mock_page):
+    def test_user_in_study_false_with_revoked_consent(self):
         source_config = get_source_config(self.study, 'aware')
         Consent.objects.create(
             participant=self.profile,
@@ -1084,8 +1053,7 @@ class StudyDetailViewTest(StudyTestMixin, TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
-    @patch('studies.services.get_study_page_html', return_value=MOCK_STUDY_PAGE_HTML)
-    def test_study_detail_loads(self, mock_page):
+    def test_study_detail_loads(self):
         url = reverse('study_detail')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
@@ -1501,14 +1469,11 @@ class ConsentTemplateServiceTest(StudyTestMixin, TestCase):
         result = services.get_consent_template(self.study, 'aware', config)
         self.assertEqual(result, '<p>Custom consent for aware</p>')
 
-    @patch('studies.services.requests.get')
-    def test_falls_back_to_repo_when_html_empty(self, mock_get):
+    def test_falls_back_to_default_when_html_empty(self):
         from . import services
-        mock_get.return_value.text = '<p>From repo</p>'
-        mock_get.return_value.raise_for_status = lambda: None
         config = get_source_config(self.study, 'aware')  # consent_template_html is ''
         result = services.get_consent_template(self.study, 'aware', config)
-        self.assertEqual(result, '<p>From repo</p>')
+        self.assertEqual(result, services._get_default_consent_template())
 
 
 # ---------------------------------------------------------------------------
@@ -1529,7 +1494,6 @@ class StudyAdminTest(TestCase):
         self.study = Study.objects.create(
             title='Admin Study',
             description='desc',
-            config_url='https://github.com/org/repo',
         )
         self.client.login(username='admin', password='testpass')
 
@@ -1538,7 +1502,6 @@ class StudyAdminTest(TestCase):
         return self.client.post(url, {
             'title': study.title,
             'description': study.description,
-            'config_url': study.config_url,
             'researchers': [r.id for r in researchers],
             'assets-TOTAL_FORMS': '0',
             'assets-INITIAL_FORMS': '0',
@@ -2439,7 +2402,6 @@ class BulkSendParticipantEmailAdminTest(
 
         other_study = Study.objects.create(
             title='Other', description='x',
-            config_url='https://github.com/example/other',
         )
         other_user = User.objects.create_user(
             username='outsider', password='testpass', email='outsider@example.com'

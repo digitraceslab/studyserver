@@ -61,7 +61,6 @@ class HomeViewTest(TestCase):
         self.study = Study.objects.create(
             title='Test Study',
             description='A test study',
-            config_url="test_url",
             study_page_html='<h2>Study Front Page</h2>',
         )
         self.user = User.objects.create_user(username='testuser', password='testpass')
@@ -388,7 +387,6 @@ class HomeViewExtendedTest(BaseTestCase):
         self.study = Study.objects.create(
             title='Domain Study',
             description='A study',
-            config_url='test_url',
             study_page_html='<h2>Study Front Page</h2>',
         )
         self.user = User.objects.create_user(username='homeuser', password='pass')
@@ -425,7 +423,7 @@ class DashboardExtendedTest(TestCase):
     def test_dashboard_shows_revoked_consent_in_past(self):
         user = User.objects.create_user(username='pastuser', password='pass')
         profile = Profile.objects.create(user=user, user_type='participant')
-        study = Study.objects.create(title='Past Study', config_url='test')
+        study = Study.objects.create(title='Past Study')
         Consent.objects.create(
             participant=profile,
             study=study,
@@ -457,7 +455,7 @@ class ResearcherDashboardExtendedTest(TestCase):
     def test_researcher_dashboard_shows_participant_stats(self):
         researcher_user = User.objects.create_user(username='statres', password='pass')
         researcher_profile = Profile.objects.create(user=researcher_user, user_type='researcher')
-        study = Study.objects.create(title='Stats Study', config_url='test')
+        study = Study.objects.create(title='Stats Study')
         study.researchers.add(researcher_profile)
 
         part_user = User.objects.create_user(username='statpart', password='pass')
@@ -473,7 +471,7 @@ class ResearcherDashboardExtendedTest(TestCase):
 
 class ParticipantDetailTest(TestCase):
     def setUp(self):
-        self.study = Study.objects.create(title='Detail Study', config_url='test')
+        self.study = Study.objects.create(title='Detail Study')
 
         self.researcher_user = User.objects.create_user(username='detres', password='pass')
         self.researcher_profile = Profile.objects.create(user=self.researcher_user, user_type='researcher')
@@ -737,7 +735,7 @@ class GetPastConsentsTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='past_consent_user', password='pass')
         self.profile = Profile.objects.create(user=self.user, user_type='participant')
-        self.study = Study.objects.create(title='Past Study', config_url='test')
+        self.study = Study.objects.create(title='Past Study')
 
     def test_revoked_niimport_google_portability_shows_display_type(self):
         """A revoked niimport consent with google_portability configuration

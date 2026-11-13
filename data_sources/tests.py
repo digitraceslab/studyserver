@@ -448,7 +448,7 @@ class JsonUrlDataSourceTest(TestCase):
     def test_fetch_enriches_and_count(self, mock_get):
         # Create a study and an active consent linking this source
         study = Study.objects.create(
-            title="S", description="d", config_url="http://example.com"
+            title="S", description="d"
         )
         source_config = StudySourceConfiguration.objects.create(
             study=study, source_type="json_url", status="required"
@@ -1165,7 +1165,7 @@ class AddDataSourceCopiesConsentParamsTest(TestCase):
         self.profile = Profile.objects.create(user=self.user)
         self.client.login(username="consent_copy_user", password="testpass")
         self.study = Study.objects.create(
-            title="Consent Copy Study", config_url="http://example.com"
+            title="Consent Copy Study"
         )
         # Config has one set of dates
         self.source_config = StudySourceConfiguration.objects.create(
@@ -1282,7 +1282,6 @@ class AwareConfigEndpointTest(TestCase):
         self.study = Study.objects.create(
             title="Aware Config Study",
             description="desc",
-            config_url="http://example.com",
             contact_name="Jane Doe",
             contact_email="jane@example.com",
         )

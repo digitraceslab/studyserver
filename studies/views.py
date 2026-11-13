@@ -333,32 +333,33 @@ def revoke_consent(request, consent_id):
 def study_detail(request):
     """Show the public study page (URL name `study_detail`, `/studies/`).
 
-    The page HTML is researcher-written (database or config repo). Its only
+    The page HTML is researcher-written (`Study.study_page_html`). Its only
     supported interface is `{% include join_or_login_section %}`; see the
-    `studies_tags` module docstring.
+    `studies_tags` module docstring. When the field is empty, the default
+    `studies/study_page_default.html` (title, description, join section) is
+    shown.
 
     GET; no login required and read-only (other methods are not rejected but
-    behave the same). Renders the researcher-configured study page HTML, with
-    `user_in_study` telling the page whether the user has an active consent.
+    behave the same). Renders the study page HTML, with `user_in_study`
+    telling the page whether the user has an active consent.
     """
     study = _get_study()
-    html_content = study.study_page_html
-    if not html_content:
-        html_content = services.get_study_page_html(study.raw_content_base_url)
     user_in_study = False
     if request.user.is_authenticated and hasattr(request.user, "profile"):
         user_in_study = Consent.objects.filter(
             participant=request.user.profile, study=study, revocation_date__isnull=True
         ).exists()
 
-    template = engines["django"].from_string(html_content)
+    if study.study_page_html:
+        template = engines["django"].from_string(study.study_page_html)
+    else:
+        template = engines["django"].get_template("studies/study_page_default.html")
 
     context = {
         "study": study,
         "request": request,
         "user": request.user,
         "user_in_study": user_in_study,
-        "config_repository": study.raw_content_base_url,
         "join_or_login_section": "studies/study_page_components/join_or_login_section.html",
         "assets": study.get_assets_dict(),
     }

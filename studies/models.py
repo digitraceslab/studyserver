@@ -65,16 +65,6 @@ class Study(models.Model):
         blank=True, default="", help_text="Email of the contact person for this study"
     )
 
-    config_url = models.URLField(
-        max_length=500, help_text="URL for fetching study configuration"
-    )
-    repo_branch = models.CharField(
-        max_length=100,
-        default="main",
-        blank=True,
-        help_text="Branch name in the config repository (default: main)",
-    )
-
     study_page_html = models.TextField(
         blank=True, default="", help_text="Front page HTML content."
     )
@@ -130,26 +120,6 @@ class Study(models.Model):
     class Meta:
         verbose_name = "study"
         verbose_name_plural = "study"
-
-    @property
-    def raw_content_base_url(self):
-        """Convert a repo URL to its raw content base URL for some known services.
-
-        Returns:
-            The raw content base URL, or None if ``config_url`` is not set.
-        """
-        if not self.config_url:
-            return None
-        if "github.com" in self.config_url:
-            return (
-                self.config_url.replace("github.com", "raw.githubusercontent.com")
-                + f"/{self.repo_branch}/"
-            )
-        if "gitlab.com" in self.config_url:
-            return f"{self.config_url}/-/raw/{self.repo_branch}/"
-
-        # raw urls also should work directly
-        return self.config_url
 
     def get_assets_dict(self):
         """Get all assets as a dictionary.

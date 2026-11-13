@@ -17,6 +17,8 @@ study_server/local_settings.py
 CLAUDE.md
 issues.json
 roadmap.json
+.claude
+**/.owner-notes.md
 
 # Data
 data/

@@ -1,7 +1,7 @@
 """Study template tags and filters for site templates.
 
-Researcher API: researcher-written study page HTML (stored in the database or
-fetched from the config repository) uses exactly one interface,
+Researcher API: researcher-written study page HTML (``Study.study_page_html``)
+uses exactly one interface,
 ``{% include join_or_login_section %}``, which shows the join, login or
 "enrolled" block. No ``{% load %}`` is needed for it. Nothing else in the
 template context, including model methods or fields reached through
@@ -14,6 +14,15 @@ The tags below are for the site's own templates, not researcher HTML.
 from django import template
 
 register = template.Library()
+
+MISSING_ASSET_PLACEHOLDER = (
+    "data:image/svg+xml;utf8,"
+    "<svg xmlns='http://www.w3.org/2000/svg' width='200' height='60'>"
+    "<rect width='100%25' height='100%25' fill='%23eee' stroke='%23999'/>"
+    "<text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' "
+    "font-family='sans-serif' font-size='12' fill='%23666'>Asset not configured</text>"
+    "</svg>"
+)
 
 
 @register.filter
@@ -36,18 +45,23 @@ def asset_url(assets_dict, asset_name):
 def get_asset(assets_dict, asset_name, fallback_url=None):
     """
     Get the URL for a named asset from the assets dictionary with optional fallback.
-    
+
     Usage in template:
-        {% get_asset assets "study_logo.png" config_repository|add:"study_logo.png" %}
+        {% get_asset assets "study_logo.png" %}
 
     Args:
         assets_dict: The assets dictionary.
         asset_name: The name of the asset.
-        fallback_url: The URL to return when the asset is not found.
+        fallback_url: The URL to return when the asset is not found. When not
+            given, an SVG data URI reading "Asset not configured" is
+            returned, so an ``<img>`` pointing at a missing asset shows that
+            instead of a broken image.
 
     Returns:
         The asset URL if found, otherwise the fallback URL.
     """
+    if fallback_url is None:
+        fallback_url = MISSING_ASSET_PLACEHOLDER
     if isinstance(assets_dict, dict):
         asset_url = assets_dict.get(asset_name)
         if asset_url:
