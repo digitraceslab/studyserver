@@ -35,11 +35,15 @@
             
   <section id="module-data_sources.models.aware">
 <span id="data-sources-models-aware"></span><h1>data_sources.models.aware<a class="headerlink" href="#module-data_sources.models.aware" title="Link to this heading">¶</a></h1>
+<p>AWARE data source: a participant’s phone running the AWARE app.</p>
+<p>The phone uploads into the AWARE MySQL database (<code class="docutils literal notranslate"><span class="pre">_db_connector</span></code>). The
+source is matched to its rows by <code class="docutils literal notranslate"><span class="pre">device_label</span></code>, which the participant
+enters in the app through the setup page reached from the QR code.</p>
 <p class="rubric">Classes</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">AwareDataSource</span></code>(id, polymorphic_ctype, ...)</p></td>
-<td><p></p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">AwareDataSource</span></code>(*args, **kwargs)</p></td>
+<td><p>Data source backed by the AWARE mobile app database.</p></td>
 </tr>
 </tbody>
 </table>

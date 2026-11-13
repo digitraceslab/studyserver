@@ -9,10 +9,6 @@ users.views
    .. autosummary::
    
       dashboard
-      get_active_studies
-      get_active_studies_data
-      get_next_instructions_card
-      get_past_consents
       home
       login_view
       manage_token

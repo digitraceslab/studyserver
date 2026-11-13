@@ -35,31 +35,23 @@
             
   <section id="module-study_server.urls">
 <span id="study-server-urls"></span><h1>study_server.urls<a class="headerlink" href="#module-study_server.urls" title="Link to this heading">¶</a></h1>
-<p>URL configuration for study_server project.</p>
-<dl class="simple">
-<dt>The <cite>urlpatterns</cite> list routes URLs to views. For more information please see:</dt><dd><p><a class="reference external" href="https://docs.djangoproject.com/en/4.2/topics/http/urls/">https://docs.djangoproject.com/en/4.2/topics/http/urls/</a></p>
-</dd>
-</dl>
-<p>Examples:
-Function views</p>
-<blockquote>
-<div><ol class="arabic simple">
-<li><p>Add an import:  from my_app import views</p></li>
-<li><p>Add a URL to urlpatterns:  path(‘’, views.home, name=’home’)</p></li>
-</ol>
-</div></blockquote>
-<dl class="simple">
-<dt>Class-based views</dt><dd><ol class="arabic simple">
-<li><p>Add an import:  from other_app.views import Home</p></li>
-<li><p>Add a URL to urlpatterns:  path(‘’, Home.as_view(), name=’home’)</p></li>
-</ol>
-</dd>
-<dt>Including another URLconf</dt><dd><ol class="arabic simple">
-<li><p>Import the include() function: from django.urls import include, path</p></li>
-<li><p>Add a URL to urlpatterns:  path(‘blog/’, include(‘blog.urls’))</p></li>
-</ol>
-</dd>
-</dl>
+<p>Top-level URL map of the study server: the site’s public API.</p>
+<p>Every user-facing page and data endpoint is reached through these prefixes;
+each included app documents its own routes and their access rules.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">/</span></code> (<code class="docutils literal notranslate"><span class="pre">home</span></code>): front page, see <code class="docutils literal notranslate"><span class="pre">users.views.home</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/admin/</span></code>: Django admin (staff only).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/accounts/</span></code>: <code class="docutils literal notranslate"><span class="pre">users.urls</span></code> (login, signup, dashboards, personal data
+API) and <code class="docutils literal notranslate"><span class="pre">django.contrib.auth.urls</span></code> (logout, password change/reset).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/studies/</span></code>: <code class="docutils literal notranslate"><span class="pre">studies.urls</span></code> (study page, join/withdraw, consent
+workflow, legal pages, researcher data APIs).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/data-sources/</span></code>: <code class="docutils literal notranslate"><span class="pre">data_sources.urls</span></code> (participants’ data sources).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/download/&lt;path&gt;/</span></code> (<code class="docutils literal notranslate"><span class="pre">download_static_file</span></code>): file download from
+STATIC_ROOT, see <code class="docutils literal notranslate"><span class="pre">study_server.views</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/survey/</span></code>: <code class="docutils literal notranslate"><span class="pre">survey_extensions.urls</span></code> first (disables the CSV export),
+then the survey library’s <code class="docutils literal notranslate"><span class="pre">survey.urls</span></code>.</p></li>
+</ul>
+<p>In DEBUG, MEDIA_URL is also served from MEDIA_ROOT.</p>
 </section>
 
 

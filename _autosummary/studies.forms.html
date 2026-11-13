@@ -35,14 +35,7 @@
             
   <section id="module-studies.forms">
 <span id="studies-forms"></span><h1>studies.forms<a class="headerlink" href="#module-studies.forms" title="Link to this heading">¶</a></h1>
-<p class="rubric">Functions</p>
-<table class="autosummary longtable docutils align-default">
-<tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_data_source_type_choices</span></code>()</p></td>
-<td><p></p></td>
-</tr>
-</tbody>
-</table>
+<p>Study forms: admin forms for studies and sources, and participant consent forms.</p>
 <p class="rubric">Classes</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
@@ -53,13 +46,13 @@
 <td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">SourceConfigurationInlineForm</span></code>(*args, **kwargs)</p></td>
-<td><p></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">source_type</span></code> offers the registered types; an existing unregistered value is kept as an extra choice so the row can still be saved.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudyAdminForm</span></code>(*args, **kwargs)</p></td>
-<td><p></p></td>
+<td><p>Admin form for Study that stops a researcher from removing themselves.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudySourceConfigurationForm</span></code>(*args, **kwargs)</p></td>
-<td><p></p></td>
+<td><p>Like SourceConfigurationInlineForm, plus the study and configuration fields.</p></td>
 </tr>
 </tbody>
 </table>

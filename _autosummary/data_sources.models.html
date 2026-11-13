@@ -35,29 +35,41 @@
             
   <section id="module-data_sources.models">
 <span id="data-sources-models"></span><h1>data_sources.models<a class="headerlink" href="#module-data_sources.models" title="Link to this heading">¶</a></h1>
+<p>Data source models: the DataSource base model and its concrete types.</p>
+<p>Public API of the package:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DataSource</span></code>: polymorphic base model. Its methods are what
+each source type implements and other apps (studies, users) call;
+see <code class="docutils literal notranslate"><span class="pre">data_sources.models.base</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AwareDataSource</span></code>, <code class="docutils literal notranslate"><span class="pre">JsonUrlDataSource</span></code>, <code class="docutils literal notranslate"><span class="pre">NiimportDataSource</span></code>:
+the built-in source types. <code class="docutils literal notranslate"><span class="pre">survey_datasource.models.SurveyDataSource</span></code>
+is a further type that lives in its own app.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">datasourceform</span></code>, <code class="docutils literal notranslate"><span class="pre">datasourceconfigform</span></code>, <code class="docutils literal notranslate"><span class="pre">datasourceadmin</span></code>:
+class decorators that register a type’s participant form, admin
+StudySourceConfiguration form, and admin class.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DeletableWatermark</span></code>: per (source, data type) download / deletable /
+deleted high-water marks.</p></li>
+</ul>
+<p>A new source type subclasses <code class="docutils literal notranslate"><span class="pre">DataSource</span></code>, sets <code class="docutils literal notranslate"><span class="pre">SOURCE_TYPE</span></code>, and
+registers a ModelForm with <code class="docutils literal notranslate"><span class="pre">&#64;datasourceform</span></code> so the <code class="docutils literal notranslate"><span class="pre">add_data_source</span></code>
+view can create it.</p>
 <p class="rubric">Modules</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="data_sources.models.aware.html#module-data_sources.models.aware" title="data_sources.models.aware"><code class="xref py py-obj docutils literal notranslate"><span class="pre">aware</span></code></a></p></td>
-<td><p></p></td>
+<td><p>AWARE data source: a participant's phone running the AWARE app.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="data_sources.models.base.html#module-data_sources.models.base" title="data_sources.models.base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">base</span></code></a></p></td>
-<td><p></p></td>
+<td><p>DataSource base model: the base class every data source type extends.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="data_sources.models.db_connector.html#module-data_sources.models.db_connector" title="data_sources.models.db_connector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">db_connector</span></code></a></p></td>
-<td><p></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="data_sources.models.jsonurl.html#module-data_sources.models.jsonurl" title="data_sources.models.jsonurl"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jsonurl</span></code></a></p></td>
+<td><p>JSON URL data source: rows fetched live from a participant-given URL.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="data_sources.models.jsonurl.html#module-data_sources.models.jsonurl" title="data_sources.models.jsonurl"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jsonurl</span></code></a></p></td>
-<td><p></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="data_sources.models.model_registration.html#module-data_sources.models.model_registration" title="data_sources.models.model_registration"><code class="xref py py-obj docutils literal notranslate"><span class="pre">model_registration</span></code></a></p></td>
+<td><p>Class decorators that register a data source type's forms and admin.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="data_sources.models.model_registration.html#module-data_sources.models.model_registration" title="data_sources.models.model_registration"><code class="xref py py-obj docutils literal notranslate"><span class="pre">model_registration</span></code></a></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="data_sources.models.niimport.html#module-data_sources.models.niimport" title="data_sources.models.niimport"><code class="xref py py-obj docutils literal notranslate"><span class="pre">niimport</span></code></a></p></td>
-<td><p>Abstract base class for Niimport-backed data sources.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="data_sources.models.portability_client.html#module-data_sources.models.portability_client" title="data_sources.models.portability_client"><code class="xref py py-obj docutils literal notranslate"><span class="pre">portability_client</span></code></a></p></td>
-<td><p>Client for the portability-server REST API.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="data_sources.models.niimport.html#module-data_sources.models.niimport" title="data_sources.models.niimport"><code class="xref py py-obj docutils literal notranslate"><span class="pre">niimport</span></code></a></p></td>
+<td><p>Niimport data source: data donated through the portability server.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="data_sources.models.watermark.html#module-data_sources.models.watermark" title="data_sources.models.watermark"><code class="xref py py-obj docutils literal notranslate"><span class="pre">watermark</span></code></a></p></td>
 <td><p>Tracks per-(data_source, data_type) download/deletable/deleted watermarks.</p></td>

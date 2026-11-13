@@ -4,12 +4,6 @@ studies.forms
 .. automodule:: studies.forms
 
    
-   .. rubric:: Functions
-
-   .. autosummary::
-   
-      get_data_source_type_choices
-   
    .. rubric:: Classes
 
    .. autosummary::

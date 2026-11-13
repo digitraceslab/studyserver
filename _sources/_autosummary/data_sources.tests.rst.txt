@@ -19,6 +19,7 @@ data\_sources.tests
       DbConnectorTest
       DeletableWatermarkTest
       JsonUrlDataSourceTest
+      MatchesConfigurationTest
       NiimportDataSourceTest
       NiimportDisplayTypeForConfigurationTest
       NiimportPortabilityModelTest

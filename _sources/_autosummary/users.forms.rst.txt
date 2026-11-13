@@ -4,12 +4,6 @@ users.forms
 .. automodule:: users.forms
 
    
-   .. rubric:: Functions
-
-   .. autosummary::
-   
-      email_not_allowed_message
-   
    .. rubric:: Classes
 
    .. autosummary::

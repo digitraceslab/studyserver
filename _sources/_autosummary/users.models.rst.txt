@@ -4,12 +4,6 @@ users.models
 .. automodule:: users.models
 
    
-   .. rubric:: Functions
-
-   .. autosummary::
-   
-      create_auth_token
-   
    .. rubric:: Classes
 
    .. autosummary::

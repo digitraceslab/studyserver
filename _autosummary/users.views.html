@@ -35,54 +35,46 @@
   <section id="module-users.views">
 <span id="users-views"></span><h1>users.views<a class="headerlink" href="#module-users.views" title="Link to this heading">¶</a></h1>
 <p>Views for participant and researcher accounts, dashboards and the personal data API.</p>
-<p>Covers login, signup, API token management, the dashboards and profile updates.</p>
+<p>Routes are in <code class="docutils literal notranslate"><span class="pre">users.urls</span></code> (under <code class="docutils literal notranslate"><span class="pre">/accounts/</span></code>), except <code class="docutils literal notranslate"><span class="pre">home</span></code> at <code class="docutils literal notranslate"><span class="pre">/</span></code>.</p>
+<p>“Login required” means <code class="docutils literal notranslate"><span class="pre">&#64;login_required</span></code>: an anonymous user gets a 302 to
+the login page with <code class="docutils literal notranslate"><span class="pre">?next=&lt;path&gt;</span></code>. An authenticated user without a Profile
+counts as anonymous (see <code class="docutils literal notranslate"><span class="pre">users.middleware.ProfileRequiredMiddleware</span></code>).
+Unless stated otherwise, views accept any HTTP method and treat non-POST as GET.</p>
 <p class="rubric">Functions</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">dashboard</span></code>(request)</p></td>
-<td><p>Participant dashboard for the single study (login required).</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_active_studies</span></code>(user)</p></td>
-<td><p>Return a queryset of studies where the user has a non-revoked consent.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_active_studies_data</span></code>(profile, request)</p></td>
-<td><p>Group the profile's active consents by study.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_next_instructions_card</span></code>(request, studies_data)</p></td>
-<td><p>Find the first incomplete source that requires setup.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_past_consents</span></code>(profile)</p></td>
-<td><p>Return the profile's revoked consents as a list of dicts.</p></td>
+<td><p>Participant dashboard for the single study.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">home</span></code>(request)</p></td>
-<td><p>Landing page for the first study.</p></td>
+<td><p>Landing page at <cite>/</cite> for the first study.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">login_view</span></code>(request)</p></td>
-<td><p>Log a user in with Django's AuthenticationForm.</p></td>
+<td><p>Log a user in with Django's AuthenticationForm (URL name <cite>login</cite>).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">manage_token</span></code>(request)</p></td>
-<td><p>Show the user's API token, creating it if missing (login required).</p></td>
+<td><p>Show the user's API token, creating it if missing.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">my_data_api</span></code>(request, *args, **kwargs)</p></td>
-<td><p>Return the authenticated user's data from all their data sources (GET only).</p></td>
+<td><p>Return the caller's own data from all their data sources.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">participant_detail</span></code>(request, study_id, ...)</p></td>
-<td><p>Show one participant's consents and data sources in a study (login required).</p></td>
+<td><p>Show one participant's consents and data sources in a study.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">researcher_dashboard</span></code>(request)</p></td>
-<td><p>Researcher dashboard (login required, researchers only).</p></td>
+<td><p>GET; login required; researchers only.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">signup</span></code>(request)</p></td>
 <td><p>Register a participant account.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">signup_researcher</span></code>(request)</p></td>
-<td><p>Register a researcher account.</p></td>
+<td><p>GET shows the form; POST takes the same fields and email rules as signup, including closed signup when no study exists.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">update_protected_identifiers</span></code>(request)</p></td>
-<td><p>Replace the participant's protected identifiers (login required, POST only).</p></td>
+<td><p>Replace the participant's protected identifiers.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">update_tax_id</span></code>(request)</p></td>
-<td><p>Save the participant's tax ID from the 'tax_id' POST value (login required, POST only).</p></td>
+<td><p>POST; login required; participants only.</p></td>
 </tr>
 </tbody>
 </table>

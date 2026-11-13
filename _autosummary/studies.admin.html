@@ -35,6 +35,25 @@
             
   <section id="module-studies.admin">
 <span id="studies-admin"></span><h1>studies.admin<a class="headerlink" href="#module-studies.admin" title="Link to this heading">¶</a></h1>
+<p>Admin pages for the study, its participants, consents and legal texts.</p>
+<p>Access: Django admin (staff login). Superusers see everything; other users
+(researchers, given model permissions by the “Researchers” group, see
+studies/apps.py) see only studies they are listed in as researchers and those
+studies’ participants and consents. Participants are shown by pseudo_id only.</p>
+<p>Custom URLs under <cite>/admin/studies/studyparticipant/</cite> (staff login required;
+scoped to the user’s own participants, 404 otherwise):
+- <cite>&lt;id&gt;/approve/</cite>, <cite>&lt;id&gt;/unapprove/</cite> (<cite>studies_studyparticipant_approve</cite>,</p>
+<blockquote>
+<div><p><cite>…_unapprove</cite>): POST sets <cite>researcher_approved</cite> (needs change
+permission); GET only redirects to the change page.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p><cite>&lt;id&gt;/send-email/</cite> (<cite>studies_studyparticipant_send_email</cite>): GET shows an
+email form, POST sends it to that participant (needs view permission).</p></li>
+<li><p><cite>send-email-by-ids/</cite> (<cite>studies_studyparticipant_send_email_by_ids</cite>): GET
+form, POST emails participants listed by pseudo_id.</p></li>
+</ul>
+<p>Recipient addresses are never shown to the sender.</p>
 <p class="rubric">Classes</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>

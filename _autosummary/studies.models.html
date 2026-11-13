@@ -35,11 +35,17 @@
             
   <section id="module-studies.models">
 <span id="studies-models"></span><h1>studies.models<a class="headerlink" href="#module-studies.models" title="Link to this heading">¶</a></h1>
+<p>Study models: the study, its sources, participants, consents and legal texts.</p>
+<p>A deployment has one Study (views use <code class="docutils literal notranslate"><span class="pre">Study.objects.first()</span></code>). A participant
+joins by getting a StudyParticipant row; participation is defined by unrevoked
+Consent rows (<code class="docutils literal notranslate"><span class="pre">revocation_date</span></code> is null), one per StudySourceConfiguration.
+PrivacyNotice, TermsOfService and InfoSheet are versioned: saving inserts a new
+row and the highest pk is current.</p>
 <p class="rubric">Classes</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Consent</span></code>(id, participant, study, ...)</p></td>
-<td><p></p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Consent</span></code>(*args, **kwargs)</p></td>
+<td><p>A participant's consent to share one source with the study.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">InfoSheet</span></code>(id, text, created)</p></td>
 <td><p></p></td>
@@ -47,17 +53,17 @@
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">PrivacyNotice</span></code>(id, text, created)</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Study</span></code>(id, title, short_description, ...)</p></td>
-<td><p></p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Study</span></code>(*args, **kwargs)</p></td>
+<td><p>The study run by this deployment, with its page content and join rules.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudyAsset</span></code>(*args, **kwargs)</p></td>
 <td><p>Static assets (images, etc.) for a study that can be referenced in study templates.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudyParticipant</span></code>(id, participant, study, ...)</p></td>
-<td><p></p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudyParticipant</span></code>(*args, **kwargs)</p></td>
+<td><p>A participant's registration in the study, with a pseudonymous id.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudySourceConfiguration</span></code>(id, study, ...)</p></td>
-<td><p></p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudySourceConfiguration</span></code>(*args, **kwargs)</p></td>
+<td><p>A data source the study asks participants for, required or optional.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">TermsOfService</span></code>(id, text, created)</p></td>
 <td><p></p></td>

@@ -35,17 +35,18 @@
             
   <section id="module-data_sources.models.model_registration">
 <span id="data-sources-models-model-registration"></span><h1>data_sources.models.model_registration<a class="headerlink" href="#module-data_sources.models.model_registration" title="Link to this heading">¶</a></h1>
+<p>Class decorators that register a data source type’s forms and admin.</p>
 <p class="rubric">Functions</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">datasourceadmin</span></code>(model_class)</p></td>
-<td><p>Decorator that registers a DataSource child model for parent admin routing.</p></td>
+<td><p>Class decorator that registers a DataSource child model for parent admin routing.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">datasourceconfigform</span></code>(model_class)</p></td>
-<td><p>Decorator that registers a config form class using model SOURCE_TYPE.</p></td>
+<td><p>Class decorator that registers a config form class using the model's SOURCE_TYPE.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">datasourceform</span></code>(model_class)</p></td>
-<td><p>Decorator that registers a DataSource form class using model SOURCE_TYPE.</p></td>
+<td><p>Class decorator that registers a DataSource form class using the model's SOURCE_TYPE.</p></td>
 </tr>
 </tbody>
 </table>

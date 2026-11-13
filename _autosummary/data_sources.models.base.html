@@ -14,7 +14,7 @@
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="data_sources.models.db_connector" href="data_sources.models.db_connector.html" />
+    <link rel="next" title="data_sources.models.jsonurl" href="data_sources.models.jsonurl.html" />
     <link rel="prev" title="data_sources.models.aware" href="data_sources.models.aware.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
@@ -35,11 +35,35 @@
             
   <section id="module-data_sources.models.base">
 <span id="data-sources-models-base"></span><h1>data_sources.models.base<a class="headerlink" href="#module-data_sources.models.base" title="Link to this heading">¶</a></h1>
+<p>DataSource base model: the base class every data source type extends.</p>
+<p><code class="docutils literal notranslate"><span class="pre">DataSource</span></code> is a polymorphic model; each row belongs to one participant
+<code class="docutils literal notranslate"><span class="pre">Profile</span></code>. Querying <code class="docutils literal notranslate"><span class="pre">DataSource.objects</span></code> returns base rows; call
+<code class="docutils literal notranslate"><span class="pre">get_real_instance()</span></code> to get the concrete subclass before calling the
+hooks below.</p>
+<p>Writing a subclass:</p>
+<ul class="simple">
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">SOURCE_TYPE</span></code> (a unique slug). Defining the subclass registers it
+for <code class="docutils literal notranslate"><span class="pre">get_class_for_type</span></code>. A form registered with <code class="docutils literal notranslate"><span class="pre">&#64;datasourceform</span></code>
+(or <code class="docutils literal notranslate"><span class="pre">FORM_CLASS</span></code>) is needed for participants to add it.</p></li>
+<li><p>Implement <code class="docutils literal notranslate"><span class="pre">get_data_types</span></code>, <code class="docutils literal notranslate"><span class="pre">fetch_data</span></code> and <code class="docutils literal notranslate"><span class="pre">count_rows</span></code>.</p></li>
+<li><p>Optionally override the setup / confirmation / dashboard hooks
+(<code class="docutils literal notranslate"><span class="pre">requires_setup</span></code>, <code class="docutils literal notranslate"><span class="pre">requires_confirmation</span></code>, <code class="docutils literal notranslate"><span class="pre">get_setup_url</span></code>,
+<code class="docutils literal notranslate"><span class="pre">confirm</span></code>, <code class="docutils literal notranslate"><span class="pre">get_instructions_card</span></code>, <code class="docutils literal notranslate"><span class="pre">show_links</span></code>,
+<code class="docutils literal notranslate"><span class="pre">revoke_before_delete</span></code>, <code class="docutils literal notranslate"><span class="pre">_process_data</span></code>) and the deletion hooks
+(<code class="docutils literal notranslate"><span class="pre">supports_deletion</span></code>, <code class="docutils literal notranslate"><span class="pre">latest_timestamp</span></code>, <code class="docutils literal notranslate"><span class="pre">mark_deletable</span></code>,
+<code class="docutils literal notranslate"><span class="pre">unmark_deletable</span></code>).</p></li>
+</ul>
+<p>Rows returned by <code class="docutils literal notranslate"><span class="pre">fetch_data</span></code> are dicts. Every source includes an int
+<code class="docutils literal notranslate"><span class="pre">timestamp</span></code> field in Unix milliseconds; the other field names depend on
+the source type and data type.</p>
+<p>Access control is not part of this model: methods do not check who calls
+them. Views must restrict access themselves (normally to the owner
+<code class="docutils literal notranslate"><span class="pre">profile</span></code>).</p>
 <p class="rubric">Classes</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DataSource</span></code>(id, polymorphic_ctype, status, ...)</p></td>
-<td><p></p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DataSource</span></code>(*args, **kwargs)</p></td>
+<td><p>A participant's connection to one source of data.</p></td>
 </tr>
 </tbody>
 </table>
@@ -92,7 +116,7 @@
   <li><a href="data_sources.html">data_sources</a><ul>
   <li><a href="data_sources.models.html">data_sources.models</a><ul>
       <li>Previous: <a href="data_sources.models.aware.html" title="previous chapter">data_sources.models.aware</a></li>
-      <li>Next: <a href="data_sources.models.db_connector.html" title="next chapter">data_sources.models.db_connector</a></li>
+      <li>Next: <a href="data_sources.models.jsonurl.html" title="next chapter">data_sources.models.jsonurl</a></li>
   </ul></li>
   </ul></li>
   </ul></li>

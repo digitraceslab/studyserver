@@ -35,47 +35,46 @@
             
   <section id="module-data_sources.views">
 <span id="data-sources-views"></span><h1>data_sources.views<a class="headerlink" href="#module-data_sources.views" title="Link to this heading">¶</a></h1>
+<p>Participant-facing views for data sources, mounted under /data-sources/.</p>
+<p>Unless a view says otherwise: it requires login (anonymous users are
+redirected to the login page), it acts only on a source owned by the
+logged-in user’s profile (for any other or unknown <code class="docutils literal notranslate"><span class="pre">source_id</span></code>,
+<code class="docutils literal notranslate"><span class="pre">get_object_or_404</span></code> raises Http404, which Django turns into a 404),
+and it accepts any HTTP method. POST requests go through Django’s CSRF
+check (403 without a valid token). Outcomes are reported with Django
+messages, usually followed by a redirect to the dashboard.</p>
 <p class="rubric">Functions</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_data_source</span></code>(request, source_type)</p></td>
-<td><p></p></td>
+<td><p>/data-sources/add/&lt;source_type&gt;/: create a source of that type for the user.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">auth_callback</span></code>(request)</p></td>
-<td><p></p></td>
+<td><p>/data-sources/oauth/callback/: OAuth provider redirect target.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">auth_start</span></code>(request, source_id)</p></td>
-<td><p></p></td>
+<td><p>/data-sources/oauth/start/&lt;source_id&gt;/: redirect to the source's OAuth page.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">confirm_data_source</span></code>(request, source_id)</p></td>
-<td><p></p></td>
+<td><p>POST /data-sources/&lt;source_id&gt;/confirm/: run the source's <code class="docutils literal notranslate"><span class="pre">confirm</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">delete_data_source</span></code>(request, source_id)</p></td>
-<td><p></p></td>
+<td><p>POST /data-sources/&lt;source_id&gt;/delete/: delete the user's source.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">edit_data_source</span></code>(request, source_id)</p></td>
-<td><p></p></td>
+<td><p>/data-sources/&lt;source_id&gt;/edit/: edit the user's AWARE or JSON URL source.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">form_has_only_name_field</span></code>(form)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">instructions</span></code>(request, source_id)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">link_consent_to_source</span></code>(consent_id, ...)</p></td>
-<td><p></p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">instructions</span></code>(request, source_id)</p></td>
+<td><p>GET /data-sources/instructions/&lt;source_id&gt;/: setup instructions page.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">select_data_source_type</span></code>(request)</p></td>
-<td><p></p></td>
+<td><p>GET /data-sources/add/: page listing the source types to add.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">source_default_title</span></code>(source_title[, ...])</p></td>
-<td><p></p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">token_view_dispatcher</span></code>(request, token, view_type)</p></td>
+<td><p>/data-sources/config/&lt;token&gt;/&lt;view_type&gt;/: token-authenticated source pages.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">token_view_dispatcher</span></code>(request, token, view_type)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">view_data_source</span></code>(request, source_id)</p></td>
-<td><p></p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">view_data_source</span></code>(request, source_id)</p></td>
+<td><p>GET /data-sources/&lt;source_id&gt;/: browse the user's own data, 100 rows a page.</p></td>
 </tr>
 </tbody>
 </table>

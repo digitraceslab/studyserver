@@ -14,7 +14,7 @@
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="data_sources.models.portability_client" href="data_sources.models.portability_client.html" />
+    <link rel="next" title="data_sources.models.watermark" href="data_sources.models.watermark.html" />
     <link rel="prev" title="data_sources.models.model_registration" href="data_sources.models.model_registration.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
@@ -35,12 +35,14 @@
             
   <section id="module-data_sources.models.niimport">
 <span id="data-sources-models-niimport"></span><h1>data_sources.models.niimport<a class="headerlink" href="#module-data_sources.models.niimport" title="Link to this heading">¶</a></h1>
-<p>Abstract base class for Niimport-backed data sources.</p>
+<p>Niimport data source: data donated through the portability server.</p>
+<p>One concrete type (SOURCE_TYPE “niimport”) covers several variants, chosen
+by <code class="docutils literal notranslate"><span class="pre">niimport_source_type</span></code> (Google / TikTok portability, TikTok export).</p>
 <p class="rubric">Classes</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">NiimportDataSource</span></code>(*args, **kwargs)</p></td>
-<td><p>Concrete base for data sources that proxy to a Niimport server.</p></td>
+<td><p>Data source that proxies to a donation on the Niimport server.</p></td>
 </tr>
 </tbody>
 </table>
@@ -93,7 +95,7 @@
   <li><a href="data_sources.html">data_sources</a><ul>
   <li><a href="data_sources.models.html">data_sources.models</a><ul>
       <li>Previous: <a href="data_sources.models.model_registration.html" title="previous chapter">data_sources.models.model_registration</a></li>
-      <li>Next: <a href="data_sources.models.portability_client.html" title="next chapter">data_sources.models.portability_client</a></li>
+      <li>Next: <a href="data_sources.models.watermark.html" title="next chapter">data_sources.models.watermark</a></li>
   </ul></li>
   </ul></li>
   </ul></li>

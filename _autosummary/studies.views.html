@@ -35,74 +35,78 @@
             
   <section id="module-studies.views">
 <span id="studies-views"></span><h1>studies.views<a class="headerlink" href="#module-studies.views" title="Link to this heading">¶</a></h1>
+<p>Study views: public pages, participant join/consent flow and researcher data API.</p>
+<p>All routes are mounted under <code class="docutils literal notranslate"><span class="pre">/studies/</span></code> and act on the deployment’s single
+study (<code class="docutils literal notranslate"><span class="pre">Study.objects.first()</span></code>); when no study exists, the participant views
+raise 404 and the API views return 404 <code class="docutils literal notranslate"><span class="pre">{&quot;error&quot;:</span> <span class="pre">&quot;No</span> <span class="pre">study</span> <span class="pre">configured&quot;}</span></code>.</p>
+<p>Access groups:
+- Public, no login: <code class="docutils literal notranslate"><span class="pre">study_detail</span></code>, <code class="docutils literal notranslate"><span class="pre">terms_of_service</span></code>,</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">privacy_statement</span></code>, <code class="docutils literal notranslate"><span class="pre">info_sheet</span></code> and their <code class="docutils literal notranslate"><span class="pre">*_version</span></code> views.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>Login required (<code class="docutils literal notranslate"><span class="pre">login_required</span></code>; anonymous users are redirected to the
+login page with <code class="docutils literal notranslate"><span class="pre">next</span></code>): <code class="docutils literal notranslate"><span class="pre">join_study</span></code>, <code class="docutils literal notranslate"><span class="pre">withdraw_from_study</span></code>,
+<code class="docutils literal notranslate"><span class="pre">consent_workflow</span></code>, <code class="docutils literal notranslate"><span class="pre">revoke_consent</span></code>. They need <code class="docutils literal notranslate"><span class="pre">request.user.profile</span></code>.</p></li>
+<li><p>Researcher API (<code class="docutils literal notranslate"><span class="pre">api/...</span></code>): authenticated by DRF token
+(<code class="docutils literal notranslate"><span class="pre">Authorization:</span> <span class="pre">Token</span> <span class="pre">&lt;key&gt;</span></code>) or session. A superuser, or a user whose
+profile is in <code class="docutils literal notranslate"><span class="pre">Study.researchers</span></code>, may call them; other authenticated
+users get 403 <code class="docutils literal notranslate"><span class="pre">{&quot;error&quot;:</span> <span class="pre">&quot;Unauthorized&quot;}</span></code>; unauthenticated requests get
+DRF’s 401 <code class="docutils literal notranslate"><span class="pre">{&quot;detail&quot;:</span> <span class="pre">...}</span></code>; a wrong HTTP method gets 405. Session-auth
+POSTs need a CSRF token. Each API route also answers with a trailing slash.</p></li>
+</ul>
+<p>The researcher API for researcher-written study page HTML is
+<code class="docutils literal notranslate"><span class="pre">{%</span> <span class="pre">include</span> <span class="pre">join_or_login_section</span> <span class="pre">%}</span></code> only; see the <code class="docutils literal notranslate"><span class="pre">studies_tags</span></code>
+module docstring.</p>
+<p>Data types in the API are namespaced as <code class="docutils literal notranslate"><span class="pre">&lt;source_type&gt;:&lt;data_type&gt;</span></code> (e.g.
+<code class="docutils literal notranslate"><span class="pre">aware:battery</span></code>). Participants are identified only by
+<code class="docutils literal notranslate"><span class="pre">StudyParticipant.pseudo_id</span></code> (<code class="docutils literal notranslate"><span class="pre">participant_id</span></code>). The API only sees
+consents that are complete, unrevoked and linked to an active data source,
+and only the data types the consent allows.</p>
 <p class="rubric">Functions</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">consent_checkbox_view</span></code>(request, consent, study)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">consent_workflow</span></code>(request)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">create_consents_for_participant</span></code>(study, ...)</p></td>
-<td><p>Create the study's required/optional consents for an approved participant.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">create_data_source_flow</span></code>(consent)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_existing_sources_for_consent</span></code>(profile, ...)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_next_consent</span></code>(profile, study[, consent_id])</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_study</span></code>()</p></td>
-<td><p></p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">consent_workflow</span></code>(request)</p></td>
+<td><p>Step through the participant's consents (URL name <cite>consent_workflow</cite>, login required).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">info_sheet</span></code>(request)</p></td>
-<td><p>Show the current information sheet, or a placeholder if none exists.</p></td>
+<td><p>Show the current information sheet (URL name <cite>info_sheet</cite>, <cite>/studies/info-sheet/</cite>).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">info_sheet_version</span></code>(request, pk)</p></td>
-<td><p>Show a specific past or current version of the information sheet.</p></td>
+<td><p>Show one information sheet version by pk (URL name <cite>info_sheet_version</cite>).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">join_study</span></code>(request)</p></td>
-<td><p>Join the study (URL name <cite>join_study</cite>, login required).</p></td>
+<td><p>Join the study (URL name <cite>join_study</cite>, <cite>/studies/join/</cite>, login required).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">mark_data_deletable</span></code>(request, *args, **kwargs)</p></td>
-<td><p></p></td>
+<td><p>Mark downloaded data as deletable at its source (URL name <cite>mark_data_deletable</cite>).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">privacy_statement</span></code>(request)</p></td>
-<td><p></p></td>
+<td><p>Show the current privacy notice (URL name <cite>privacy_statement</cite>, <cite>/studies/privacy/</cite>).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">privacy_statement_version</span></code>(request, pk)</p></td>
-<td><p></p></td>
+<td><p>Show one privacy notice version by pk (URL name <cite>privacy_statement_version</cite>).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">render_registration_pending</span></code>(request, study)</p></td>
-<td><p>Render the 'registration noted, awaiting approval' page for a participant.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">revoke_consent</span></code>(request, consent_id)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">select_data_source_view</span></code>(request, consent, ...)</p></td>
-<td><p></p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">revoke_consent</span></code>(request, consent_id)</p></td>
+<td><p>Revoke one optional consent (URL name <cite>revoke_consent</cite>, login required).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">study_data_api</span></code>(request, *args, **kwargs)</p></td>
-<td><p></p></td>
+<td><p>List data types or fetch one participant's data (URL name <cite>study_data_api</cite>).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">study_detail</span></code>(request)</p></td>
-<td><p>Show the public study page (URL name <cite>study_detail</cite>).</p></td>
+<td><p>Show the public study page (URL name <cite>study_detail</cite>, <cite>/studies/</cite>).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">study_participants_api</span></code>(request, *args, **kwargs)</p></td>
-<td><p></p></td>
+<td><p>List participant ids with shareable data (URL name <cite>study_participants_api</cite>).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">terms_of_service</span></code>(request)</p></td>
-<td><p></p></td>
+<td><p>Show the current terms of service (URL name <cite>terms_of_service</cite>, <cite>/studies/terms/</cite>).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">terms_of_service_version</span></code>(request, pk)</p></td>
-<td><p></p></td>
+<td><p>Show one terms of service version by pk (URL name <cite>terms_of_service_version</cite>).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">unmark_data_deletable</span></code>(request, *args, **kwargs)</p></td>
-<td><p>Cancel all pending deletable marks so no further data is deleted.</p></td>
+<td><p>Cancel all pending deletable marks (URL name <cite>unmark_data_deletable</cite>).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">withdraw_from_study</span></code>(request)</p></td>
 <td><p>Withdraw from the study (URL name <cite>withdraw_from_study</cite>, login required).</p></td>

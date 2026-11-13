@@ -12,9 +12,7 @@ data\_sources.models
 
    aware
    base
-   db_connector
    jsonurl
    model_registration
    niimport
-   portability_client
    watermark

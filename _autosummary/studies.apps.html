@@ -35,19 +35,14 @@
             
   <section id="module-studies.apps">
 <span id="studies-apps"></span><h1>studies.apps<a class="headerlink" href="#module-studies.apps" title="Link to this heading">¶</a></h1>
-<p class="rubric">Functions</p>
-<table class="autosummary longtable docutils align-default">
-<tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">setup_researcher_group</span></code>(sender, **kwargs)</p></td>
-<td><p></p></td>
-</tr>
-</tbody>
-</table>
+<p>Studies app config and the Researchers permission group.</p>
+<p>After each migrate, the “Researchers” group is created if missing and its
+permissions are reset to the list in <code class="docutils literal notranslate"><span class="pre">_setup_researcher_group</span></code>.</p>
 <p class="rubric">Classes</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudiesConfig</span></code>(app_name, app_module)</p></td>
-<td><p></p></td>
+<td><p>Connects <code class="docutils literal notranslate"><span class="pre">_setup_researcher_group</span></code> to post_migrate.</p></td>
 </tr>
 </tbody>
 </table>

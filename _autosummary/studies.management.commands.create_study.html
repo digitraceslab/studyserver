@@ -36,14 +36,11 @@
   <section id="module-studies.management.commands.create_study">
 <span id="studies-management-commands-create-study"></span><h1>studies.management.commands.create_study<a class="headerlink" href="#module-studies.management.commands.create_study" title="Link to this heading">¶</a></h1>
 <p>Management command to set up a new deployment: create a superuser and study.</p>
-<p class="rubric">Functions</p>
-<table class="autosummary longtable docutils align-default">
-<tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_available_source_types</span></code>()</p></td>
-<td><p></p></td>
-</tr>
-</tbody>
-</table>
+<p>Usage: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">manage.py</span> <span class="pre">create_study</span></code> (interactive, no arguments). Fails
+with CommandError if a study already exists. Prompts for a superuser only if
+none exists, then for the study fields and comma-separated required and
+optional source types. An unknown source type raises CommandError after the
+Study row has been created, leaving the study without (some of) its sources.</p>
 <p class="rubric">Classes</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>

@@ -35,6 +35,17 @@
             
   <section id="module-users.urls">
 <span id="users-urls"></span><h1>users.urls<a class="headerlink" href="#module-users.urls" title="Link to this heading">¶</a></h1>
+<p>URL routes for accounts, dashboards, API tokens and the personal data API.</p>
+<p>Mounted under <code class="docutils literal notranslate"><span class="pre">/accounts/</span></code> by the project URLconf, which also mounts
+<code class="docutils literal notranslate"><span class="pre">django.contrib.auth.urls</span></code> there (logout, password change/reset); this
+module’s <code class="docutils literal notranslate"><span class="pre">login/</span></code> comes first and so replaces Django’s login view. Each
+view’s docstring gives its HTTP methods, access rules and responses.</p>
+<p>Legacy redirects: <code class="docutils literal notranslate"><span class="pre">terms/</span></code>, <code class="docutils literal notranslate"><span class="pre">privacy/</span></code>, <code class="docutils literal notranslate"><span class="pre">terms/version/&lt;pk&gt;/</span></code> and
+<code class="docutils literal notranslate"><span class="pre">privacy/version/&lt;pk&gt;/</span></code> (names <code class="docutils literal notranslate"><span class="pre">*_redirect</span></code>) are temporary backward
+compatibility for old links. The pages now belong to studies; these routes
+answer any method with a 301 to the studies route of the same name without
+the <code class="docutils literal notranslate"><span class="pre">_redirect</span></code> suffix (<code class="docutils literal notranslate"><span class="pre">&lt;pk&gt;</span></code> is passed along). They will be removed;
+don’t link to them.</p>
 </section>
 
 
