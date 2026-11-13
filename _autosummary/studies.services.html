@@ -35,18 +35,15 @@
             
   <section id="module-studies.services">
 <span id="studies-services"></span><h1>studies.services<a class="headerlink" href="#module-studies.services" title="Link to this heading">¶</a></h1>
-<p>Study content fetched from the study’s configuration repository.</p>
-<p>Pages and consent texts can live in a config repository (<code class="docutils literal notranslate"><span class="pre">Study.config_url</span></code>).
-These helpers fetch them over HTTP with a 5 s timeout and cache successful
-responses for 300 s.</p>
+<p>Consent page template lookup.</p>
+<p>Consent texts are defined per source configuration
+(<code class="docutils literal notranslate"><span class="pre">StudySourceConfiguration.consent_template_html</span></code>); when one is empty the
+default <code class="docutils literal notranslate"><span class="pre">templates/studies/consent_default.html</span></code> is used.</p>
 <p class="rubric">Functions</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_consent_template</span></code>(study, source_type[, ...])</p></td>
 <td><p>Return the consent page template source for one source type.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_study_page_html</span></code>(repo_url)</p></td>
-<td><p>Return the study front page HTML from <code class="docutils literal notranslate"><span class="pre">&lt;repo_url&gt;/front_page.html</span></code>.</p></td>
 </tr>
 </tbody>
 </table>

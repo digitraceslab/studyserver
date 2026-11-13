@@ -9,5 +9,4 @@ studies.services
    .. autosummary::
    
       get_consent_template
-      get_study_page_html
    

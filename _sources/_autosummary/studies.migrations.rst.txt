@@ -60,3 +60,4 @@ studies.migrations
    0048_studysourceconfiguration_show_separate_consent_page
    0049_study_short_description
    0050_infosheet
+   0051_remove_study_config_url

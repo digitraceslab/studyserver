@@ -36,8 +36,8 @@
   <section id="module-studies.templatetags.studies_tags">
 <span id="studies-templatetags-studies-tags"></span><h1>studies.templatetags.studies_tags<a class="headerlink" href="#module-studies.templatetags.studies_tags" title="Link to this heading">¶</a></h1>
 <p>Study template tags and filters for site templates.</p>
-<p>Researcher API: researcher-written study page HTML (stored in the database or
-fetched from the config repository) uses exactly one interface,
+<p>Researcher API: researcher-written study page HTML (<code class="docutils literal notranslate"><span class="pre">Study.study_page_html</span></code>)
+uses exactly one interface,
 <code class="docutils literal notranslate"><span class="pre">{%</span> <span class="pre">include</span> <span class="pre">join_or_login_section</span> <span class="pre">%}</span></code>, which shows the join, login or
 “enrolled” block. No <code class="docutils literal notranslate"><span class="pre">{%</span> <span class="pre">load</span> <span class="pre">%}</span></code> is needed for it. Nothing else in the
 template context, including model methods or fields reached through
