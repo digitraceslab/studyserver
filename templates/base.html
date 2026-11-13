@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -14,6 +15,7 @@
         } catch (e) {}
       })();
     </script>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
     {% if study.custom_css %}<style>{{ study.custom_css|safe }}</style>{% endif %}
 </head>
 <body class="{% block body_class %}{% endblock %}">

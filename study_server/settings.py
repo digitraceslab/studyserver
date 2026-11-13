@@ -231,6 +231,8 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# Project-wide static files (shared stylesheets), besides each app's static/.
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # Media files (User uploads)
 MEDIA_URL = "media/"

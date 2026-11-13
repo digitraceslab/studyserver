@@ -1,99 +1,461 @@
 {% load static %}
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AWARE Setup</title>
-    {% if study.custom_css %}<style>{{ study.custom_css|safe }}</style>{% endif %}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>AWARE Setup</title>
+<meta name="description" content="Install AWARE on your Android phone and join the {{ study.title }} study. Takes about 5–10 minutes.">
+<link rel="stylesheet" href="{% static 'css/base.css' %}">
+{% if study.custom_css %}<style>{{ study.custom_css|safe }}</style>{% endif %}
 </head>
 <body class="page-aware-mobile-setup">
-<div class="aware-setup-content">
-    <p class="dashboard-link"><a href="{% url 'dashboard' %}">Back to Dashboard</a></p>
+<a class="skip" href="#step-1">Skip to step 1</a>
 
+<header class="site-header">
+  <div class="bar">
+    <div class="brand"><span class="brand-name">{{ study.title }}</span><span class="brand-sub">AWARE setup</span></div>
+    <a class="dash-link" href="{% url 'dashboard' %}">Back to Dashboard</a>
+  </div>
+</header>
+
+<main class="layout" id="main">
+
+  <div class="intro">
     <h1>AWARE Device Setup</h1>
+    <p class="lede">Android guide for the {{ study.title }} study. Installation takes about 5–10 minutes.</p>
+    <p class="tip">Open this page on your phone so you can follow along as you switch between Settings and the AWARE app.</p>
+    <a class="btn btn-secondary" href="https://drive.google.com/file/d/1Or6Uosq9Q58VrLsbXkf2s0uERthmP4mL/view?usp=drive_link" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l5.5-3.5z" fill="currentColor" stroke="none"/></svg>
+      Watch the installation tutorial
+    </a>
+  </div>
 
-    <h4>
-        Installation takes about 5–10 minutes
-    </h4>
-
+  <nav class="rail" aria-label="Setup steps">
     <ol>
-        <li> Download the Aware app.
-            <ul>
-        <li>
-        <a href="{% url 'download_static_file' 'aware/aware-phone-release.apk' %}"> aware-phone-release.apk </a>
-        </li>
-            </ul>
-        </li>
-
-        <li>
-            <p>
-            To install the app after downloading, open downloads in your phones browser menu and open the downloaded file.
-            </p>
-
-            <p>
-            Since Aware is downloaded from outside the Google Play Store, you may see the
-            following warning:
-
-            </p>
-            <img src="{% static 'aware/aware_install_warning.jpg' %}" alt="" class="install-warning-image"/>
-
-            <p>
-            Aware is safe to install. Select "more details" and "Install anyway" to proceed with the installation.
-            </p>
-
-            <p>
-            If you do not see this option, you may need to enable installation from unknown sources in your phone settings. Open settings and search for "unknown apps" to find the setting. Turn on "install unknown apps" for your browser (e.g., Chrome).
-            </p>
-        </li>
-
-        <li>
-            <p>Open the AWARE app. It will prompt you to allow permissions. Allow all requested permissions.</p>
-
-            <p>The app requires access to accessibility features on your phone. It will open accessibility settings; go to Installed apps and enable "Aware".</p>
-
-            <p>If accessibility features are restricted, you cannot directly enable aware. Go to Settings &gt; Apps &gt; Aware &gt; three dots menu (top right corner) &gt; Allow restricted settings. Then try enabling accessibility features (restarting the app brings you back to the menu).</p>
-        </li>
-
-        <li>
-            <p>
-                In the AWARE app, select "Join a Study". The app will ask for a URL. Copy the following URL and paste it into the AWARE app:
-            </p>
-
-            <div class="item">
-                <p id="configUrl" class="value">{{ config_url }}</p>
-                <button onclick="copyToClipboard('configUrl')">Copy URL</button>
-            </div>
-
-        </li>
-
-        <li>
-            Leave the password field empty and click "Join".
-        </li>
-
-        <li>
-            On the next screen, read the study description and click "Sign Up!".
-        </li>
-
-        <li>
-           <p>
-           		On the next screen, you will see a list of sensors that Aware collects data from.
-           </p>
-           <img src="{% static 'aware/aware_sensors.jpg' %}" alt="" class="install-warning-image"/>
-
+      <li><a href="#step-1" data-step="1"><span class="n" aria-hidden="true">1</span>Install</a></li>
+      <li><a href="#step-2" data-step="2"><span class="n" aria-hidden="true">2</span>Permissions</a></li>
+      <li><a href="#step-3" data-step="3"><span class="n" aria-hidden="true">3</span>Accessibility</a></li>
+      <li><a href="#step-4" data-step="4"><span class="n" aria-hidden="true">4</span>Join the study</a></li>
+      <li><a href="#step-5" data-step="5"><span class="n" aria-hidden="true">5</span>Study permissions</a></li>
+      <li><a href="#step-6" data-step="6"><span class="n" aria-hidden="true">6</span>Check and continue</a></li>
     </ol>
-</div>
+  </nav>
 
-    <script>
-        function copyToClipboard(elementId) {
-            const textToCopy = document.getElementById(elementId).innerText;
-            navigator.clipboard.writeText(textToCopy).then(() => {
-                alert('Copied to clipboard!');
-            }).catch(err => {
-                alert('Failed to copy!');
-            });
-        }
-    </script>
+  <div class="content">
+
+    <!-- STEP 1 -->
+    <section class="step" id="step-1" aria-labelledby="step-1-title">
+      <div class="step-head">
+        <span class="num" aria-hidden="true">1</span>
+        <h2 id="step-1-title"><span class="vh">Step 1: </span>Download and install AWARE</h2>
+      </div>
+
+      <ol class="sub">
+        <li>
+          Download AWARE on your phone.<br>
+          <a class="btn btn-primary" href="{% url 'download_static_file' 'aware/aware-phone-release.apk' %}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+            Download AWARE
+          </a>
+          <span class="file-name">The file is called aware-phone-release.apk</span>
+        </li>
+        <li>Open <b>Downloads</b> in your browser’s menu and tap the downloaded file.</li>
+        <li>AWARE is downloaded from outside the Google Play Store, so Play Protect may warn you about it. AWARE is safe to install: tap <b>More details</b>, then <b>Install anyway</b>. If there’s no Install anyway option, <a href="#play-protect-blocked">pause Play Protect first</a>.</li>
+      </ol>
+
+      <ol class="screens">
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step1-1-more-details.jpg' %}" width="560" height="1244" loading="lazy" decoding="async" alt="Google Play Protect dialog saying Unsafe app blocked for AWARE, with a More details option and a Got it button"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Tap <b>More details</b></figcaption>
+        </figure></li>
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step1-2-install-anyway.jpg' %}" width="560" height="1213" loading="lazy" decoding="async" alt="The same dialog expanded, with Install anyway circled"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Tap <b>Install anyway</b></figcaption>
+        </figure></li>
+      </ol>
+
+      <h3 class="part" id="play-protect-blocked">If AWARE is blocked with no Install anyway option</h3>
+      <p>On newer Android versions, Play Protect may show <b>App blocked to protect your device</b> with only a <b>Got it</b> button. Pause Play Protect’s app scanning, then install AWARE again. While paused, Play Protect doesn’t scan apps from outside Google Play, and scanning turns back on by itself the next day.</p>
+      <ol class="sub">
+        <li>Tap <b>Got it</b>.</li>
+        <li>Open the <b>Google Play Store</b> app, tap your profile picture at the top right, then tap <b>Play Protect</b>.</li>
+        <li>Tap the <b>settings</b> gear at the top right.</li>
+        <li>Turn off <b>Scan apps with Play Protect</b>, then tap <b>Pause</b>. Choose Pause rather than Turn off, so scanning comes back on by itself.</li>
+        <li>Go back to <b>Downloads</b>, open the AWARE file again and install it.</li>
+      </ol>
+      <ol class="screens">
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step1-3-app-blocked.jpg' %}" width="560" height="1257" loading="lazy" decoding="async" alt="Google Play Protect dialog saying App blocked to protect your device for AWARE, with only a Got it button"><span class="vh"> (enlarge)</span></button>
+          <figcaption>If you see this, tap <b>Got it</b></figcaption>
+        </figure></li>
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step1-4-play-protect.jpg' %}" width="560" height="1257" loading="lazy" decoding="async" alt="Google Play Store account menu with Play Protect circled"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Tap <b>Play Protect</b></figcaption>
+        </figure></li>
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step1-5-play-protect-settings.jpg' %}" width="560" height="1257" loading="lazy" decoding="async" alt="Play Protect screen with the settings gear at the top right circled"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Tap the <b>settings</b> gear</figcaption>
+        </figure></li>
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step1-6-pause-scanning.jpg' %}" width="560" height="1257" loading="lazy" decoding="async" alt="Dialog asking Pause app scanning instead, with Pause, Turn off and Cancel buttons"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Turn off scanning, then tap <b>Pause</b></figcaption>
+        </figure></li>
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step1-7-scanning-paused.jpg' %}" width="560" height="1257" loading="lazy" decoding="async" alt="Play Protect settings with Scan apps with Play Protect turned off and a note that app scanning is paused and turns on again tomorrow"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Scanning is paused until tomorrow</figcaption>
+        </figure></li>
+      </ol>
+
+      <div class="callout warn">
+        <h3>If your browser blocks the install</h3>
+        <p>In your phone’s <b>Settings</b>, search for <b>Install unknown apps</b>. Select your browser (for example, Chrome), turn on <b>Allow from this source</b>, then open the downloaded file again.</p>
+      </div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section class="step" id="step-2" aria-labelledby="step-2-title">
+      <div class="step-head">
+        <span class="num" aria-hidden="true">2</span>
+        <h2 id="step-2-title"><span class="vh">Step 2: </span>Allow permissions</h2>
+      </div>
+
+      <p>Open AWARE. It asks for several permissions in a row. Allow each one.</p>
+
+      <ol class="prompts">
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step2-1-allow-storage.jpg' %}" width="519" height="301" loading="lazy" decoding="async" alt="AWARE dialog titled Allow Storage, with Not now and Continue buttons"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Tap <b>Continue</b> on Allow Storage</figcaption>
+        </figure></li>
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step2-2-allow-files.jpg' %}" width="560" height="367" loading="lazy" decoding="async" alt="Android prompt asking to allow AWARE to access photos, videos, music, audio and other files"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Tap <b>Allow</b> for access to files</figcaption>
+        </figure></li>
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step2-3-battery-optimization.jpg' %}" width="560" height="281" loading="lazy" decoding="async" alt="Dialog titled Stop optimizing battery usage, with Deny and Allow buttons"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Tap <b>Allow</b> to stop battery optimization</figcaption>
+        </figure></li>
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step2-4-notifications.jpg' %}" width="560" height="341" loading="lazy" decoding="async" alt="Android prompt asking to allow AWARE to send notifications"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Tap <b>Allow</b> for notifications</figcaption>
+        </figure></li>
+      </ol>
+    </section>
+
+    <!-- STEP 3 -->
+    <section class="step" id="step-3" aria-labelledby="step-3-title">
+      <div class="step-head">
+        <span class="num" aria-hidden="true">3</span>
+        <h2 id="step-3-title"><span class="vh">Step 3: </span>Turn on accessibility access</h2>
+      </div>
+
+      <p>AWARE needs accessibility access to record <b>Application usage</b>. It may open the accessibility settings for you; if you leave, reopening AWARE brings you back there.</p>
+      <p>Android restricts this setting for apps installed outside the Play Store, so on most phones your first try is blocked with a <b>Restricted setting</b> message. That’s expected: Android only offers <b>Allow restricted settings</b> after you’ve seen that message once.</p>
+      <p class="aside-note">The screenshots are from a Samsung Galaxy. If your menus look different, <a href="#phone-routes">find the route for your phone</a>.</p>
+
+      <h3 class="part">Try to turn on AWARE</h3>
+      <ol class="sub">
+        <li>Go to <span class="path"><b>Settings</b><b>Accessibility</b><b>Installed apps</b><b>AWARE</b></span> and turn on AWARE. Your phone may call this menu <b>Installed services</b> or <b>Downloaded apps</b>.</li>
+        <li>If you see a <b>Restricted setting</b> message, tap <b>OK</b> and continue below. If Android asks to allow AWARE full control instead, tap <b>Allow</b> and go to <a href="#step-4">step 4</a>.</li>
+      </ol>
+      <ol class="screens">
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step3-1-installed-apps.jpg' %}" width="556" height="1203" loading="lazy" decoding="async" alt="Accessibility settings with Installed apps circled"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Open <b>Installed apps</b></figcaption>
+        </figure></li>
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step3-2-turn-on-aware.jpg' %}" width="556" height="1203" loading="lazy" decoding="async" alt="AWARE accessibility screen with the Off switch circled"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Turn on <b>AWARE</b></figcaption>
+        </figure></li>
+      </ol>
+
+      <h3 class="part">Allow restricted settings</h3>
+      <ol class="sub" start="3">
+        <li>Open your phone’s <span class="path"><b>Settings</b><b>Apps</b><b>AWARE</b></span>.</li>
+        <li>Tap the <b>three-dot menu</b> at the top right, then tap <b>Allow restricted settings</b>. Confirm with your PIN, pattern or fingerprint if asked. On some phones the option is listed directly on the App info page instead of in the menu.</li>
+      </ol>
+      <ol class="screens">
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step3-3-open-apps.jpg' %}" width="560" height="1213" loading="lazy" decoding="async" alt="Settings menu with Apps circled"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Open <b>Apps</b></figcaption>
+        </figure></li>
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step3-4-three-dot-menu.jpg' %}" width="560" height="1213" loading="lazy" decoding="async" alt="AWARE App info screen with the three-dot menu at the top right circled"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Tap the <b>three-dot menu</b></figcaption>
+        </figure></li>
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step3-5-allow-restricted-settings.jpg' %}" width="560" height="1213" loading="lazy" decoding="async" alt="App info menu open, with Allow restricted settings circled"><span class="vh"> (enlarge)</span></button>
+          <figcaption><b>Allow restricted settings</b></figcaption>
+        </figure></li>
+      </ol>
+      <div class="callout warn">
+        <h3>No Allow restricted settings option?</h3>
+        <p>Android hides it until you’ve tried to turn on AWARE and seen the <b>Restricted setting</b> message. Do the first part again, tap <b>OK</b> on the message, then reopen AWARE’s App info.</p>
+      </div>
+
+      <h3 class="part">Turn on AWARE</h3>
+      <ol class="sub" start="5">
+        <li>Go back to <span class="path"><b>Settings</b><b>Accessibility</b><b>Installed apps</b><b>AWARE</b></span>, turn on AWARE and tap <b>Allow</b>.</li>
+      </ol>
+      <ol class="screens">
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step3-6-tap-allow.jpg' %}" width="556" height="1203" loading="lazy" decoding="async" alt="Dialog asking Allow AWARE to have full control of your device, with Allow circled"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Tap <b>Allow</b></figcaption>
+        </figure></li>
+      </ol>
+
+      <h3 class="part" id="phone-routes">Find the setting on your phone</h3>
+      <p>Where <b>Allow restricted settings</b> and the AWARE switch live varies by Android version and phone model. Open your brand for the exact routes: <b>Accessibility</b> is where you turn on AWARE, and AWARE’s <b>App info</b> is where you find the three-dot menu with <b>Allow restricted settings</b>. <a href="https://support.google.com/android/answer/12623953?hl=en" target="_blank" rel="noopener">Android Help</a></p>
+
+      <div class="brands">
+        <details>
+          <summary>Google Pixel</summary>
+          <dl class="routes">
+            <div><dt>App info</dt><dd><span class="path"><b>Settings</b><b>Apps</b><b>See all apps</b><b>AWARE</b></span></dd></div>
+            <div><dt>Accessibility</dt><dd><span class="path"><b>Settings</b><b>Accessibility</b></span>. Look for AWARE under <b>Downloaded apps</b> or in the main list.</dd></div>
+          </dl>
+          <p class="help"><a href="https://support.google.com/pixelphone/answer/6006564" target="_blank" rel="noopener">Pixel accessibility help</a></p>
+        </details>
+        <details>
+          <summary>Samsung Galaxy</summary>
+          <dl class="routes">
+            <div><dt>App info</dt><dd><span class="path"><b>Settings</b><b>Apps</b><b>AWARE</b></span></dd></div>
+            <div><dt>Accessibility</dt><dd><span class="path"><b>Settings</b><b>Accessibility</b><b>Installed apps</b><b>AWARE</b></span></dd></div>
+          </dl>
+          <p class="help"><a href="https://www.samsung.com/us/support/answer/ANS10001906/" target="_blank" rel="noopener">Samsung accessibility help</a></p>
+        </details>
+        <details>
+          <summary><span>Xiaomi <small>including Redmi and POCO</small></span></summary>
+          <dl class="routes">
+            <div><dt>App info</dt><dd><span class="path"><b>Settings</b><b>Apps</b><b>Manage apps</b><b>AWARE</b></span></dd></div>
+            <div><dt>Accessibility</dt><dd><span class="path"><b>Settings</b><b>Additional settings</b><b>Accessibility</b><b>General</b><b>Downloaded apps</b><b>AWARE</b></span>. On some models, <b>Accessibility</b> is directly in Settings.</dd></div>
+          </dl>
+          <p class="help">
+            <a href="https://www.mi.com/global/support/faq/details/KA-728047/" target="_blank" rel="noopener">Xiaomi accessibility help</a>
+            <a href="https://www.youtube.com/watch?v=cM2PB6ZXRyY" target="_blank" rel="noopener">HyperOS video on YouTube</a>
+          </p>
+        </details>
+        <details>
+          <summary><span>OnePlus <small>OxygenOS</small></span></summary>
+          <dl class="routes">
+            <div><dt>App info</dt><dd><span class="path"><b>Settings</b><b>Apps</b><b>App management</b><b>AWARE</b></span></dd></div>
+            <div><dt>OxygenOS 16</dt><dd><span class="path"><b>Settings</b><b>Accessibility &amp; convenience</b><b>Accessibility</b></span></dd></div>
+            <div><dt>OxygenOS 14</dt><dd><span class="path"><b>Settings</b><b>Additional settings</b><b>Accessibility</b></span></dd></div>
+          </dl>
+          <p>Look for AWARE on the <b>General</b> tab or under <b>Downloaded apps</b>, if shown.</p>
+          <p class="help"><a href="https://service.oneplus.com/content/dam/support/user-manuals/common/OxygenOS_14.0_User_Manual.pdf" target="_blank" rel="noopener">OxygenOS 14 manual</a></p>
+        </details>
+        <details>
+          <summary><span>HONOR <small>MagicOS</small></span></summary>
+          <dl class="routes">
+            <div><dt>App info</dt><dd><span class="path"><b>Settings</b><b>Apps</b><b>Apps</b><b>AWARE</b></span></dd></div>
+            <div><dt>Accessibility</dt><dd><span class="path"><b>Settings</b><b>Accessibility features</b><b>Accessibility</b></span>. Look for AWARE in the list, or under downloaded services if shown.</dd></div>
+          </dl>
+          <p class="help"><a href="https://www.honor.com/global/support/content/en-us15861252/" target="_blank" rel="noopener">HONOR accessibility help</a></p>
+        </details>
+      </div>
+
+      <div class="callout">
+        <h3>Still can’t find it?</h3>
+        {% if study.contact_email %}<p>Email <a href="mailto:{{ study.contact_email }}">{{ study.contact_email }}</a> and we’ll set up a session to work through it together.</p>{% endif %}
+      </div>
+    </section>
+
+    <!-- STEP 4 -->
+    <section class="step" id="step-4" aria-labelledby="step-4-title">
+      <div class="step-head">
+        <span class="num" aria-hidden="true">4</span>
+        <h2 id="step-4-title"><span class="vh">Step 4: </span>Join the study</h2>
+      </div>
+
+      <ol class="sub">
+        <li>Open AWARE and tap <b>Join a Study</b>.</li>
+        <li>
+          Copy this URL and paste it into the URL field in AWARE.
+          <div class="url-card">
+            <span class="url-label" id="configUrlLabel">Study URL</span>
+            <code class="url-value" id="configUrl" aria-labelledby="configUrlLabel">{{ config_url }}</code>
+            <button class="btn copy-btn" type="button" id="copyBtn">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg>
+              <span id="copyLabel">Copy URL</span>
+            </button>
+            <span class="copy-status" id="copyStatus" role="status" aria-live="polite"></span>
+          </div>
+        </li>
+        <li>Leave the password field empty and tap <b>Join</b>.</li>
+        <li>Read the study description and tap <b>Sign Up!</b></li>
+      </ol>
+    </section>
+
+    <!-- STEP 5 -->
+    <section class="step" id="step-5" aria-labelledby="step-5-title">
+      <div class="step-head">
+        <span class="num" aria-hidden="true">5</span>
+        <h2 id="step-5-title"><span class="vh">Step 5: </span>Set up study permissions</h2>
+      </div>
+
+      <p>On the <b>Study permissions</b> screen, review what the study collects. Tap <b>Enable</b> for each sensor that asks for permission.</p>
+
+      <dl class="perm">
+        <div><dt>Location</dt><dd>If prompted, tap <b>Allow in settings</b>, choose <b>Allow all the time</b>, then return to AWARE.</dd></div>
+        <div><dt>Wi‑Fi, calls and messages</dt><dd>Tap <b>Allow</b> when asked.</dd></div>
+        <div><dt>Application usage</dt><dd>If it won’t turn on, close AWARE and follow <a href="#step-3">step 3</a>. Reopen AWARE and try again.</dd></div>
+      </dl>
+    </section>
+
+    <!-- STEP 6 -->
+    <section class="step" id="step-6" aria-labelledby="step-6-title">
+      <div class="step-head">
+        <span class="num" aria-hidden="true">6</span>
+        <h2 id="step-6-title"><span class="vh">Step 6: </span>Check and continue</h2>
+      </div>
+
+      <p>Check that each permission shows <b>Granted</b>. Sensors marked <b>Automatic</b> are collected after you join. Tap <b>Agree &amp; Continue</b>.</p>
+
+      <ol class="screens">
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step6-1-study-permissions.jpg' %}" width="560" height="1213" loading="lazy" decoding="async" alt="Study permissions screen: Location, Wi-Fi, Calls and messages, and Applications usage show Granted; Accelerometer shows Automatic; Agree and Continue button at the bottom"><span class="vh"> (enlarge)</span></button>
+          <figcaption>Everything <b>Granted</b>, then <b>Agree &amp; Continue</b></figcaption>
+        </figure></li>
+        <li><figure>
+          <button class="zoom" type="button"><img src="{% static 'aware/step6-2-sensor-list.jpg' %}" width="560" height="1245" loading="lazy" decoding="async" alt="AWARE main screen showing the device ID, AWARE version, data delivery status and a Sensors list with Accelerometer, Applications, Battery, Communication and Locations"><span class="vh"> (enlarge)</span></button>
+          <figcaption>AWARE then lists the sensors it collects data from</figcaption>
+        </figure></li>
+      </ol>
+
+      <div class="finish">
+        <h3>That’s the whole setup</h3>
+        <p>Once AWARE shows its list of sensors, you’re done. You can head back to your dashboard.</p>
+        <a class="btn btn-primary" href="{% url 'dashboard' %}">Back to Dashboard</a>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="bar">
+    {% if study.contact_email %}<p>Questions or stuck on a step? Email <a href="mailto:{{ study.contact_email }}">{{ study.contact_email }}</a>.</p>{% endif %}
+    <p><a href="{% url 'dashboard' %}">Back to Dashboard</a></p>
+  </div>
+</footer>
+
+<dialog class="viewer" id="viewer" aria-label="Enlarged screenshot">
+  <figure>
+    <img id="viewerImg" alt="">
+    <figcaption id="viewerCap"></figcaption>
+  </figure>
+  <button class="viewer-close" type="button" id="viewerClose">Close</button>
+</dialog>
+
+<script>
+(function () {
+  // Copy the study URL
+  var urlEl = document.getElementById('configUrl');
+  var copyBtn = document.getElementById('copyBtn');
+  var copyLabel = document.getElementById('copyLabel');
+  var copyStatus = document.getElementById('copyStatus');
+  var resetTimer;
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  function selectUrl() {
+    var range = document.createRange();
+    range.selectNodeContents(urlEl);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  function done(ok) {
+    clearTimeout(resetTimer);
+    if (ok) {
+      copyBtn.classList.add('copied');
+      copyLabel.textContent = 'Copied';
+      copyStatus.textContent = 'Now paste it into AWARE.';
+      resetTimer = setTimeout(function () {
+        copyBtn.classList.remove('copied');
+        copyLabel.textContent = 'Copy URL';
+        copyStatus.textContent = '';
+      }, 4000);
+    } else {
+      selectUrl();
+      copyStatus.textContent = 'Press and hold the URL to copy it.';
+    }
+  }
+
+  copyBtn.addEventListener('click', function () {
+    var text = urlEl.textContent.trim();
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(fallbackCopy(text)); });
+    } else {
+      done(fallbackCopy(text));
+    }
+  });
+
+  var navLinks = Array.prototype.slice.call(document.querySelectorAll('.rail a[data-step]'));
+
+  // Highlight the step in view
+  var railList = document.querySelector('.rail ol');
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        var id = entry.target.id.replace('step-', '');
+        navLinks.forEach(function (a) {
+          if (a.dataset.step === id) {
+            a.setAttribute('aria-current', 'step');
+            if (railList.scrollWidth > railList.clientWidth) {
+              var left = a.offsetLeft - 20;
+              if (a.offsetLeft < railList.scrollLeft || a.offsetLeft + a.offsetWidth > railList.scrollLeft + railList.clientWidth) {
+                railList.scrollTo({ left: left, behavior: 'smooth' });
+              }
+            }
+          } else {
+            a.removeAttribute('aria-current');
+          }
+        });
+      });
+    }, { rootMargin: '-35% 0px -60% 0px' });
+    document.querySelectorAll('.step').forEach(function (s) { io.observe(s); });
+  }
+
+  // Enlarge screenshots
+  var viewer = document.getElementById('viewer');
+  var viewerImg = document.getElementById('viewerImg');
+  var viewerCap = document.getElementById('viewerCap');
+  var lastTrigger = null;
+  document.querySelectorAll('.zoom').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var img = btn.querySelector('img');
+      var cap = btn.closest('figure').querySelector('figcaption');
+      viewerImg.src = img.src;
+      viewerImg.alt = img.alt;
+      viewerCap.innerHTML = cap ? cap.innerHTML : '';
+      lastTrigger = btn;
+      if (typeof viewer.showModal === 'function') { viewer.showModal(); }
+      else { window.open(img.src, '_blank'); }
+    });
+  });
+  document.getElementById('viewerClose').addEventListener('click', function () { viewer.close(); });
+  viewer.addEventListener('click', function (e) { if (e.target === viewer || e.target === viewerImg) viewer.close(); });
+  viewer.addEventListener('close', function () { if (lastTrigger) lastTrigger.focus(); });
+})();
+</script>
 </body>
 </html>
