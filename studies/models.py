@@ -1,3 +1,12 @@
+"""Study models: the study, its sources, participants, consents and legal texts.
+
+A deployment has one Study (views use ``Study.objects.first()``). A participant
+joins by getting a StudyParticipant row; participation is defined by unrevoked
+Consent rows (``revocation_date`` is null), one per StudySourceConfiguration.
+PrivacyNotice, TermsOfService and InfoSheet are versioned: saving inserts a new
+row and the highest pk is current.
+"""
+
 import re
 import uuid
 from datetime import datetime
@@ -25,6 +34,14 @@ def _parse_config_date(value):
 
 
 class Study(models.Model):
+    """The study run by this deployment, with its page content and join rules.
+
+    Only one study per deployment is supported. ``researchers`` are the
+    Profiles allowed to use the researcher data API and edit the study in the
+    admin. Participants join through StudyParticipant (``participations``);
+    the sources they are asked for are ``source_config_entries``.
+    """
+
     title = models.CharField(max_length=200)
     short_description = models.CharField(
         max_length=200,
@@ -116,7 +133,11 @@ class Study(models.Model):
 
     @property
     def raw_content_base_url(self):
-        """Convert a repo URL to its raw content base URL for some known services."""
+        """Convert a repo URL to its raw content base URL for some known services.
+
+        Returns:
+            The raw content base URL, or None if ``config_url`` is not set.
+        """
         if not self.config_url:
             return None
         if "github.com" in self.config_url:
@@ -130,29 +151,23 @@ class Study(models.Model):
         # raw urls also should work directly
         return self.config_url
 
-    def get_asset_url(self, asset_name):
-        """Get the URL for a named asset (e.g., 'study_logo.png').
-
-        Returns the URL of the uploaded asset if available, otherwise returns
-        the repository-based URL. Returns None if neither is available.
-        """
-        try:
-            asset = self.assets.get(name=asset_name)
-            return asset.file.url
-        except StudyAsset.DoesNotExist:
-            if self.raw_content_base_url:
-                return f"{self.raw_content_base_url}{asset_name}"
-        return None
-
     def get_assets_dict(self):
-        """Get all assets as a dictionary mapping name to URL."""
+        """Get all assets as a dictionary.
+
+        Returns:
+            A dictionary mapping name to URL.
+        """
         assets_dict = {}
         for asset in self.assets.all():
             assets_dict[asset.name] = asset.file.url
         return assets_dict
 
     def allowed_domain_list(self):
-        """Allowed email domains, normalized to lowercase without a leading '@'."""
+        """List the allowed email domains.
+
+        Returns:
+            Allowed email domains, normalized to lowercase without a leading '@'.
+        """
         return [
             domain.strip().lstrip("@").lower()
             for domain in re.split(r"[\s,]+", self.allowed_email_domains)
@@ -160,7 +175,11 @@ class Study(models.Model):
         ]
 
     def email_allowed(self, email):
-        """True if the email's domain is allowed (or no restriction is set)."""
+        """Check whether the email's domain is allowed.
+
+        Returns:
+            True if the email's domain is allowed (or no restriction is set).
+        """
         domains = self.allowed_domain_list()
         if not domains:
             return True
@@ -169,7 +188,11 @@ class Study(models.Model):
         return email.rsplit("@", 1)[1].lower() in domains
 
     def is_full(self):
-        """True if the participant limit has been reached."""
+        """Check the participant limit.
+
+        Returns:
+            True if the participant limit has been reached.
+        """
         if self.max_participants is None:
             return False
         return self.participations.count() >= self.max_participants
@@ -204,6 +227,15 @@ class StudyAsset(models.Model):
 
 
 class StudySourceConfiguration(models.Model):
+    """A data source the study asks participants for, required or optional.
+
+    ``source_type`` is a registered DataSource SOURCE_TYPE slug. Each approved
+    participant gets one Consent per configuration; when the participant
+    accepts it, the consent copies (snapshots) ``requested_data_types``,
+    ``data_start``, ``data_end`` and ``configuration``, so later edits here do
+    not change consents already given.
+    """
+
     STATUS_CHOICES = [
         ("required", "Required"),
         ("optional", "Optional"),
@@ -256,20 +288,24 @@ class StudySourceConfiguration(models.Model):
         return f"{self.source_type} ({self.status})"
 
     def get_data_source_class(self):
+        """Get the data source class for ``source_type``.
+
+        Returns:
+            The class, or None if ``source_type`` is not registered.
+        """
         return DataSource.get_class_for_type(self.source_type)
-
-    def matches_data_source(self, data_source):
-        model_cls = self.get_data_source_class()
-        if not model_cls:
-            return False
-
-        real_source = data_source.get_real_instance()
-        if not isinstance(real_source, model_cls):
-            return False
-        return real_source._matches_configuration(self.configuration or {})
 
 
 class StudyParticipant(models.Model):
+    """A participant's registration in the study, with a pseudonymous id.
+
+    One row per (participant, study); rejoining reuses it, keeping
+    ``pseudo_id`` and ``researcher_approved``. ``pseudo_id`` is the only
+    participant identifier researchers see, including in the data API
+    (``participant_id``). Withdrawing revokes consents but keeps this row.
+    ``participant`` becomes null when the user's profile is deleted.
+    """
+
     participant = models.ForeignKey(
         Profile,
         on_delete=models.SET_NULL,
@@ -296,32 +332,6 @@ class StudyParticipant(models.Model):
         # so researcher-facing admin pages don't expose participant identities.
         return f"Participant {self.pseudo_id} in {self.study.title}"
 
-    def send_email(self, subject, message, from_email=None):
-        """Send an email to this participant synchronously.
-
-        Returns the number of messages sent (1 on success, 0 if the participant
-        has no email address). The recipient address is never exposed to the
-        caller, so researcher-facing code can send mail without seeing identities.
-        """
-        from django.conf import settings
-        from django.core.mail import send_mail
-
-        if not self.participant:
-            return 0
-        recipient = self.participant.user.email
-        if not recipient:
-            return 0
-        from_email = (
-            from_email or self.study.contact_email or settings.DEFAULT_FROM_EMAIL
-        )
-        return send_mail(
-            subject,
-            message,
-            from_email,
-            [recipient],
-            fail_silently=False,
-        )
-
 
 class VersionedText(models.Model):
     """Abstract base for legal text that is versioned instead of overwritten.
@@ -347,13 +357,12 @@ class VersionedText(models.Model):
 
     @classmethod
     def current(cls):
-        """Return the latest version (highest pk), or None if none exist."""
-        return cls.objects.order_by("-pk").first()
+        """Return the latest version.
 
-    @property
-    def previous_version(self):
-        """The version immediately preceding this one, or None if this is the first."""
-        return type(self).objects.filter(pk__lt=self.pk).order_by("-pk").first()
+        Returns:
+            The latest version (highest pk), or None if none exist.
+        """
+        return cls.objects.order_by("-pk").first()
 
     def __str__(self):
         return f"{type(self).__name__} v{self.pk}"
@@ -378,6 +387,17 @@ class InfoSheet(VersionedText):
 
 
 class Consent(models.Model):
+    """A participant's consent to share one source with the study.
+
+    Lifecycle: created empty for an approved participant; ``accept_configuration``
+    snapshots the source configuration when the participant accepts the text;
+    ``complete_with_source`` links the DataSource and sets ``is_complete``.
+    Revoking sets ``revocation_date`` (the row is kept). The data API serves
+    only complete, unrevoked consents whose data source is active, limited to
+    the snapshotted ``requested_data_types`` (empty means all types) and the
+    ``data_start``..``data_end`` window.
+    """
+
     participant = models.ForeignKey(
         Profile,
         on_delete=models.SET_NULL,
@@ -443,7 +463,10 @@ class Consent(models.Model):
             self.data_start = self.data_start or self.consent_date
 
     def complete_with_source(self, data_source):
-        """Link the data source and mark complete. Params already snapshotted at acceptance."""
+        """Link the data source and mark complete.
+
+        Params are already snapshotted at acceptance.
+        """
         self.data_source = data_source
         self.is_complete = True
         if not self.consent_date:

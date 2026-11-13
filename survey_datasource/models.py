@@ -1,10 +1,12 @@
+"""Survey data source: a participant's django-survey responses as data."""
+
 from datetime import date
 
 from django.db import models
 from django.db.models import Q
 from django.utils.timezone import datetime, timezone
 from data_sources.models import DataSource
-from survey.models import Survey, Response
+from survey.models import Answer, Survey, Response
 
 
 class SurveyDataSource(DataSource):
@@ -12,6 +14,9 @@ class SurveyDataSource(DataSource):
     
     For the purposes of grouping data, we treat each survey
     as a data type and each question response as a row of data.
+
+    Data types are survey names. No setup or confirmation: active at once.
+    Does not support deletion.
     """
     SOURCE_TYPE = "survey"
     # Surveys have no setup; the open surveys listed below speak for themselves.
@@ -19,10 +24,16 @@ class SurveyDataSource(DataSource):
 
     @classmethod
     def display_type_for_configuration(cls, configuration):
+        """Return the display name, always "Survey".
+
+        Args:
+            configuration: Ignored.
+        """
         return "Survey"
 
     @property
     def display_type(self):
+        """Always "Survey"."""
         return self.display_type_for_configuration(self.configuration)
 
     class Meta:
@@ -37,7 +48,11 @@ class SurveyDataSource(DataSource):
 
         A survey is open when it is published and today is within its
         publication period, the same check django-survey's survey list and
-        survey_available decorator apply."""
+        survey_available decorator apply.
+
+        Returns:
+            A list of ``(url, text)`` tuples, one per open survey.
+        """
         links = []
         today = date.today()
         surveys = Survey.objects.filter(is_published=True, publish_date__lte=today, expire_date__gte=today)
@@ -54,7 +69,16 @@ class SurveyDataSource(DataSource):
         return links
 
     def get_data_types(self):
-        """Return the surveys this participant can see or has answered, as data types."""
+        """Return the surveys this participant can see or has answered, as data types.
+
+        Includes every published survey (regardless of its publication
+        period) and every survey this user has a response to. Each is named
+        by ``survey.name``, or "Survey <id>" when the name is empty; such a
+        fallback name does not work as a ``fetch_data`` data type.
+
+        Returns:
+            A list of survey names.
+        """
         surveys = Survey.objects.filter(
             Q(is_published=True) | Q(responses__user=self.profile.user)
         ).distinct()
@@ -65,21 +89,53 @@ class SurveyDataSource(DataSource):
         return data_types
 
     def count_rows(self, data_type='battery', start_date=None, end_date=None):
-        """Return the number of questions in the specified survey."""
-        try:
-            survey = Survey.objects.get(name=data_type)
-            return survey.questions.count()
-        except Survey.DoesNotExist:
-            return 0
-    
+        """Return the number of rows ``fetch_data`` returns for a survey.
+
+        Counts the answers in this source owner's responses to the survey,
+        one row per answer, as in ``fetch_data``.
+
+        Args:
+            data_type: The survey name (exact match).
+            start_date: Optional datetime; only responses created at or
+                after it are counted. None means unbounded.
+            end_date: Optional datetime; only responses created at or
+                before it are counted. None means unbounded.
+
+        Returns:
+            The row count; 0 for an unknown survey name.
+        """
+        answers = Answer.objects.filter(
+            response__survey__name=data_type,
+            response__user=self.profile.user,
+        )
+        if start_date is not None:
+            answers = answers.filter(response__created__gte=start_date)
+        if end_date is not None:
+            answers = answers.filter(response__created__lte=end_date)
+        return answers.count()
+
     def fetch_data(self, data_type='', timestamp=0, limit=1000):
         """Fetch responses for the specified survey using a timestamp cursor.
 
-        Returns rows whose ``timestamp`` (Unix ms derived from
-        ``response.created``) is >= ``timestamp``, ordered by ``created``
-        ascending. The soft-limit rule is applied: up to ``limit`` rows are
-        returned, extended to include all rows sharing the last timestamp so the
-        caller can advance its cursor to ``last_timestamp + 1`` safely.
+        Only this source owner's responses are included. Does not check
+        consent.
+
+        Args:
+            data_type: The survey name (exact match).
+            timestamp: Cursor; rows with ``timestamp`` >= this are returned
+                (Unix time in milliseconds).
+            limit: Soft limit on the number of rows.
+
+        Returns:
+            One row dict per answer, with keys ``survey`` (name),
+            ``question`` (question text), ``label`` (question label),
+            ``answer`` (answer body), ``other`` (answer's other text) and
+            ``timestamp`` (Unix ms of ``response.created``; all answers of
+            one response share it). Rows are ordered by ``timestamp``
+            ascending. At most ``limit`` rows, extended to include all rows
+            sharing the last timestamp, so the caller can safely advance
+            its cursor to ``last_timestamp + 1``. [] for an unknown survey
+            name.
         """
         try:
             survey = Survey.objects.get(name=data_type)

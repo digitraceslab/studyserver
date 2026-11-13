@@ -17,7 +17,7 @@ SIGNUP_CLOSED_MESSAGE = "Signup is not open yet."
 HIDDEN_EMAIL_DOMAINS = {"example.com"}
 
 
-def email_not_allowed_message(study):
+def _email_not_allowed_message(study):
     """Message naming the study's allowed email domains, leaving out the
     hidden test domains; a generic message if none remain."""
     domains = [d for d in study.allowed_domain_list() if d not in HIDDEN_EMAIL_DOMAINS]
@@ -55,7 +55,7 @@ class CustomUserCreationForm(UserCreationForm):
         if study is None:
             raise forms.ValidationError(SIGNUP_CLOSED_MESSAGE)
         if not study.email_allowed(username):
-            raise forms.ValidationError(email_not_allowed_message(study))
+            raise forms.ValidationError(_email_not_allowed_message(study))
         return username
 
     def save(self, commit=True):

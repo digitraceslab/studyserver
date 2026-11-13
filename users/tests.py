@@ -13,7 +13,7 @@ from study_server.urls import urlpatterns as real_urlpatterns
 from django.contrib.auth.models import AnonymousUser, User as DjangoUser, Group
 import uuid
 from django.utils.http import urlencode
-from users.views import get_past_consents
+from users.views import _get_past_consents
 from users.models import ProtectedIdentifier
 
 def test_message_view(request):
@@ -236,6 +236,26 @@ class ProfileModelTest(TestCase):
         Profile.objects.create(user=user, user_type='participant')
         user.delete()
         self.assertFalse(Profile.objects.filter(user__username='charlie').exists())
+
+    def test_email_returns_user_email(self):
+        user = User.objects.create_user(
+            username='dana@example.com', email='dana@example.com', password='pass'
+        )
+        profile = Profile.objects.create(user=user, user_type='participant')
+        self.assertEqual(profile.email, 'dana@example.com')
+
+    def test_email_empty_when_user_has_none(self):
+        user = User.objects.create_user(username='eve', password='pass')
+        profile = Profile.objects.create(user=user, user_type='participant')
+        self.assertEqual(profile.email, '')
+
+    def test_email_unaffected_by_protected_identifiers(self):
+        user = User.objects.create_user(
+            username='finn@example.com', email='finn@example.com', password='pass'
+        )
+        profile = Profile.objects.create(user=user, user_type='participant')
+        ProtectedIdentifier.objects.create(profile=profile, value='other@example.com')
+        self.assertEqual(profile.email, 'finn@example.com')
 
 
 class SignupViewExtendedTest(TestCase):
@@ -712,7 +732,7 @@ class UpdateProtectedIdentifiersViewTest(TestCase):
 
 
 class GetPastConsentsTest(TestCase):
-    """Tests for the get_past_consents helper and display-type resolution (Fixes B+C)."""
+    """Tests for the _get_past_consents helper and display-type resolution (Fixes B+C)."""
 
     def setUp(self):
         self.user = User.objects.create_user(username='past_consent_user', password='pass')
@@ -730,7 +750,7 @@ class GetPastConsentsTest(TestCase):
             consent_date=timezone.now(),
             revocation_date=timezone.now(),
         )
-        result = get_past_consents(self.profile)
+        result = _get_past_consents(self.profile)
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]['type_name'], 'Google Portability Data')
 
@@ -744,7 +764,7 @@ class GetPastConsentsTest(TestCase):
             consent_date=timezone.now(),
             revocation_date=timezone.now(),
         )
-        result = get_past_consents(self.profile)
+        result = _get_past_consents(self.profile)
         self.assertEqual(len(result), 1)
         # Should not crash; the fallback is title-cased
         self.assertIsNotNone(result[0]['type_name'])

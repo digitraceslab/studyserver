@@ -1,3 +1,17 @@
+"""URL routes for accounts, dashboards, API tokens and the personal data API.
+
+Mounted under ``/accounts/`` by the project URLconf, which also mounts
+``django.contrib.auth.urls`` there (logout, password change/reset); this
+module's ``login/`` comes first and so replaces Django's login view. Each
+view's docstring gives its HTTP methods, access rules and responses.
+
+Legacy redirects: ``terms/``, ``privacy/``, ``terms/version/<pk>/`` and
+``privacy/version/<pk>/`` (names ``*_redirect``) are temporary backward
+compatibility for old links. The pages now belong to studies; these routes
+answer any method with a 301 to the studies route of the same name without
+the ``_redirect`` suffix (``<pk>`` is passed along). They will be removed;
+don't link to them.
+"""
 from django.urls import path
 from django.views.generic import RedirectView
 

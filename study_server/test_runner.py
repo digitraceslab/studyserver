@@ -7,8 +7,8 @@ network seams with guards that raise immediately, so any leak fails loudly — n
 instead of reaching an external service.
 
 Tests that legitimately exercise these paths patch them locally (e.g.
-``@patch('data_sources.models.portability_client.requests.post')`` or
-``@patch('data_sources.models.portability_client.PortabilityClient.create_donation')``), which
+``@patch('data_sources.models._portability_client.requests.post')`` or
+``@patch('data_sources.models._portability_client.PortabilityClient.create_donation')``), which
 overrides the guard for the duration of that test and is restored to the guard afterwards.
 """
 from unittest import mock
@@ -34,10 +34,10 @@ class NoNetworkTestRunner(DiscoverRunner):
 
     # (dotted target, attribute) seams replaced with a raising guard for the whole run.
     BLOCKED_SEAMS = (
-        'data_sources.models.portability_client.requests.post',
-        'data_sources.models.portability_client.requests.get',
-        'data_sources.models.portability_client.requests.delete',
-        'data_sources.models.db_connector.mysql.connector.connect',
+        'data_sources.models._portability_client.requests.post',
+        'data_sources.models._portability_client.requests.get',
+        'data_sources.models._portability_client.requests.delete',
+        'data_sources.models._db_connector.mysql.connector.connect',
     )
 
     def setup_test_environment(self, **kwargs):

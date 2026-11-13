@@ -1,3 +1,33 @@
+"""Study views: public pages, participant join/consent flow and researcher data API.
+
+All routes are mounted under ``/studies/`` and act on the deployment's single
+study (``Study.objects.first()``); when no study exists, the participant views
+raise 404 and the API views return 404 ``{"error": "No study configured"}``.
+
+Access groups:
+- Public, no login: ``study_detail``, ``terms_of_service``,
+  ``privacy_statement``, ``info_sheet`` and their ``*_version`` views.
+- Login required (``login_required``; anonymous users are redirected to the
+  login page with ``next``): ``join_study``, ``withdraw_from_study``,
+  ``consent_workflow``, ``revoke_consent``. They need ``request.user.profile``.
+- Researcher API (``api/...``): authenticated by DRF token
+  (``Authorization: Token <key>``) or session. A superuser, or a user whose
+  profile is in ``Study.researchers``, may call them; other authenticated
+  users get 403 ``{"error": "Unauthorized"}``; unauthenticated requests get
+  DRF's 401 ``{"detail": ...}``; a wrong HTTP method gets 405. Session-auth
+  POSTs need a CSRF token. Each API route also answers with a trailing slash.
+
+The researcher API for researcher-written study page HTML is
+``{% include join_or_login_section %}`` only; see the ``studies_tags``
+module docstring.
+
+Data types in the API are namespaced as ``<source_type>:<data_type>`` (e.g.
+``aware:battery``). Participants are identified only by
+``StudyParticipant.pseudo_id`` (``participant_id``). The API only sees
+consents that are complete, unrevoked and linked to an active data source,
+and only the data types the consent allows.
+"""
+
 import base64
 import re
 from datetime import datetime
@@ -38,7 +68,7 @@ from .models import (
 )
 
 
-def get_study():
+def _get_study():
     study = Study.objects.first()
     if study is None:
         from django.http import Http404
@@ -49,21 +79,30 @@ def get_study():
 
 @login_required
 def join_study(request):
-    """Join the study (URL name `join_study`, login required).
+    """Join the study (URL name `join_study`, `/studies/join/`, login required).
+
+    Any logged-in user with a profile may call it; the user type is not
+    checked here. 404 if no study is configured.
 
     GET: show the join confirmation page (terms + privacy). Creates nothing,
     so a plain link to this URL is safe.
     POST: enroll; requires the form field `accept_terms`. Creates or reuses the
-    StudyParticipant, then redirects to the registration-pending page (if
-    researcher approval is required and missing) or to `consent_workflow`.
-    On failure (terms not accepted, email domain not allowed, study full) it
-    redirects with an error message.
+    StudyParticipant. The POST path is internal to the studies app: it is
+    submitted only by this view's own confirmation page form. Other components
+    should link here with GET.
 
-    The POST path is internal to the studies app: it is submitted only by this
-    view's own confirmation page form. Other components should link here with
-    GET.
+    Returns:
+        GET: the join confirmation page. POST: if researcher approval is
+        required and missing, the registration-pending page (200, no
+        redirect); otherwise it creates the participant's consents and
+        redirects to `consent_workflow`. On failure it redirects with an error
+        message: terms not accepted back to `join_study`; email domain not
+        allowed or study full (for a new registration) to `home`.
+
+    Raises:
+        Http404: if no study is configured.
     """
-    study = get_study()
+    study = _get_study()
     profile = request.user.profile
 
     # GET: show the study-wide confirmation page (terms + privacy) without
@@ -131,9 +170,9 @@ def join_study(request):
     # collect data. Registration only records the StudyParticipant; consents are
     # created once the participant is approved (here or in consent_workflow).
     if study.requires_approval and not study_participant.researcher_approved:
-        return render_registration_pending(request, study)
+        return _render_registration_pending(request, study)
 
-    create_consents_for_participant(study, profile, study_participant)
+    _create_consents_for_participant(study, profile, study_participant)
 
     messages.info(
         request,
@@ -142,7 +181,7 @@ def join_study(request):
     return redirect("consent_workflow")
 
 
-def create_consents_for_participant(study, profile, study_participant):
+def _create_consents_for_participant(study, profile, study_participant):
     """Create the study's required/optional consents for an approved participant.
 
     Idempotent: an active consent for a source configuration is never
@@ -181,7 +220,7 @@ def create_consents_for_participant(study, profile, study_participant):
         ensure_consent(source_configuration, is_optional=True)
 
 
-def render_registration_pending(request, study):
+def _render_registration_pending(request, study):
     """Render the 'registration noted, awaiting approval' page for a participant."""
     pending_content = ""
     if study.registration_pending_html:
@@ -213,7 +252,7 @@ def withdraw_from_study(request):
     view's own confirmation page form. Other components should link here with
     GET.
     """
-    study = get_study()
+    study = _get_study()
     profile = request.user.profile
 
     if request.method == "POST":
@@ -235,6 +274,24 @@ def withdraw_from_study(request):
 
 @login_required
 def revoke_consent(request, consent_id):
+    """Revoke one optional consent (URL name `revoke_consent`, login required).
+
+    URL: `/studies/revoke/<consent_id>/`. A mandatory consent cannot be
+    revoked here: any method redirects to `withdraw_from_study` with a
+    message.
+
+    GET: show the revoke confirmation page; changes nothing.
+    POST: revoke the consent (unlink its data source), create a fresh empty
+    optional consent for the same source so it can be given again later, and
+    redirect to `dashboard`.
+
+    Args:
+        consent_id: id of the consent to revoke.
+
+    Raises:
+        Http404: unless the consent belongs to the logged-in user and is not
+            already revoked.
+    """
     profile = request.user.profile
     consent = get_object_or_404(
         Consent, id=consent_id, participant=profile, revocation_date__isnull=True
@@ -274,13 +331,17 @@ def revoke_consent(request, consent_id):
 
 
 def study_detail(request):
-    """Show the public study page (URL name `study_detail`).
+    """Show the public study page (URL name `study_detail`, `/studies/`).
+
+    The page HTML is researcher-written (database or config repo). Its only
+    supported interface is `{% include join_or_login_section %}`; see the
+    `studies_tags` module docstring.
 
     GET; no login required and read-only (other methods are not rejected but
     behave the same). Renders the researcher-configured study page HTML, with
     `user_in_study` telling the page whether the user has an active consent.
     """
-    study = get_study()
+    study = _get_study()
     html_content = study.study_page_html
     if not html_content:
         html_content = services.get_study_page_html(study.raw_content_base_url)
@@ -327,12 +388,24 @@ def _render_versioned_html(request, html_content):
 
 
 def terms_of_service(request):
+    """Show the current terms of service (URL name `terms_of_service`, `/studies/terms/`).
+
+    Public, GET, read-only. Renders the latest TermsOfService version as a
+    template in the study page layout; falls back to the static
+    `terms_of_service.html` template when no version or an empty one exists.
+    """
     version = TermsOfService.current()
     if version and version.text:
         return _render_versioned_html(request, version.text)
     return render(request, 'terms_of_service.html')
 
 def privacy_statement(request):
+    """Show the current privacy notice (URL name `privacy_statement`, `/studies/privacy/`).
+
+    Public, GET, read-only. Renders the latest PrivacyNotice version as a
+    template in the study page layout; falls back to the static
+    `privacy_statement.html` template when no version or an empty one exists.
+    """
     version = PrivacyNotice.current()
     if version and version.text:
         return _render_versioned_html(request, version.text)
@@ -340,17 +413,43 @@ def privacy_statement(request):
 
 
 def terms_of_service_version(request, pk):
+    """Show one terms of service version by pk (URL name `terms_of_service_version`).
+
+    URL: `/studies/terms/version/<pk>/`. Public, GET, read-only; any past or
+    current version can be viewed.
+
+    Args:
+        pk: primary key of the terms of service version.
+
+    Raises:
+        Http404: if the pk does not exist.
+    """
     version = get_object_or_404(TermsOfService, pk=pk)
     return _render_versioned_html(request, version.text)
 
 
 def privacy_statement_version(request, pk):
+    """Show one privacy notice version by pk (URL name `privacy_statement_version`).
+
+    URL: `/studies/privacy/version/<pk>/`. Public, GET, read-only; any past or
+    current version can be viewed.
+
+    Args:
+        pk: primary key of the privacy notice version.
+
+    Raises:
+        Http404: if the pk does not exist.
+    """
     version = get_object_or_404(PrivacyNotice, pk=pk)
     return _render_versioned_html(request, version.text)
 
 
 def info_sheet(request):
-    """Show the current information sheet, or a placeholder if none exists."""
+    """Show the current information sheet (URL name `info_sheet`, `/studies/info-sheet/`).
+
+    Public, GET, read-only. Falls back to the placeholder template
+    `studies/info_sheet.html` when no version or an empty one exists.
+    """
     version = InfoSheet.current()
     if version and version.text:
         return _render_versioned_html(request, version.text)
@@ -358,12 +457,21 @@ def info_sheet(request):
 
 
 def info_sheet_version(request, pk):
-    """Show a specific past or current version of the information sheet."""
+    """Show one information sheet version by pk (URL name `info_sheet_version`).
+
+    URL: `/studies/info-sheet/version/<pk>/`. Public, GET, read-only.
+
+    Args:
+        pk: primary key of the information sheet version.
+
+    Raises:
+        Http404: if the pk does not exist.
+    """
     version = get_object_or_404(InfoSheet, pk=pk)
     return _render_versioned_html(request, version.text)
 
 
-def get_next_consent(profile, study, consent_id=None):
+def _get_next_consent(profile, study, consent_id=None):
     if consent_id:
         return get_object_or_404(
             Consent,
@@ -381,7 +489,7 @@ def get_next_consent(profile, study, consent_id=None):
     ).first()
 
 
-def consent_checkbox_view(request, consent, study):
+def _consent_checkbox_view(request, consent, study):
     source_type = (
         consent.source_configuration.source_type
         if consent.source_configuration
@@ -438,7 +546,7 @@ def consent_checkbox_view(request, consent, study):
     )
 
 
-def create_data_source_flow(consent):
+def _create_data_source_flow(consent):
     source_configuration = consent.source_configuration
     if not source_configuration:
         from django.http import Http404
@@ -454,7 +562,7 @@ def create_data_source_flow(consent):
     return redirect(f"{base_url}?{query_params}")
 
 
-def get_existing_sources_for_consent(profile, consent):
+def _get_existing_sources_for_consent(profile, consent):
     model_cls = DataSource.get_class_for_type(consent.source_type)
     if not model_cls:
         return []
@@ -463,16 +571,16 @@ def get_existing_sources_for_consent(profile, consent):
         polymorphic_ctype__model=model_cls.__name__.lower(),
     )
     # Match against the consent's snapshotted configuration (what the participant
-    # agreed to). _matches_configuration returns True for empty config, so this
+    # agreed to). matches_configuration returns True for empty config, so this
     # safely disambiguates multiple sources of the same type (e.g. niimport variants).
     return [
         source
         for source in sources
-        if source._matches_configuration(consent.configuration or {})
+        if source.matches_configuration(consent.configuration or {})
     ]
 
 
-def select_data_source_view(request, consent, profile, study):
+def _select_data_source_view(request, consent, profile, study):
     source_type = (
         consent.source_configuration.source_type
         if consent.source_configuration
@@ -496,7 +604,7 @@ def select_data_source_view(request, consent, profile, study):
     else:
         source_type_label = source_type
 
-    available_sources = get_existing_sources_for_consent(profile, consent)
+    available_sources = _get_existing_sources_for_consent(profile, consent)
 
     if request.method == "POST":
         action = request.POST.get("action")
@@ -563,7 +671,30 @@ def select_data_source_view(request, consent, profile, study):
 
 @login_required
 def consent_workflow(request):
-    study = get_study()
+    """Step through the participant's consents (URL name `consent_workflow`, login required).
+
+    URL: `/studies/consent/`, GET or POST. A user who has not joined, or is
+    awaiting required researcher approval, gets the registration-pending page
+    (200). Otherwise it makes sure the participant's consents exist and
+    handles one consent: the one named by the optional query parameter
+    `consent_id` (404 unless it is the user's own unrevoked consent in this
+    study), else the first incomplete required consent. With none left it
+    redirects to `dashboard`.
+
+    For that consent: if its text is not yet accepted, GET shows the consent
+    page and POST (form field `accept_consent`) accepts it and redirects back
+    here with `consent_id`. Once accepted: if the user has no matching data
+    source, it redirects to the data_sources `add_data_source` view with
+    `consent_id` and `source_configuration_id`; otherwise GET shows a picker
+    and POST takes `action=select` with `source_id` (completes the consent,
+    redirects here) or `action=create` (redirects to `add_data_source`).
+    Optional consents are reached only through `consent_id`.
+
+    Raises:
+        Http404: if no study is configured, or `consent_id` is not the user's
+            own unrevoked consent in this study.
+    """
+    study = _get_study()
     profile = request.user.profile
 
     # Approval gate: an unapproved (or not-yet-registered) participant cannot
@@ -574,14 +705,14 @@ def consent_workflow(request):
     if not study_participant or (
         study.requires_approval and not study_participant.researcher_approved
     ):
-        return render_registration_pending(request, study)
+        return _render_registration_pending(request, study)
 
     # An approved participant may have registered before approval, so ensure
     # their consents exist before continuing.
-    create_consents_for_participant(study, profile, study_participant)
+    _create_consents_for_participant(study, profile, study_participant)
 
     consent_id = request.GET.get("consent_id")
-    consent = get_next_consent(profile, study, consent_id)
+    consent = _get_next_consent(profile, study, consent_id)
 
     if not consent:
         messages.success(request, f"All required sources set up for '{study.title}'")
@@ -589,14 +720,14 @@ def consent_workflow(request):
 
     # step 1: show the consent checkbox
     if not consent.consent_text_accepted:
-        return consent_checkbox_view(request, consent, study)
+        return _consent_checkbox_view(request, consent, study)
 
     # step 2: select or create data source
-    available_sources = get_existing_sources_for_consent(profile, consent)
+    available_sources = _get_existing_sources_for_consent(profile, consent)
     if not available_sources:
-        return create_data_source_flow(consent)
+        return _create_data_source_flow(consent)
     else:
-        return select_data_source_view(request, consent, profile, study)
+        return _select_data_source_view(request, consent, profile, study)
 
 
 def _clean_row(row):
@@ -627,10 +758,13 @@ def _split_namespaced_type(value):
 
 
 def _allowed_data_types(consent):
-    """Data types the participant consented to share, or None when unrestricted.
+    """Return the data types the participant consented to share.
 
     ``requested_data_types`` is a comma-separated snapshot taken at consent time;
     an empty value means no restriction (all of the source's types).
+
+    Returns:
+        The set of allowed data types, or None when unrestricted.
     """
     raw = (consent.requested_data_types or "").strip()
     if not raw:
@@ -642,6 +776,46 @@ def _allowed_data_types(consent):
 @authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def study_data_api(request):
+    """List data types or fetch one participant's data (URL name `study_data_api`).
+
+    URL: `/studies/api/data`, GET only. Researcher API auth (module docstring).
+
+    Without `data_type`: lists the types, sorted, as the union over all
+    participants of the types they consented to.
+
+    With `data_type` (namespaced `<source_type>:<data_type>`), query params:
+    - `participant_id` (required): a participant's pseudo_id.
+    - `timestamp` (Unix ms, default 0, >= 0): fetch rows after this cursor.
+      The cursor is raised to the start of the consent's `data_start` day
+      (server timezone); rows after the end of the `data_end` day are dropped.
+    - `limit` (default 1000, 1..10000): maximum rows fetched from the source.
+    - `format`: `csv` returns a CSV download (`study_data.csv`); anything
+      else returns JSON.
+    - `advance` (`true`/`1`/`yes`): move the download watermark (see below).
+    Each row gets `data_type`, `source_type`, `origin` (the
+    consent configuration's `niimport_source_type`, else null) and
+    `participant_id`; bytes values become UTF-8 text or base64; the
+    participant's protected identifiers are replaced (case-insensitive) in
+    every string value.
+
+    Watermark (`advance`): the watermark `downloaded_through` for this data
+    source and data type records how far data has been downloaded without
+    gaps. If `timestamp` is at most one ms past the watermark (or, with no
+    watermark yet, at most the consent's start), the watermark moves to the
+    largest returned row timestamp. Otherwise the request fails with 400
+    `{"error": "gap: ...", "downloaded_through": <ms or null>}` and returns
+    no data. `mark_data_deletable` relies on this watermark.
+
+    Returns:
+        Without `data_type`:
+        `{"study": <title>, "data_types": [<"source_type:data_type">, ...]}`.
+        With `data_type`, JSON `{"study", "data_type", "participant_id",
+        "count", "data": [rows]}`, or a CSV download for `format=csv`.
+        Errors are JSON `{"error": ...}`: 400 for a non-namespaced
+        `data_type`, a missing `participant_id`, a non-integer or negative
+        `timestamp`, a bad `limit`, or a gap with `advance`; 404 when no study
+        exists or no active consent of that participant covers the data type.
+    """
     study = Study.objects.first()
     if study is None:
         return JsonResponse({"error": "No study configured"}, status=404)
@@ -858,6 +1032,17 @@ def study_data_api(request):
 @authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def study_participants_api(request):
+    """List participant ids with shareable data (URL name `study_participants_api`).
+
+    URL: `/studies/api/participants`, GET only. Researcher API auth (module
+    docstring). Optional query param `data_type` (`<source_type>:<data_type>`)
+    limits the list to participants whose active consent covers that type.
+
+    Returns:
+        `{"study": <title>, "participants": [<pseudo_id>, ...]}`, sorted
+        and unique. Errors: 400 for a non-namespaced `data_type`; 404 when no
+        study exists.
+    """
     study = Study.objects.first()
     if study is None:
         return JsonResponse({"error": "No study configured"}, status=404)
@@ -911,6 +1096,29 @@ def study_participants_api(request):
 @authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def mark_data_deletable(request):
+    """Mark downloaded data as deletable at its source (URL name `mark_data_deletable`).
+
+    URL: `/studies/api/data/mark-deletable`, POST only. Researcher API auth
+    (module docstring). Body (form or JSON):
+    - `data_type` (required): `<source_type>:<data_type>`.
+    - `through` (required): integer cutoff, Unix ms.
+
+    Applies to every participant whose active consent covers the data type.
+    A source is marked (`source.mark_deletable(data_type, through=...)` and
+    the watermark's `deletable_through` set to `through`) only if the source
+    supports deletion, its data has been downloaded through `through` (the
+    `downloaded_through` watermark set by `study_data_api` with `advance`),
+    and it has data newer than `through`, so the newest row is always kept.
+
+    Returns:
+        200 `{"study", "data_type", "marked_count", "results": [...]}`;
+        each result has `participant_id`, `source_type`, `marked`, and either
+        `deletable_through` or `reason` (`source does not support deletion`,
+        `no downloaded data`, `data not downloaded through cutoff`,
+        `no data newer than cutoff`, `source error` with `detail`).
+        Errors: 400 for a missing or non-namespaced `data_type`, or a missing
+        or non-integer `through`; 404 when no study exists.
+    """
     study = Study.objects.first()
     if study is None:
         return JsonResponse({"error": "No study configured"}, status=404)
@@ -1066,7 +1274,20 @@ def mark_data_deletable(request):
 @authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def unmark_data_deletable(request):
-    """Cancel all pending deletable marks so no further data is deleted."""
+    """Cancel all pending deletable marks (URL name `unmark_data_deletable`).
+
+    URL: `/studies/api/data/unmark-deletable`, POST only, no body. Researcher
+    API auth (module docstring). For every active consent whose source
+    supports deletion, calls `source.unmark_deletable()` and clears
+    `deletable_through` on all of that source's watermarks (all data types).
+    `downloaded_through` is kept.
+
+    Returns:
+        200 `{"study", "unmarked_count", "results": [...]}`; each result
+        has `participant_id`, `source_type`, `unmarked`, and either
+        `watermarks_cleared` (count) or `reason: "source error"` with
+        `detail`. 404 when no study exists.
+    """
     study = Study.objects.first()
     if study is None:
         return JsonResponse({"error": "No study configured"}, status=404)

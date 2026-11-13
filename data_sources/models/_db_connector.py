@@ -1,3 +1,12 @@
+"""AWARE database access: queries against the AWARE MySQL server.
+
+Connects with the ``AWARE_DB_*`` settings. Devices are found by their
+``device_label``; data is read from the ``<table>_transformed`` tables.
+Used by ``AwareDataSource``. Query functions print database errors and
+return an empty result instead of raising; the deletion-request functions
+re-raise ``mysql.connector.Error``.
+"""
+
 import time
 
 import mysql.connector
@@ -8,7 +17,15 @@ _aware_tables_cache = {}
 
 
 def get_device_ids_for_label(device_label):
-    """Gets a list of device_ids associated with the given device_label."""
+    """Get the device_ids associated with a device label.
+
+    Args:
+        device_label: The AWARE device label (``label`` in ``aware_device``).
+
+    Returns:
+        A list of device_ids; empty when the label is empty, nothing matches
+        or the query fails.
+    """
     if not device_label:
         print("Invalid AWARE device label provided.", device_label)
         return []
@@ -39,7 +56,18 @@ def get_device_ids_for_label(device_label):
 
 
 def get_aware_tables(device_label):
-    """Gets a list of available tables that have data for the given device_label."""
+    """Get the available tables that have data for a device label.
+
+    Only ``_transformed`` tables are considered. The result is cached in
+    memory per label for 60 seconds.
+
+    Args:
+        device_label: The AWARE device label.
+
+    Returns:
+        Table names without the ``_transformed`` suffix; empty when the
+        label is empty, has no devices or the query fails.
+    """
     if not device_label:
         print("Invalid AWARE device label provided.", device_label)
         return []
@@ -122,10 +150,20 @@ def _run_aware_table_query(
 ):
     """Build and run a parametrized query against an AWARE table.
 
-    - `base_select` should be the SELECT prefix (e.g. "SELECT *" or "SELECT COUNT(*) as row_count").
-    - `id_column` is the column to filter on (device_id or device_uid).
-    - `id_values` is a non-empty list of parameter values to use in the IN(...) clause.
-    Returns the fetched rows (list).
+    Args:
+        cursor: Open database cursor to run the query with.
+        base_select: The SELECT prefix, e.g. "SELECT *" or
+            "SELECT COUNT(*) as row_count".
+        table_name: Table to query.
+        id_column: The column to filter on (device_id or device_uid).
+        id_values: Non-empty list of parameter values for the IN(...) clause.
+        start_date: Optional lower bound on ``timestamp`` (datetime).
+        end_date: Optional upper bound on ``timestamp`` (datetime).
+        limit: Optional row limit.
+        offset: Row offset, used together with ``limit``.
+
+    Returns:
+        The fetched rows (list); empty when ``id_values`` is empty.
     """
     if not id_values:
         return []
@@ -172,13 +210,18 @@ def _connect_and_resolve_device_uids(device_label):
     connection, then resolves ``device_uuid`` -> ``device_uid`` via
     ``device_lookup``.
 
-    Returns ``(database, cursor, device_uids, device_uid_to_device_id)`` on
-    success where ``cursor`` is a dictionary cursor.  The caller is responsible
-    for closing ``cursor`` and ``database`` in all code paths.
+    Args:
+        device_label: The AWARE device label.
 
-    Returns ``(None, None, [], {})`` when there are no matching devices (caller
-    should return early) or raises ``mysql.connector.Error`` on connection
-    failure.
+    Returns:
+        ``(database, cursor, device_uids, device_uid_to_device_id)`` on
+        success, where ``cursor`` is a dictionary cursor. The caller is
+        responsible for closing ``cursor`` and ``database`` in all code
+        paths. ``(None, None, [], {})`` when there are no matching devices
+        (caller should return early).
+
+    Raises:
+        mysql.connector.Error: On connection failure.
     """
     if not device_label:
         print("Invalid AWARE device label provided.", device_label)
@@ -221,8 +264,25 @@ def query_aware_data(
     end_date=None,
     offset=0,
 ):
-    """
-    Runs a data query against the AWARE database. The query parameter should be either "SELECT COUNT(*)" or "SELECT *".
+    """Run a data query against the AWARE database.
+
+    Queries only the ``<table_name>_transformed`` table. Non-aggregate
+    rows are ordered by ``timestamp`` descending and get ``device_id`` (the
+    device UUID) instead of ``device_uid``.
+
+    Args:
+        base_query: Either "SELECT COUNT(*)" or "SELECT *" (an aggregate
+            prefix such as "SELECT COUNT(*) as row_count" also works).
+        device_label: The AWARE device label.
+        table_name: Base table name, without the ``_transformed`` suffix.
+        limit: Optional maximum number of rows.
+        start_date: Optional lower bound on ``timestamp`` (datetime).
+        end_date: Optional upper bound on ``timestamp`` (datetime).
+        offset: Row offset, used together with ``limit``.
+
+    Returns:
+        A list of row dicts; empty when the device or the transformed table
+        is missing or the query fails (the error is printed).
     """
     results = []
     database = None
@@ -299,8 +359,16 @@ def get_aware_data(device_label, table_name="battery", timestamp=0, limit=1000):
     rows sharing the last timestamp are fetched and merged in so that the caller
     can safely advance its cursor to ``max(timestamp) + 1``.
 
-    Each returned dict has ``device_id`` (the original device UUID) and no
-    ``device_uid`` field.
+    Args:
+        device_label: The AWARE device label.
+        table_name: Base table name, without the ``_transformed`` suffix.
+        timestamp: Cursor; rows with ``timestamp`` >= this are returned
+            (Unix time in milliseconds).
+        limit: Soft limit on the number of rows.
+
+    Returns:
+        A list of row dicts, each with ``device_id`` (the original device
+        UUID) and no ``device_uid`` field; empty on failure.
     """
     database = None
     cursor = None
@@ -375,8 +443,17 @@ def get_aware_data(device_label, table_name="battery", timestamp=0, limit=1000):
 def get_aware_count(device_label, table_name="battery", start_date=None, end_date=None):
     """Return the number of rows available for the given AWARE data_type.
 
-    Counts rows in the original and transformed tables (if present) for the
-    provided device_label and optional time range.
+    Counts rows of the ``<table_name>_transformed`` table for the
+    device_label and optional time range.
+
+    Args:
+        device_label: The AWARE device label.
+        table_name: Base table name, without the ``_transformed`` suffix.
+        start_date: Optional lower bound on ``timestamp`` (datetime).
+        end_date: Optional upper bound on ``timestamp`` (datetime).
+
+    Returns:
+        The row count; 0 when there is no data.
     """
     rows = query_aware_data(
         "SELECT COUNT(*) as row_count",
@@ -395,10 +472,20 @@ def get_aware_count(device_label, table_name="battery", start_date=None, end_dat
 def get_aware_max_timestamp(
     device_label, table_name="battery", start_date=None, end_date=None
 ):
-    """Return the newest row timestamp (Unix ms) for the given AWARE data_type, or None.
+    """Return the newest row timestamp (Unix ms) for the given AWARE data_type.
 
-    Queries MAX(timestamp) in the transformed table for the device_label and optional
-    time range. Returns None when there is no data.
+    Queries MAX(timestamp) in the transformed table for the device_label and
+    optional time range.
+
+    Args:
+        device_label: The AWARE device label.
+        table_name: Base table name, without the ``_transformed`` suffix.
+        start_date: Optional lower bound on ``timestamp`` (datetime).
+        end_date: Optional upper bound on ``timestamp`` (datetime).
+
+    Returns:
+        The newest timestamp in Unix milliseconds, or None when there is no
+        data.
     """
     rows = query_aware_data(
         "SELECT MAX(timestamp) as max_ts",

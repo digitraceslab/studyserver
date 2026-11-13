@@ -1,3 +1,5 @@
+"""URL routes of the data_sources app, mounted under /data-sources/."""
+
 from django.urls import path
 from django.urls import path
 from . import views

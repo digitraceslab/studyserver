@@ -1,6 +1,11 @@
 """Views for participant and researcher accounts, dashboards and the personal data API.
 
-Covers login, signup, API token management, the dashboards and profile updates.
+Routes are in ``users.urls`` (under ``/accounts/``), except ``home`` at ``/``.
+
+"Login required" means ``@login_required``: an anonymous user gets a 302 to
+the login page with ``?next=<path>``. An authenticated user without a Profile
+counts as anonymous (see ``users.middleware.ProfileRequiredMiddleware``).
+Unless stated otherwise, views accept any HTTP method and treat non-POST as GET.
 """
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
@@ -43,11 +48,14 @@ def _safe_next(request):
 
 
 def login_view(request):
-    """Log a user in with Django's AuthenticationForm.
+    """Log a user in with Django's AuthenticationForm (URL name `login`).
 
-    Accepts a `next` parameter (GET, or POST via the form's hidden field). On a
-    valid POST, logs in and redirects to `next` if it is a safe URL on this
-    host, otherwise to 'home'; on GET or invalid credentials shows the form.
+    GET shows the form; POST takes 'username' and 'password'. Accepts a `next` parameter (GET, or POST via the form's hidden
+    field); it is used only if it is a safe URL on this host (same host,
+    https required when the request is https), and every '%23' in it is
+    turned into '#'. A valid POST logs in and redirects (302) to `next`, or
+    to 'home'. Invalid credentials re-render the form (200) with an error
+    message.
     """
     next_url = _safe_next(request)
     if request.method == 'POST':
@@ -64,10 +72,14 @@ def login_view(request):
     
     
 def home(request):
-    """Landing page for the first study.
+    """Landing page at `/` for the first study.
 
-    Renders 'home.html' if no study exists. Redirects to 'dashboard' for a
-    logged-in user with an active consent in the study; otherwise shows study_detail.
+    GET; no login required. Three outcomes:
+    - no study exists: renders 'home.html' (200);
+    - logged-in user with an unrevoked consent in Study.objects.first():
+      redirects (302) to 'dashboard';
+    - otherwise: returns studies.views.study_detail(request) for that study,
+      i.e. the public study page.
     """
     study = Study.objects.first()
     if study is None:
@@ -88,10 +100,19 @@ def home(request):
 def signup(request):
     """Register a participant account.
 
-    Accepts a `next` parameter (GET, or POST via the form's hidden field). On a
-    valid POST, creates the user and a 'participant' Profile, stores the
-    email (if any) as a ProtectedIdentifier, and redirects to 'login', passing
-    a safe `next` along so the user lands there after logging in.
+    GET shows the form; POST takes 'username' (an email address), 'password1'
+    and 'password2'. No login required; logged-in users may also sign up.
+    The username must be a valid email address whose domain the study allows
+    (Study.email_allowed); it is stored lowercased as both username and email.
+    When no study exists, signup is closed: every POST fails with
+    "Signup is not open yet.".
+
+    A valid POST creates the user and a 'participant' Profile, stores the
+    email as a ProtectedIdentifier, and redirects (302) to 'login' without
+    logging the user in. Accepts a `next` parameter (GET, or POST via the
+    form's hidden field), checked as in login_view; a safe one is passed on
+    as 'login?next=...' so the user lands there after logging in. An invalid
+    POST re-renders the form (200) with each error as a message.
     """
     next_url = _safe_next(request)
     if request.method == 'POST':
@@ -117,10 +138,16 @@ def signup(request):
     return render(request, 'registration/signup.html', {'form': form, 'next': next_url})
 
 def signup_researcher(request):
-    """Register a researcher account.
+    """GET shows the form; POST takes the same fields and email rules as signup,
+    including closed signup when no study exists. No login required: anyone
+    with an allowed email address can register as a researcher.
 
-    On a valid POST, creates a staff user in the 'Researchers' group with a
-    'researcher' Profile, and redirects to 'login'.
+    A valid POST creates a staff user (is_staff=True, so it can log in to the
+    admin) in the 'Researchers' group with a 'researcher' Profile, and
+    redirects (302) to 'login' without logging in. `next` is ignored. If the
+    'Researchers' group does not exist, the user is already saved and the
+    request fails with a 500. An invalid POST re-renders the form (200) with
+    each error as a message.
     """
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
@@ -148,9 +175,12 @@ def signup_researcher(request):
 
 @login_required
 def manage_token(request):
-    """Show the user's API token, creating it if missing (login required).
+    """Show the user's API token, creating it if missing.
 
-    A POST containing 'regenerate' replaces the token and redirects back here.
+    Login required; researchers and participants alike. GET renders the page
+    (200) with 'token' and 'is_researcher'. A POST containing a 'regenerate'
+    field deletes the old token (it stops working at once), creates a new
+    one and redirects (302) back here. Any other POST behaves like GET.
     """
     token, created = Token.objects.get_or_create(user=request.user)
     
@@ -167,10 +197,13 @@ def manage_token(request):
     return render(request, 'users/manage_token.html', context)
 
 
-def get_past_consents(profile):
+def _get_past_consents(profile):
     """Return the profile's revoked consents as a list of dicts.
 
-    Each dict has 'consent' (the Consent) and 'type_name' (its display type).
+    Each dict has 'consent' (the Consent) and 'type_name', the display name
+    from DataSource.display_type_for_source_type(consent.source_type,
+    consent.configuration); for an unknown source_type that is the
+    title-cased slug.
     """
     past_consents = Consent.objects.filter(
         participant=profile,
@@ -186,7 +219,7 @@ def get_past_consents(profile):
     return result
 
 
-def get_active_studies(user):
+def _get_active_studies(user):
     """Return a queryset of studies where the user has a non-revoked consent."""
     active_consents = Consent.objects.filter(
         participant=user.profile,
@@ -196,7 +229,7 @@ def get_active_studies(user):
     return Study.objects.filter(id__in=study_ids)
 
 
-def get_active_studies_data(profile, request):
+def _get_active_studies_data(profile, request):
     """Group the profile's active consents by study.
 
     Returns {study: {'active_consents', 'incomplete_consents',
@@ -205,7 +238,7 @@ def get_active_studies_data(profile, request):
     Studies whose registration is awaiting required approval are skipped.
     """
     studies_data = {}
-    for study in get_active_studies(profile.user):
+    for study in _get_active_studies(profile.user):
         # Hide all consent-related items for a study until the participant's
         # registration is approved. An unapproved participation is surfaced
         # separately as a "registration pending" notice.
@@ -257,10 +290,10 @@ def get_active_studies_data(profile, request):
                     )
     return studies_data
 
-def get_next_instructions_card(request, studies_data):
+def _get_next_instructions_card(request, studies_data):
     """Find the first incomplete source that requires setup.
 
-    studies_data is the dict from get_active_studies_data. Returns
+    studies_data is the dict from _get_active_studies_data. Returns
     (card_template, card_context) for that source, or (None, None) if none.
     """
     for study, data in studies_data.items():
@@ -276,12 +309,15 @@ def get_next_instructions_card(request, studies_data):
 
 @login_required
 def dashboard(request):
-    """Participant dashboard for the single study (login required).
+    """Participant dashboard for the single study.
 
-    Researchers are redirected to 'researcher_dashboard'. Context: 'study'
-    (Study.objects.first(), or None), 'study_data' (that study's entry from
-    get_active_studies_data, or None when the user has no unrevoked consent in
-    it, i.e. is not enrolled), 'pending_participations', 'past_consents',
+    GET; login required. Renders 'dashboard.html' (200). Researchers are
+    redirected (302) to 'researcher_dashboard'. Context: 'study'
+    (Study.objects.first(), or None), 'study_data' (a dict of consent lists
+    'active_consents', 'incomplete_consents', 'incomplete_sources' and
+    'optional_consents'; None when the user has no unrevoked consent in the
+    study, i.e. is not enrolled, or awaits approval), 'pending_participations',
+    'past_consents',
     'protected_identifiers', 'collect_tax_id', 'tax_id' and, when a source
     needs setup, 'instructions_template' / 'instructions_context'.
     """
@@ -289,9 +325,9 @@ def dashboard(request):
         return redirect('researcher_dashboard')
 
     context = {}
-    context['past_consents'] = get_past_consents(request.user.profile)
+    context['past_consents'] = _get_past_consents(request.user.profile)
     study = Study.objects.first()
-    studies_data = get_active_studies_data(request.user.profile, request)
+    studies_data = _get_active_studies_data(request.user.profile, request)
     context['study'] = study
     context['study_data'] = studies_data.get(study)
     # Studies the participant has registered for but that a researcher has not yet
@@ -311,7 +347,7 @@ def dashboard(request):
     )
     context['tax_id'] = request.user.profile.tax_id
 
-    card_template, card_context = get_next_instructions_card(request, studies_data)
+    card_template, card_context = _get_next_instructions_card(request, studies_data)
     if card_template and card_context:
         context['instructions_template'] = card_template
         context['instructions_context'] = card_context
@@ -321,11 +357,14 @@ def dashboard(request):
 
 @login_required
 def update_protected_identifiers(request):
-    """Replace the participant's protected identifiers (login required, POST only).
+    """Replace the participant's protected identifiers.
 
-    Uses the 'identifier' POST values, stripped and de-duplicated; blanks are
-    dropped. Non-POST requests redirect to 'dashboard', researchers to
-    'researcher_dashboard'.
+    POST; login required; participants only. Uses all 'identifier' POST
+    values, stripped and de-duplicated; blanks are dropped. The old set is
+    deleted and the new one created in one transaction (each new identifier
+    gets a new replacement), so posting no values clears the list. Redirects
+    (302) to 'dashboard' with a success message. Non-POST requests redirect
+    to 'dashboard' without changes, researchers to 'researcher_dashboard'.
     """
     if request.method != 'POST':
         return redirect('dashboard')
@@ -355,9 +394,12 @@ def update_protected_identifiers(request):
 
 @login_required
 def update_tax_id(request):
-    """Save the participant's tax ID from the 'tax_id' POST value (login required, POST only).
-
-    Non-POST requests redirect to 'dashboard', researchers to 'researcher_dashboard'.
+    """POST; login required; participants only. Stores the 'tax_id' POST value,
+    stripped, as Profile.tax_id; a missing or blank value clears it. The
+    value is not validated, and is accepted whether or not a study collects
+    tax IDs (the dashboard only shows the form when one does). Redirects
+    (302) to 'dashboard' with a success message. Non-POST requests redirect
+    to 'dashboard' without changes, researchers to 'researcher_dashboard'.
     """
     if request.method != 'POST':
         return redirect('dashboard')
@@ -375,11 +417,11 @@ def update_tax_id(request):
 
 @login_required
 def researcher_dashboard(request):
-    """Researcher dashboard (login required, researchers only).
-
-    Lists each of the researcher's studies with per-participant consent
-    completion counts, status and pseudo_id, plus total and withdrawn consent
-    counts. Non-researchers are redirected to 'dashboard'.
+    """GET; login required; researchers only. Renders 'researcher_dashboard.html'
+    (200) listing each study the researcher belongs to, with one row per
+    participant who has an unrevoked consent (consent completion counts,
+    status and pseudo_id), plus total and withdrawn consent counts.
+    Non-researchers are redirected (302) to 'dashboard' with an error message.
     """
     if request.user.profile.user_type != 'researcher':
         messages.error(request, "Access denied: Researcher dashboard is only for researchers.")
@@ -439,10 +481,16 @@ def researcher_dashboard(request):
 
 @login_required
 def participant_detail(request, study_id, participant_id):
-    """Show one participant's consents and data sources in a study (login required).
+    """Show one participant's consents and data sources in a study.
 
-    study_id and participant_id are the Study and Profile ids (404 if missing).
-    Only researchers of the study, or superusers, may view; others are redirected.
+    GET; login required. study_id and participant_id are the Study and
+    Profile ids. Checks run in this order:
+    - a missing study or profile gives 404, for any logged-in user;
+    - a non-researcher (superuser or not) is redirected (302) to 'dashboard';
+    - a researcher who is neither a researcher of the study nor a superuser
+      is redirected (302) to 'researcher_dashboard' with an error message.
+    Otherwise renders 'users/participant_detail.html' (200). The profile does
+    not have to take part in the study; then the consent list is empty.
     """
     study = get_object_or_404(Study, id=study_id)
     participant = get_object_or_404(Profile, id=participant_id)
@@ -495,11 +543,32 @@ def participant_detail(request, study_id, participant_id):
 @authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def my_data_api(request):
-    """Return the authenticated user's data from all their data sources (GET only).
+    """Return the caller's own data from all their data sources.
 
-    Token or session authentication. Query params: data_type (limit to one type),
-    start_date and end_date (passed to fetch_data), format ('json' default, or
-    'csv' for a study_data.csv download). JSON has data_count, data_types, data.
+    GET only; other methods get 405. Authentication, either of:
+    - header ``Authorization: Token <key>`` (the key from manage_token);
+    - a logged-in session (cookie).
+    A missing or invalid token, or no session, gives 401 with DRF's JSON error
+    body ``{"detail": ...}``. Only the caller's own Profile's data sources are
+    read; researchers get their own (usually empty) data, not participants'.
+
+    Query params, all optional:
+    - data_type: only this data type; a source that doesn't offer it
+      contributes nothing.
+    - start_date, end_date: passed unchanged as strings to each source's
+      fetch_data; their format and meaning are the source's.
+    - format: 'csv' returns the rows as a CSV attachment named
+      study_data.csv (200), with the header from the first row's keys; with
+      no rows it returns plain text "No data available" (200) instead.
+      Anything else (default 'json') returns JSON.
+
+    A valid token whose user has no Profile gives 500 (the profile middleware
+    does not see token authentication).
+
+    JSON (200): ``{"data_count": <int>, "data_types": [<str>, ...],
+    "data": [<row>, ...]}``, where data_types lists the types queried (in no
+    fixed order, also when they returned no rows) and rows are the sources'
+    fetch_data items.
     """
     data_type = request.GET.get('data_type')
     start_date = request.GET.get('start_date')

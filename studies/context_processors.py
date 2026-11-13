@@ -10,7 +10,11 @@ from django.utils.functional import SimpleLazyObject
 
 
 def study_context(request):
-    """Add the study and its assets dictionary to the template context."""
+    """Add the study and its assets dictionary to the template context.
+
+    Returns:
+        A dict with the lazy ``study`` and ``assets`` entries.
+    """
     from studies.models import Study
 
     study = SimpleLazyObject(lambda: Study.objects.first())

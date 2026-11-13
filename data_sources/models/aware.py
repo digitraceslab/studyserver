@@ -1,3 +1,10 @@
+"""AWARE data source: a participant's phone running the AWARE app.
+
+The phone uploads into the AWARE MySQL database (``_db_connector``). The
+source is matched to its rows by ``device_label``, which the participant
+enters in the app through the setup page reached from the QR code.
+"""
+
 import base64
 import io
 import uuid
@@ -13,11 +20,19 @@ from django.urls import reverse
 
 from studies.models import Consent
 
-from . import db_connector
+from . import _db_connector
 from .base import DataSource
 
 
 class AwareDataSource(DataSource):
+    """Data source backed by the AWARE mobile app database.
+
+    Needs setup (instructions page with a QR code) and confirmation (the
+    device must have uploaded data). Data types are the device's AWARE
+    tables; rows are the columns of ``<table>_transformed`` plus
+    ``device_id``. Supports deletion.
+    """
+
     SOURCE_TYPE = "aware"
 
     device_label = models.CharField(max_length=150, unique=True, default=uuid.uuid4)
@@ -26,22 +41,40 @@ class AwareDataSource(DataSource):
     requires_confirmation = True
 
     def get_setup_url(self):
+        """Return the URL of this source's ``instructions`` view."""
         base_url = reverse("instructions", args=[self.id])
         return base_url
 
     def get_confirm_url(self):
+        """Return the URL of this source's ``confirm_data_source`` view."""
         base_url = reverse("confirm_data_source", args=[self.id])
         return base_url
 
     @property
     def display_type(self):
+        """Always "AWARE Mobile Data"."""
         return self.display_type_for_configuration(self.configuration)
 
     @classmethod
     def display_type_for_configuration(cls, configuration):
+        """Always "AWARE Mobile Data"; the configuration is ignored."""
         return "AWARE Mobile Data"
 
     def get_instructions_card(self, request, consent_id=None, study_id=None):
+        """Return the context and template of the AWARE setup card.
+
+        The context holds a QR code (base64 PNG) and link to the
+        ``datasource_token_view`` "setup" page, which contains this source's
+        secret ``config_token``.
+
+        Args:
+            request: The current HTTP request, used to build the absolute URL.
+            consent_id: Id of the consent, passed on in the context.
+            study_id: Unused.
+
+        Returns:
+            A ``(context, template_name)`` tuple.
+        """
         mobile_setup_url = request.build_absolute_uri(
             reverse(
                 "datasource_token_view",
@@ -61,7 +94,7 @@ class AwareDataSource(DataSource):
         }
         return context, "data_sources/aware/instructions_card.html"
 
-    def get_config_url(self):
+    def _get_config_url(self):
         """Link to this participant's study config on the aware server at AWARE_DB_HOST.
 
         The version comes from the first active consent's snapshotted configuration;
@@ -81,11 +114,21 @@ class AwareDataSource(DataSource):
         """Keep the setup instructions reachable from the dashboard after setup."""
         return [(self.get_setup_url(), "Setup instructions")]
 
-    def check_for_device(self):
+    def _check_for_device(self):
+        """Link the device that uploaded data under ``device_label``.
+
+        Already active: success, no change. Otherwise looks up device ids for
+        the label in the AWARE database; none found, or the device already
+        claimed by another user's AWARE source, is a failure. On success
+        stores the first device id, sets ``status`` to "active" and saves.
+
+        Returns:
+            A ``(success, message)`` tuple.
+        """
         if self.status == "active":
             return (True, "This device is already active.")
 
-        retrieved_device_ids = db_connector.get_device_ids_for_label(self.device_label)
+        retrieved_device_ids = _db_connector.get_device_ids_for_label(self.device_label)
 
         if not retrieved_device_ids:
             return (
@@ -111,20 +154,52 @@ class AwareDataSource(DataSource):
         return (True, "AWARE device confirmed and linked successfully!")
 
     def _process_data(self):
-        result, message = self.check_for_device()
+        """Try to link the device (see ``_check_for_device``), printing any error."""
+        result, message = self._check_for_device()
         if not result:
             print(f"Data processing error for {self}: {message}")
 
     def confirm(self, request):
-        result, message = self.check_for_device()
+        """Link the uploading device by running ``_check_for_device``.
+
+        Returns:
+            The ``(success, message)`` tuple of ``_check_for_device``.
+        """
+        result, message = self._check_for_device()
         return result, message
 
     def handle_token_view(self, request, token, view_type):
+        """Serve the token-authenticated pages used by the phone.
+
+        Called by ``views.token_view_dispatcher``; holding ``config_token`` is
+        the only authorization, no login is needed. Any HTTP method.
+
+        Args:
+            request: The current HTTP request.
+            token: The ``config_token`` from the URL.
+            view_type: Which page to serve:
+
+                - "setup": HTML page with the AWARE config URL and device
+                  label.
+                - "config": JSON AWARE study config built from this source's
+                  active consents (study info of the first, merged questions /
+                  schedules / sensors of all). It includes the AWARE database
+                  insert credentials. A POST body is only printed.
+                - "client_get_study_info": JSON study info of the first
+                  active consent, or 404 JSON ``{"error": ...}`` when there
+                  is none.
+
+        Returns:
+            The HTTP response. Returns None for any other ``view_type`` (the
+            view then raises, giving a 500). When ``token`` does not match it
+            returns a tuple, not a response (also a 500); this cannot happen
+            through the dispatcher, which looks the source up by the token.
+        """
         if str(self.config_token) != str(token):
             return (False, "Invalid configuration token.")
 
         if view_type == "setup":
-            config_url = self.get_config_url()
+            config_url = self._get_config_url()
 
             context = {
                 "source": self,
@@ -219,48 +294,90 @@ class AwareDataSource(DataSource):
             return JsonResponse(study_info)
 
     def get_data_types(self):
-        """Returns a list of available data type names for this source."""
+        """List the AWARE tables that hold data for this device.
+
+        Returns:
+            Table names; [] until the source is active with a device id.
+        """
         print("Getting AWARE data types...", self.device_label)
         if self.status == "active" and self.device_id:
-            tables = db_connector.get_aware_tables(self.device_label)
+            tables = _db_connector.get_aware_tables(self.device_label)
             return tables if tables else []
         return []
 
     def fetch_data(self, data_type="battery", timestamp=0, limit=1000):
-        """Get's the users data from the AWARE server"""
+        """Fetch rows of AWARE table ``data_type`` as ``DataSource.fetch_data`` describes.
+
+        Rows are the columns of ``<data_type>_transformed`` plus
+        ``device_id``. Does not check consent.
+
+        Args:
+            data_type: AWARE table name.
+            timestamp: Unix-ms cursor; only rows at or after it are returned.
+            limit: Soft maximum number of rows.
+
+        Returns:
+            The rows; [] until the source is active with a device id.
+        """
         print("Getting AWARE data...", self.device_label)
         if self.status == "active" and self.device_id:
-            return db_connector.get_aware_data(
+            return _db_connector.get_aware_data(
                 self.device_label, data_type, timestamp=timestamp, limit=limit
             )
         return []
 
     def count_rows(self, data_type="battery", start_date=None, end_date=None):
-        """Return the number of rows available for the given AWARE data_type."""
+        """Count the rows available for the given AWARE data_type.
+
+        Args:
+            data_type: AWARE table name.
+            start_date: Optional lower bound.
+            end_date: Optional upper bound.
+
+        Returns:
+            The row count; 0 until the source is active with a device id.
+        """
         if self.status == "active" and self.device_id:
-            return db_connector.get_aware_count(
+            return _db_connector.get_aware_count(
                 self.device_label, data_type, start_date, end_date
             )
         return 0
 
     def supports_deletion(self):
+        """Always True."""
         return True
 
     def latest_timestamp(self, data_type, start_date=None, end_date=None):
+        """Find the newest timestamp in the AWARE table.
+
+        Args:
+            data_type: AWARE table name.
+            start_date: Optional lower bound of the range considered.
+            end_date: Optional upper bound of the range considered.
+
+        Returns:
+            The newest ``timestamp`` (Unix ms), or None when the source is
+            not active or there is no data.
+        """
         if self.status == "active" and self.device_id:
-            return db_connector.get_aware_max_timestamp(
+            return _db_connector.get_aware_max_timestamp(
                 self.device_label, data_type, start_date, end_date
             )
         return None
 
     def mark_deletable(self, data_type, through):
-        """Queue an AWARE deletion request for all rows with timestamp <= through."""
+        """Queue an AWARE deletion request for all rows with timestamp <= through.
+
+        Args:
+            data_type: AWARE table name.
+            through: Inclusive Unix-ms timestamp up to which rows are deleted.
+        """
         # through is inclusive → daemon deletes timestamp < delete_before
         delete_before = int(through) + 1
-        return db_connector.insert_deletion_request(
+        return _db_connector.insert_deletion_request(
             self.device_label, data_type, delete_before
         )
 
     def unmark_deletable(self):
         """Remove all pending AWARE deletion requests for this device."""
-        return db_connector.remove_deletion_requests(self.device_label)
+        return _db_connector.remove_deletion_requests(self.device_label)

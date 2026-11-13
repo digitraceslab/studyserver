@@ -14,7 +14,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from data_sources.models import db_connector, portability_client
+from data_sources.models import _db_connector, _portability_client
 from studies.models import Consent, Study, StudySourceConfiguration
 from users.models import Profile
 
@@ -36,7 +36,7 @@ class DbConnectorTest(TestCase):
         self.client.login(username="testuser", password="testpass")
 
     def test_get_device_ids_for_label_empty(self):
-        self.assertEqual(db_connector.get_device_ids_for_label(""), [])
+        self.assertEqual(_db_connector.get_device_ids_for_label(""), [])
 
     def test_query_aware_data_returns_transformed_rows(self):
         # Prepare fake mysql connector behavior
@@ -184,16 +184,16 @@ class DbConnectorTest(TestCase):
 
         # Patch get_device_ids_for_label to return a device id
         with patch(
-            "data_sources.models.db_connector.mysql.connector.connect",
+            "data_sources.models._db_connector.mysql.connector.connect",
             side_effect=fake_connect,
         ):
             # Also patch get_device_ids_for_label to return a device uuid so query proceeds
             with patch(
-                "data_sources.models.db_connector.get_device_ids_for_label",
+                "data_sources.models._db_connector.get_device_ids_for_label",
                 return_value=["dev-uuid"],
             ):
                 # Query for device 'dev-uuid' should return only transformed rows
-                rows = db_connector.query_aware_data(
+                rows = _db_connector.query_aware_data(
                     "SELECT *", "label-1", "battery", limit=10
                 )
                 self.assertIsInstance(rows, list)
@@ -206,10 +206,10 @@ class DbConnectorTest(TestCase):
 
                 # Query for a different device should return the other transformed row
                 with patch(
-                    "data_sources.models.db_connector.get_device_ids_for_label",
+                    "data_sources.models._db_connector.get_device_ids_for_label",
                     return_value=["other-uuid"],
                 ):
-                    rows2 = db_connector.query_aware_data(
+                    rows2 = _db_connector.query_aware_data(
                         "SELECT *", "label-1", "battery", limit=10
                     )
                     self.assertIsInstance(rows2, list)
@@ -224,33 +224,42 @@ class DbConnectorTest(TestCase):
 
                 # Test count function uses query_aware_data and returns 0 or number
                 with patch(
-                    "data_sources.models.db_connector.query_aware_data",
+                    "data_sources.models._db_connector.query_aware_data",
                     return_value=[{"row_count": 5}],
                 ):
-                    cnt = db_connector.get_aware_count("label-1", "battery")
+                    cnt = _db_connector.get_aware_count("label-1", "battery")
                     self.assertEqual(cnt, 5)
         self.client.login(username="testuser", password="testpass")
 
-    def test_auto_create_data_source_with_only_name_field(self):
+    def test_get_name_only_form_shows_confirmation_without_creating(self):
         response = self.client.get(reverse("add_data_source", args=["aware"]))
-        self.assertEqual(response.status_code, 302)
-        source = AwareDataSource.objects.filter(profile=self.profile).latest("id")
-        expected_url = reverse("instructions", args=[source.id])
-        self.assertEqual(response.url, expected_url)
-        self.assertTrue(
-            AwareDataSource.objects.filter(
-                profile=self.profile, name__istartswith="aware"
-            ).exists()
-        )
-        self.assertTrue(source.name.lower().startswith("aware"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "data_sources/add_data_source.html")
+        self.assertContains(response, "csrfmiddlewaretoken")
+        self.assertFalse(AwareDataSource.objects.filter(profile=self.profile).exists())
 
-    def test_render_form_when_extra_fields(self):
-        # Patch the helper that decides whether the form has only the name
-        with patch("data_sources.views.form_has_only_name_field", return_value=False):
-            response = self.client.get(reverse("add_data_source", args=["aware"]))
-            self.assertEqual(response.status_code, 200)
-            self.assertTemplateUsed(response, "data_sources/add_data_source.html")
-            self.assertContains(response, "name")
+    def test_get_form_with_extra_fields_does_not_create(self):
+        response = self.client.get(reverse("add_data_source", args=["json_url"]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "data_sources/add_data_source.html")
+        self.assertFalse(JsonUrlDataSource.objects.filter(profile=self.profile).exists())
+
+    def test_anonymous_add_redirects_to_login(self):
+        self.client.logout()
+        url = reverse("add_data_source", args=["aware"])
+        for response in (self.client.get(url), self.client.post(url, {"name": "X"})):
+            self.assertEqual(response.status_code, 302)
+            self.assertIn(reverse("login"), response.url)
+        self.assertFalse(AwareDataSource.objects.exists())
+
+    def test_post_keeps_consent_id_query_parameter(self):
+        url = reverse("add_data_source", args=["aware"]) + "?consent_id=999999"
+        response = self.client.post(url, {"name": "From Consent"})
+        source = AwareDataSource.objects.get(profile=self.profile)
+        self.assertEqual(
+            response.url,
+            reverse("instructions", args=[source.id]) + "?consent_id=999999",
+        )
 
     def test_create_data_source_via_post(self):
         response = self.client.post(
@@ -321,6 +330,27 @@ class DataSourcesViewsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "data_sources/instructions_wrapper.html")
 
+    def test_confirm_get_is_rejected_and_does_not_confirm(self):
+        with patch.object(AwareDataSource, "confirm", return_value=(True, "ok")) as mock_confirm:
+            response = self.client.get(reverse("confirm_data_source", args=[self.source.id]))
+        self.assertEqual(response.status_code, 405)
+        mock_confirm.assert_not_called()
+
+    def test_confirm_post_confirms_and_redirects(self):
+        with patch.object(AwareDataSource, "confirm", return_value=(True, "ok")) as mock_confirm:
+            response = self.client.post(reverse("confirm_data_source", args=[self.source.id]))
+        self.assertRedirects(response, reverse("dashboard"), fetch_redirect_response=False)
+        mock_confirm.assert_called_once()
+
+    def test_confirm_anonymous_redirects_to_login(self):
+        self.client.logout()
+        url = reverse("confirm_data_source", args=[self.source.id])
+        with patch.object(AwareDataSource, "confirm", return_value=(True, "ok")) as mock_confirm:
+            for response in (self.client.get(url), self.client.post(url)):
+                self.assertEqual(response.status_code, 302)
+                self.assertIn(reverse("login"), response.url)
+        mock_confirm.assert_not_called()
+
 
 class DataSourceModelTest(TestCase):
     def setUp(self):
@@ -372,9 +402,9 @@ class AwareDataSourceTest(TestCase):
         self.assertTrue(self.source.supports_deletion())
 
     def test_mark_deletable_calls_insert_with_correct_params(self):
-        # Mock the db_connector.insert_deletion_request function
+        # Mock the _db_connector.insert_deletion_request function
         with patch(
-            "data_sources.models.db_connector.insert_deletion_request"
+            "data_sources.models._db_connector.insert_deletion_request"
         ) as mock_insert:
             # Call mark_deletable with through=1000
             result = self.source.mark_deletable("battery", through=1000)
@@ -390,7 +420,7 @@ class AwareDataSourceTest(TestCase):
     def test_mark_deletable_with_string_through(self):
         # Test that string through values are converted to int
         with patch(
-            "data_sources.models.db_connector.insert_deletion_request"
+            "data_sources.models._db_connector.insert_deletion_request"
         ) as mock_insert:
             result = self.source.mark_deletable("battery", through="1000")
             mock_insert.assert_called_once_with(
@@ -458,7 +488,7 @@ class NiimportDataSourceTest(TestCase):
         self.user = User.objects.create_user(username="testuser", password="testpass")
         self.profile = Profile.objects.create(user=self.user)
 
-    @patch("data_sources.models.portability_client.PortabilityClient.create_donation")
+    @patch("data_sources.models._portability_client.PortabilityClient.create_donation")
     def test_create_niimport_source_redirects_to_portability(self, mock_create):
         mock_create.return_value = {
             "id": 1,
@@ -504,35 +534,35 @@ class PortabilityClientTest(TestCase):
     EXPECTED_HEADERS = {"Authorization": "Token session-token"}
 
     def setUp(self):
-        self.client_api = portability_client.PortabilityClient()
+        self.client_api = _portability_client.PortabilityClient()
         self.client_api.session_token = "session-token"
 
-    @patch("data_sources.models.portability_client.requests.post")
+    @patch("data_sources.models._portability_client.requests.post")
     def test_login_exchanges_researcher_token_and_stores_session(self, mock_post):
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "session_token": "new-session", "expires_at": "2026-10-20T00:00:00Z"
         }
         mock_post.return_value = mock_response
-        api = portability_client.PortabilityClient()
+        api = _portability_client.PortabilityClient()
 
         result = api.login()
 
         mock_post.assert_called_once_with(
             "http://test-server/api/session/",
             json={"token": "test-token"},
-            timeout=portability_client.REQUEST_TIMEOUT,
+            timeout=_portability_client.REQUEST_TIMEOUT,
         )
         mock_response.raise_for_status.assert_called_once()
         self.assertEqual(result, "new-session")
         self.assertEqual(api.session_token, "new-session")
 
-    @patch("data_sources.models.portability_client.requests.get")
-    @patch("data_sources.models.portability_client.requests.post")
+    @patch("data_sources.models._portability_client.requests.get")
+    @patch("data_sources.models._portability_client.requests.post")
     def test_request_without_session_logs_in_first(self, mock_post, mock_get):
         mock_post.return_value.json.return_value = {"session_token": "new-session"}
         mock_get.return_value.json.return_value = {"id": 5}
-        api = portability_client.PortabilityClient()
+        api = _portability_client.PortabilityClient()
 
         api.get_donation(5)
 
@@ -541,18 +571,18 @@ class PortabilityClientTest(TestCase):
             mock_get.call_args[1]["headers"], {"Authorization": "Token new-session"}
         )
 
-    @patch("data_sources.models.portability_client.requests.post")
+    @patch("data_sources.models._portability_client.requests.post")
     def test_login_propagates_http_error(self, mock_post):
         mock_post.return_value.raise_for_status.side_effect = requests.HTTPError(
             "401 Unauthorized"
         )
-        api = portability_client.PortabilityClient()
+        api = _portability_client.PortabilityClient()
 
         with self.assertRaises(requests.HTTPError):
             api.login()
         self.assertIsNone(api.session_token)
 
-    @patch("data_sources.models.portability_client.requests.delete")
+    @patch("data_sources.models._portability_client.requests.delete")
     def test_logout_deletes_session_and_clears_token(self, mock_delete):
         mock_response = MagicMock()
         mock_delete.return_value = mock_response
@@ -562,21 +592,21 @@ class PortabilityClientTest(TestCase):
         mock_delete.assert_called_once_with(
             "http://test-server/api/session/",
             headers=self.EXPECTED_HEADERS,
-            timeout=portability_client.REQUEST_TIMEOUT,
+            timeout=_portability_client.REQUEST_TIMEOUT,
         )
         mock_response.raise_for_status.assert_called_once()
         self.assertIsNone(self.client_api.session_token)
 
-    @patch("data_sources.models.portability_client.requests.delete")
+    @patch("data_sources.models._portability_client.requests.delete")
     def test_logout_without_session_does_nothing(self, mock_delete):
-        api = portability_client.PortabilityClient()
+        api = _portability_client.PortabilityClient()
 
         api.logout()
 
         mock_delete.assert_not_called()
 
-    @patch("data_sources.models.portability_client.requests.get")
-    @patch("data_sources.models.portability_client.requests.post")
+    @patch("data_sources.models._portability_client.requests.get")
+    @patch("data_sources.models._portability_client.requests.post")
     def test_expired_session_logs_in_again_and_retries(self, mock_post, mock_get):
         expired = MagicMock(status_code=401)
         ok = MagicMock(status_code=200)
@@ -593,12 +623,12 @@ class PortabilityClientTest(TestCase):
         mock_post.assert_called_once_with(
             "http://test-server/api/session/",
             json={"token": "test-token"},
-            timeout=portability_client.REQUEST_TIMEOUT,
+            timeout=_portability_client.REQUEST_TIMEOUT,
         )
         self.assertEqual(self.client_api.session_token, "new-session")
         self.assertEqual(result, {"id": 5, "status": "processed"})
 
-    @patch("data_sources.models.portability_client.requests.post")
+    @patch("data_sources.models._portability_client.requests.post")
     def test_expired_session_logs_in_again_and_retries_post(self, mock_post):
         expired = MagicMock(status_code=401)
         login = MagicMock(status_code=200)
@@ -611,7 +641,7 @@ class PortabilityClientTest(TestCase):
 
         donation_url = "http://test-server/api/donations/"
         payload = {"source_type": "niimport_portability"}
-        timeout = portability_client.REQUEST_TIMEOUT
+        timeout = _portability_client.REQUEST_TIMEOUT
         self.assertEqual(
             mock_post.call_args_list,
             [
@@ -626,8 +656,8 @@ class PortabilityClientTest(TestCase):
         self.assertEqual(self.client_api.session_token, "new-session")
         self.assertEqual(result, {"id": 1, "token": "abc", "status": "pending"})
 
-    @patch("data_sources.models.portability_client.requests.delete")
-    @patch("data_sources.models.portability_client.requests.post")
+    @patch("data_sources.models._portability_client.requests.delete")
+    @patch("data_sources.models._portability_client.requests.post")
     def test_expired_session_logs_in_again_and_retries_delete(self, mock_post, mock_delete):
         expired = MagicMock(status_code=401)
         ok = MagicMock(status_code=204)
@@ -643,12 +673,12 @@ class PortabilityClientTest(TestCase):
         mock_post.assert_called_once_with(
             "http://test-server/api/session/",
             json={"token": "test-token"},
-            timeout=portability_client.REQUEST_TIMEOUT,
+            timeout=_portability_client.REQUEST_TIMEOUT,
         )
         self.assertEqual(self.client_api.session_token, "new-session")
         ok.raise_for_status.assert_called_once()
 
-    @patch("data_sources.models.portability_client.requests.post")
+    @patch("data_sources.models._portability_client.requests.post")
     def test_create_donation_correct_url_headers_payload(self, mock_post):
         mock_response = MagicMock()
         mock_response.json.return_value = {"id": 1, "token": "abc", "status": "pending"}
@@ -660,12 +690,12 @@ class PortabilityClientTest(TestCase):
             "http://test-server/api/donations/",
             json={"source_type": "niimport_portability"},
             headers=self.EXPECTED_HEADERS,
-            timeout=portability_client.REQUEST_TIMEOUT,
+            timeout=_portability_client.REQUEST_TIMEOUT,
         )
         mock_response.raise_for_status.assert_called_once()
         self.assertEqual(result, {"id": 1, "token": "abc", "status": "pending"})
 
-    @patch("data_sources.models.portability_client.requests.post")
+    @patch("data_sources.models._portability_client.requests.post")
     def test_create_donation_with_optional_params(self, mock_post):
         mock_response = MagicMock()
         mock_response.json.return_value = {"id": 2, "token": "xyz", "status": "pending"}
@@ -686,7 +716,7 @@ class PortabilityClientTest(TestCase):
         self.assertEqual(sent_payload["requested_data_types"], ["activity", "posts"])
         self.assertEqual(result, {"id": 2, "token": "xyz", "status": "pending"})
 
-    @patch("data_sources.models.portability_client.requests.get")
+    @patch("data_sources.models._portability_client.requests.get")
     def test_get_donation_correct_url_and_headers(self, mock_get):
         mock_response = MagicMock()
         mock_response.json.return_value = {"id": 5, "status": "processed"}
@@ -698,12 +728,12 @@ class PortabilityClientTest(TestCase):
             "http://test-server/api/donations/5/",
             params=None,
             headers=self.EXPECTED_HEADERS,
-            timeout=portability_client.REQUEST_TIMEOUT,
+            timeout=_portability_client.REQUEST_TIMEOUT,
         )
         mock_response.raise_for_status.assert_called_once()
         self.assertEqual(result, {"id": 5, "status": "processed"})
 
-    @patch("data_sources.models.portability_client.requests.get")
+    @patch("data_sources.models._portability_client.requests.get")
     def test_get_data_correct_url_headers_and_params_forwarded(self, mock_get):
         mock_response = MagicMock()
         mock_response.json.return_value = {"data": [{"row": 1}], "count": 1}
@@ -728,12 +758,12 @@ class PortabilityClientTest(TestCase):
                 "offset": 10,
             },
             headers=self.EXPECTED_HEADERS,
-            timeout=portability_client.REQUEST_TIMEOUT,
+            timeout=_portability_client.REQUEST_TIMEOUT,
         )
         mock_response.raise_for_status.assert_called_once()
         self.assertEqual(result, {"data": [{"row": 1}], "count": 1})
 
-    @patch("data_sources.models.portability_client.requests.delete")
+    @patch("data_sources.models._portability_client.requests.delete")
     def test_delete_donation_correct_url_and_calls_raise_for_status(self, mock_delete):
         mock_response = MagicMock()
         mock_delete.return_value = mock_response
@@ -743,11 +773,11 @@ class PortabilityClientTest(TestCase):
         mock_delete.assert_called_once_with(
             "http://test-server/api/donations/3/",
             headers=self.EXPECTED_HEADERS,
-            timeout=portability_client.REQUEST_TIMEOUT,
+            timeout=_portability_client.REQUEST_TIMEOUT,
         )
         mock_response.raise_for_status.assert_called_once()
 
-    @patch("data_sources.models.portability_client.requests.get")
+    @patch("data_sources.models._portability_client.requests.get")
     def test_get_donation_propagates_http_error(self, mock_get):
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
@@ -756,7 +786,7 @@ class PortabilityClientTest(TestCase):
         with self.assertRaises(requests.HTTPError):
             self.client_api.get_donation(99)
 
-    @patch("data_sources.models.portability_client.requests.post")
+    @patch("data_sources.models._portability_client.requests.post")
     def test_create_donation_propagates_http_error(self, mock_post):
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = requests.HTTPError(
@@ -797,7 +827,7 @@ class PortabilityModelTestMixin:
         self.assertEqual(source.get_setup_url(), expected)
 
     @override_settings(PORTABILITY_SERVER_URL="http://portability")
-    @patch("data_sources.models.portability_client.PortabilityClient.create_donation")
+    @patch("data_sources.models._portability_client.PortabilityClient.create_donation")
     def test_get_setup_url_creates_donation_if_missing(self, mock_create):
         token = uuid.uuid4()
         mock_create.return_value = {"id": 1, "token": str(token)}
@@ -808,7 +838,7 @@ class PortabilityModelTestMixin:
         )
         url = source.get_setup_url()
         mock_create.assert_called_once_with(
-            source.NIIMPORT_SOURCE_TYPE,
+            source._NIIMPORT_SOURCE_TYPE,
             data_start_date=date(2024, 1, 1),
             data_end_date=date(2024, 6, 30),
             requested_data_types=["activity", "posts"],
@@ -817,7 +847,7 @@ class PortabilityModelTestMixin:
 
     # -- get_data_types ------------------------------------------------------
 
-    @patch("data_sources.models.portability_client.PortabilityClient.get_data")
+    @patch("data_sources.models._portability_client.PortabilityClient.get_data")
     def test_get_data_types_returns_list(self, mock_get_data):
         mock_get_data.return_value = {"data_types": ["activity", "posts"]}
         source = self._make_source(donation_id=42)
@@ -832,7 +862,7 @@ class PortabilityModelTestMixin:
         self.assertEqual(source.get_data_types(), [])
 
     @patch(
-        "data_sources.models.portability_client.PortabilityClient.get_data",
+        "data_sources.models._portability_client.PortabilityClient.get_data",
         side_effect=Exception("network error"),
     )
     def test_get_data_types_exception_returns_empty(self, _mock):
@@ -842,27 +872,18 @@ class PortabilityModelTestMixin:
 
     # -- fetch_data ----------------------------------------------------------
 
-    @patch("data_sources.models.portability_client.PortabilityClient.get_data")
+    @patch("data_sources.models._portability_client.PortabilityClient.get_data")
     def test_fetch_data_returns_data_list_with_correct_params(self, mock_get_data):
         rows = [{"row": 1}, {"row": 2}]
         mock_get_data.return_value = {"data": rows}
         source = self._make_source(donation_id=7)
 
-        result = source.fetch_data(
-            "activity",
-            limit=25,
-            start_date="2024-01-01",
-            end_date="2024-06-30",
-            offset=5,
-        )
+        result = source.fetch_data("activity", timestamp=0, limit=25)
 
         mock_get_data.assert_called_once_with(
             7,
             data_type="activity",
-            start_date="2024-01-01",
-            end_date="2024-06-30",
             limit=25,
-            offset=5,
         )
         self.assertEqual(result, rows)
 
@@ -871,7 +892,7 @@ class PortabilityModelTestMixin:
         self.assertEqual(source.fetch_data("activity"), [])
 
     @patch(
-        "data_sources.models.portability_client.PortabilityClient.get_data",
+        "data_sources.models._portability_client.PortabilityClient.get_data",
         side_effect=Exception("boom"),
     )
     def test_fetch_data_exception_returns_empty(self, _mock):
@@ -881,7 +902,7 @@ class PortabilityModelTestMixin:
 
     # -- count_rows ----------------------------------------------------------
 
-    @patch("data_sources.models.portability_client.PortabilityClient.get_data")
+    @patch("data_sources.models._portability_client.PortabilityClient.get_data")
     def test_count_rows_returns_count(self, mock_get_data):
         mock_get_data.return_value = {"count": 99}
         source = self._make_source(donation_id=7)
@@ -895,7 +916,7 @@ class PortabilityModelTestMixin:
         self.assertEqual(source.count_rows("activity"), 0)
 
     @patch(
-        "data_sources.models.portability_client.PortabilityClient.get_data",
+        "data_sources.models._portability_client.PortabilityClient.get_data",
         side_effect=Exception("boom"),
     )
     def test_count_rows_exception_returns_zero(self, _mock):
@@ -905,20 +926,20 @@ class PortabilityModelTestMixin:
 
     # -- revoke_before_delete ------------------------------------------------
 
-    @patch("data_sources.models.portability_client.PortabilityClient.delete_donation")
+    @patch("data_sources.models._portability_client.PortabilityClient.delete_donation")
     def test_revoke_before_delete_calls_delete_donation(self, mock_delete):
         source = self._make_source(donation_id=5)
         source.revoke_before_delete()
         mock_delete.assert_called_once_with(5)
 
-    @patch("data_sources.models.portability_client.PortabilityClient.delete_donation")
+    @patch("data_sources.models._portability_client.PortabilityClient.delete_donation")
     def test_revoke_before_delete_without_donation_id_skips_call(self, mock_delete):
         source = self._make_source(donation_id=None)
         source.revoke_before_delete()
         mock_delete.assert_not_called()
 
     @patch(
-        "data_sources.models.portability_client.PortabilityClient.delete_donation",
+        "data_sources.models._portability_client.PortabilityClient.delete_donation",
         side_effect=Exception("server down"),
     )
     def test_revoke_before_delete_swallows_exception(self, _mock):
@@ -929,7 +950,7 @@ class PortabilityModelTestMixin:
 
     # -- _process_data -------------------------------------------------------
 
-    @patch("data_sources.models.portability_client.PortabilityClient.get_donation")
+    @patch("data_sources.models._portability_client.PortabilityClient.get_donation")
     def test_process_data_processed_sets_active_status(self, mock_get_donation):
         mock_get_donation.return_value = {"status": "processed"}
         source = self._make_source(donation_id=10)
@@ -940,7 +961,7 @@ class PortabilityModelTestMixin:
         self.assertEqual(source.processing_status, "processed")
         self.assertEqual(source.status, "active")
 
-    @patch("data_sources.models.portability_client.PortabilityClient.get_donation")
+    @patch("data_sources.models._portability_client.PortabilityClient.get_donation")
     def test_process_data_error_sets_error_processing_status(self, mock_get_donation):
         mock_get_donation.return_value = {"status": "error"}
         source = self._make_source(donation_id=10)
@@ -950,7 +971,7 @@ class PortabilityModelTestMixin:
         source.refresh_from_db()
         self.assertEqual(source.processing_status, "error")
 
-    @patch("data_sources.models.portability_client.PortabilityClient.get_donation")
+    @patch("data_sources.models._portability_client.PortabilityClient.get_donation")
     def test_process_data_authorized_sets_authorized_processing_status(
         self, mock_get_donation
     ):
@@ -962,7 +983,7 @@ class PortabilityModelTestMixin:
         source.refresh_from_db()
         self.assertEqual(source.processing_status, "authorized")
 
-    @patch("data_sources.models.portability_client.PortabilityClient.get_donation")
+    @patch("data_sources.models._portability_client.PortabilityClient.get_donation")
     def test_process_data_processing_sets_processing_status(self, mock_get_donation):
         mock_get_donation.return_value = {"status": "processing"}
         source = self._make_source(donation_id=10)
@@ -972,7 +993,7 @@ class PortabilityModelTestMixin:
         source.refresh_from_db()
         self.assertEqual(source.processing_status, "processing")
 
-    @patch("data_sources.models.portability_client.PortabilityClient.get_donation")
+    @patch("data_sources.models._portability_client.PortabilityClient.get_donation")
     def test_process_data_without_donation_id_returns_without_api_call(
         self, mock_get_donation
     ):
@@ -981,7 +1002,7 @@ class PortabilityModelTestMixin:
         mock_get_donation.assert_not_called()
 
     @patch(
-        "data_sources.models.portability_client.PortabilityClient.get_donation",
+        "data_sources.models._portability_client.PortabilityClient.get_donation",
         side_effect=Exception("timeout"),
     )
     def test_process_data_swallows_exception(self, _mock):
@@ -1012,7 +1033,7 @@ class PortabilityViewCreationRollbackTest(TestCase):
         self.client.login(username="testuser", password="testpass")
 
     @patch(
-        "data_sources.models.portability_client.PortabilityClient.create_donation",
+        "data_sources.models._portability_client.PortabilityClient.create_donation",
         side_effect=Exception("portability server unreachable"),
     )
     def test_niimport_creation_failure_redirects_to_dashboard(self, _mock):
@@ -1026,7 +1047,7 @@ class PortabilityViewCreationRollbackTest(TestCase):
         self.assertRedirects(response, reverse("dashboard"))
 
     @patch(
-        "data_sources.models.portability_client.PortabilityClient.create_donation",
+        "data_sources.models._portability_client.PortabilityClient.create_donation",
         side_effect=Exception("portability server unreachable"),
     )
     def test_niimport_creation_failure_rolls_back_source(self, _mock):
@@ -1042,7 +1063,7 @@ class PortabilityViewCreationRollbackTest(TestCase):
         )
 
     @patch(
-        "data_sources.models.portability_client.PortabilityClient.create_donation",
+        "data_sources.models._portability_client.PortabilityClient.create_donation",
         side_effect=Exception("portability server unreachable"),
     )
     def test_tiktok_creation_failure_redirects_to_dashboard(self, _mock):
@@ -1062,7 +1083,7 @@ class PortabilityViewDeleteTest(TestCase):
         self.profile = Profile.objects.create(user=self.user)
         self.client.login(username="testuser", password="testpass")
 
-    @patch("data_sources.models.portability_client.PortabilityClient.delete_donation")
+    @patch("data_sources.models._portability_client.PortabilityClient.delete_donation")
     def test_delete_niimport_source_calls_delete_donation(self, mock_delete):
         source = NiimportDataSource.objects.create(
             profile=self.profile,
@@ -1072,7 +1093,7 @@ class PortabilityViewDeleteTest(TestCase):
         self.client.post(reverse("delete_data_source", args=[source.id]))
         mock_delete.assert_called_once_with(42)
 
-    @patch("data_sources.models.portability_client.PortabilityClient.delete_donation")
+    @patch("data_sources.models._portability_client.PortabilityClient.delete_donation")
     def test_delete_niimport_source_removes_from_db(self, _mock):
         source = NiimportDataSource.objects.create(
             profile=self.profile,
@@ -1336,3 +1357,32 @@ class BaseDataSourceMarkDeletableTest(TestCase):
     def test_mark_deletable_returns_none(self):
         result = self.base.mark_deletable("battery", 1234567890000)
         self.assertIsNone(result)
+
+
+class MatchesConfigurationTest(TestCase):
+    """DataSource.matches_configuration: subset match on configuration keys."""
+
+    def setUp(self):
+        user = User.objects.create_user(username="matchuser", password="testpass")
+        profile = Profile.objects.create(user=user)
+        self.source = JsonUrlDataSource.objects.create(
+            profile=profile,
+            name="Match",
+            url="https://example.com/data.json",
+            configuration={"a": 1, "b": "x"},
+        )
+
+    def test_empty_or_none_matches(self):
+        self.assertTrue(self.source.matches_configuration({}))
+        self.assertTrue(self.source.matches_configuration(None))
+
+    def test_all_given_keys_equal_matches(self):
+        self.assertTrue(self.source.matches_configuration({"a": 1}))
+        self.assertTrue(self.source.matches_configuration({"a": 1, "b": "x"}))
+
+    def test_different_value_does_not_match(self):
+        self.assertFalse(self.source.matches_configuration({"a": 2}))
+
+    def test_missing_key_counts_as_none(self):
+        self.assertFalse(self.source.matches_configuration({"c": 1}))
+        self.assertTrue(self.source.matches_configuration({"c": None}))

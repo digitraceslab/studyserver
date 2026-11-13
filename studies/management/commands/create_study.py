@@ -1,4 +1,11 @@
-"""Management command to set up a new deployment: create a superuser and study."""
+"""Management command to set up a new deployment: create a superuser and study.
+
+Usage: ``python manage.py create_study`` (interactive, no arguments). Fails
+with CommandError if a study already exists. Prompts for a superuser only if
+none exists, then for the study fields and comma-separated required and
+optional source types. An unknown source type raises CommandError after the
+Study row has been created, leaving the study without (some of) its sources.
+"""
 import getpass
 
 from django.contrib.auth.models import User
@@ -9,7 +16,7 @@ from studies.models import Study, StudySourceConfiguration
 from users.models import Profile
 
 
-def get_available_source_types():
+def _get_available_source_types():
     # Use the registered SOURCE_TYPE slugs (stored verbatim in
     # StudySourceConfiguration.source_type), not class names.
     return DataSource.registered_source_types()
@@ -47,7 +54,7 @@ class Command(BaseCommand):
             self.stdout.write('Superuser already exists, skipping.\n')
 
         # --- Study ---
-        source_types = get_available_source_types()
+        source_types = _get_available_source_types()
 
         self.stdout.write('\n=== Create Study ===\n')
 

@@ -1,17 +1,32 @@
+"""Study forms: admin forms for studies and sources, and participant consent forms."""
+
 from django import forms
 from django.apps import apps
-from .models import Study, DataSource, StudySourceConfiguration
+from data_sources.models import DataSource
+
+from .models import Study, StudySourceConfiguration
 
 
-def get_data_source_type_choices():
-    choices = []
-    for source_type, cls in DataSource._data_source_types.items():
-        label = source_type.replace('_', ' ').title()
-        choices.append((source_type, label))
-    return choices
+def _get_data_source_type_choices():
+    """Return the choices for the registered data source types.
+
+    Returns:
+        ``(source_type, label)`` choices for every registered data source type.
+    """
+    return [
+        (source_type, source_type.replace('_', ' ').title())
+        for source_type in DataSource.registered_source_types()
+    ]
 
 
 class StudyAdminForm(forms.ModelForm):
+    """Admin form for Study that stops a researcher from removing themselves.
+
+    The caller must set ``form.user`` (the editing user) on the form class
+    before validation; the ``request`` keyword is accepted but unused. When
+    editing an existing study, a non-superuser must stay in ``researchers``.
+    """
+
     class Meta:
         model = Study
         fields = '__all__'
@@ -34,6 +49,9 @@ class StudyAdminForm(forms.ModelForm):
 
 
 class SourceConfigurationInlineForm(forms.ModelForm):
+    """``source_type`` offers the registered types; an existing unregistered
+    value is kept as an extra choice so the row can still be saved."""
+
     source_type = forms.ChoiceField(choices=[])
 
     class Meta:
@@ -42,7 +60,7 @@ class SourceConfigurationInlineForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        choices = get_data_source_type_choices()
+        choices = _get_data_source_type_choices()
         if self.instance.pk and self.instance.source_type:
             existing = self.instance.source_type
             if not any(c[0] == existing for c in choices):
@@ -51,6 +69,8 @@ class SourceConfigurationInlineForm(forms.ModelForm):
 
 
 class StudySourceConfigurationForm(forms.ModelForm):
+    """Like SourceConfigurationInlineForm, plus the study and configuration fields."""
+
     source_type = forms.ChoiceField(choices=[])
 
     class Meta:
@@ -59,7 +79,7 @@ class StudySourceConfigurationForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        choices = get_data_source_type_choices()
+        choices = _get_data_source_type_choices()
         if self.instance.pk and self.instance.source_type:
             existing = self.instance.source_type
             if not any(c[0] == existing for c in choices):
@@ -73,7 +93,7 @@ class ConsentAcceptanceForm(forms.Form):
 
 class DataSourceSelectionForm(forms.Form):
     source_id = forms.ChoiceField(choices=[], required=False, label="Select existing source")
-        
+
     def __init__(self, *args, available_sources=None, **kwargs):
         super().__init__(*args, **kwargs)
         if available_sources:

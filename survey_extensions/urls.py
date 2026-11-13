@@ -1,3 +1,4 @@
+"""URLs that shadow survey-library routes; mounted before ``survey.urls``."""
 from django.urls import re_path
 
 from survey_extensions.views import survey_csv_disabled

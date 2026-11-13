@@ -1,26 +1,54 @@
-import importlib
+"""Participant-facing views for data sources, mounted under /data-sources/.
+
+Unless a view says otherwise: it requires login (anonymous users are
+redirected to the login page), it acts only on a source owned by the
+logged-in user's profile (for any other or unknown ``source_id``,
+``get_object_or_404`` raises Http404, which Django turns into a 404),
+and it accepts any HTTP method. POST requests go through Django's CSRF
+check (403 without a valid token). Outcomes are reported with Django
+messages, usually followed by a redirect to the dashboard.
+"""
+
 from django.apps import apps
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import Http404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.contrib import messages
-from django.utils import timezone
 from urllib.parse import urlencode
-from . import forms
 from .forms import JsonUrlDataSourceForm, AwareDataSourceForm, DataFilterForm
 from .models import DataSource, AwareDataSource, JsonUrlDataSource
 from studies.models import Consent, StudySourceConfiguration
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 import zoneinfo
 
 from urllib.parse import urlencode
 
 
-def form_has_only_name_field(form):
+def _form_has_only_name_field(form):
+    """Check whether ``name`` is the form's only enabled field.
+
+    Args:
+        form: The form to inspect.
+
+    Returns:
+        True when ``name`` is the only field that is not disabled.
+    """
     return [name for name, field in form.fields.items() if not field.disabled] == ['name']
 
-def source_default_title(source_title, consent_id=None, profile = None):
+
+def _source_default_title(source_title, consent_id=None, profile = None):
+    """Build the default source name: "<title> Source".
+
+    Args:
+        source_title: Title of the source type.
+        consent_id: Optional consent id; when it is a consent of ``profile``,
+            " for <study title>" is appended.
+        profile: Profile that must own the consent.
+
+    Returns:
+        The default name.
+    """
     default_name = f"{source_title} Source"
     if consent_id:
         consent = Consent.objects.filter(
@@ -32,7 +60,16 @@ def source_default_title(source_title, consent_id=None, profile = None):
             default_name += f" for {study.title}"
     return default_name
 
-def link_consent_to_source(consent_id, data_source, profile):
+def _link_consent_to_source(consent_id, data_source, profile):
+    """Complete ``profile``'s consent ``consent_id`` with ``data_source``.
+
+    Does nothing when the consent does not exist or belongs to someone else.
+
+    Args:
+        consent_id: Id of the consent to complete.
+        data_source: Source to complete the consent with.
+        profile: Profile that must own the consent.
+    """
     consent = Consent.objects.filter(
         id=consent_id,
         participant=profile
@@ -43,6 +80,12 @@ def link_consent_to_source(consent_id, data_source, profile):
 
 @login_required
 def select_data_source_type(request):
+    """GET /data-sources/add/: page listing the source types to add.
+
+    Renders ``data_sources/select_source_type.html`` with ``types`` (slug
+    and label per type). Lists only types defined in the data_sources app,
+    so types from other apps (survey) are not offered.
+    """
     source_types = []
     all_models = apps.get_app_config('data_sources').get_models()
     for model in all_models:
@@ -57,7 +100,41 @@ def select_data_source_type(request):
     return render(request, 'data_sources/select_source_type.html', {'types': source_types})
 
 
+@login_required
 def add_data_source(request, source_type):
+    """/data-sources/add/<source_type>/: create a source of that type for the user.
+
+    Query parameters (kept in the form's POST URL): ``consent_id``, a consent of the user
+    to complete with the new source; ``source_configuration_id``, a
+    StudySourceConfiguration of this type whose configuration is passed to
+    the form. The configuration is not checked against the user's studies
+    or consents. The new source copies configuration, data dates and
+    requested data types from the consent, else from the configuration.
+
+    POST creates the source. GET creates it at once, with the default name,
+    when the form has only a name field (other fields disabled) and
+    ``consent_id`` is a consent of the user with no data source yet. The
+    new source is linked to the consent; its status is "active" unless the
+    type needs setup or confirmation.
+
+    Args:
+        source_type: Source type slug (``SOURCE_TYPE``) from the URL.
+
+    Returns:
+        - Any other GET: ``data_sources/add_data_source.html`` with the
+          default name filled in (for a name-only form, a confirmation
+          page).
+        - Invalid POST data: the form re-rendered (200) with the errors as
+          messages.
+        - After creating, when ``requires_setup``: a redirect to
+          ``get_setup_url()`` (with ``?consent_id=``), or, if that raises,
+          the source is deleted and a redirect to the dashboard.
+        - After creating otherwise: a redirect to ``consent_workflow``
+          (with a consent) or the dashboard.
+
+    Raises:
+        Http404: Unknown type or no registered form.
+    """
     consent_id = request.GET.get('consent_id')
     source_configuration_id = request.GET.get('source_configuration_id')
     source_configuration = None
@@ -70,7 +147,7 @@ def add_data_source(request, source_type):
         raise Http404("Data source does not have a valid model and form class.")
 
     source_title = source_type.replace('_', ' ')
-    default_name = source_default_title(source_title, consent_id, request.user.profile)
+    default_name = _source_default_title(source_title, consent_id, request.user.profile)
 
     form_configuration = {}
     if source_configuration_id:
@@ -86,11 +163,13 @@ def add_data_source(request, source_type):
         if form_configuration:
             form_kwargs['configuration'] = form_configuration
         form = FormClass(**form_kwargs)
-        if form_has_only_name_field(form):
-            # Create a form that is already filled, no user input needed
+        open_consent = consent_id and Consent.objects.filter(
+            id=consent_id, participant=request.user.profile, data_source__isnull=True
+        ).exists()
+        if open_consent and _form_has_only_name_field(form):
+            # No user input needed: fill the form and create at once
             form = FormClass({'name': default_name}, **({k: v for k, v in form_kwargs.items() if k != 'initial'}))
         else:
-            # Actually render the form and wait for a post
             return render(
                 request,
                 'data_sources/add_data_source.html',
@@ -122,7 +201,7 @@ def add_data_source(request, source_type):
 
         # Link to consent if coming from consent workflow
         if consent_id:
-            link_consent_to_source(consent_id, new_source, request.user.profile)
+            _link_consent_to_source(consent_id, new_source, request.user.profile)
         
 
         if new_source.requires_setup:
@@ -155,7 +234,20 @@ def add_data_source(request, source_type):
 @require_POST
 @login_required
 def delete_data_source(request, source_id):
-    source = get_object_or_404(DataSource, id=source_id, profile=request.user.profile)
+    """POST /data-sources/<source_id>/delete/: delete the user's source.
+
+    Other methods get 405, checked before login. Refused (error message)
+    while any unrevoked consent links to the source. Otherwise calls
+    ``revoke_before_delete()``, unlinks revoked consents and deletes the
+    row.
+
+    Args:
+        source_id: Id of the source to delete, from the URL.
+
+    Returns:
+        A redirect to the dashboard, always.
+    """
+    source =get_object_or_404(DataSource, id=source_id, profile=request.user.profile)
     real_source = source.get_real_instance()
     source_name = source.name
 
@@ -185,7 +277,23 @@ def delete_data_source(request, source_id):
 
 @login_required
 def view_data_source(request, source_id):
-    source = get_object_or_404(DataSource, id=source_id, profile=request.user.profile)
+    """GET /data-sources/<source_id>/: browse the user's own data, 100 rows a page.
+
+    Query parameters: ``data_type`` (one of ``get_data_types()``),
+    ``start_date`` / ``end_date`` (dates, Europe/Helsinki; the form
+    defaults to today), and ``cursor`` (Unix ms, from the next-page link).
+    Invalid filters are shown as messages. Calls ``fetch_data`` with the base
+    cursor signature, so it raises (500) for ``NiimportDataSource``, and
+    treats a non-list result as no rows. Does not check consent.
+
+    Args:
+        source_id: Id of the source to browse, from the URL.
+
+    Returns:
+        ``data_sources/data_source_detail.html`` rendered with the rows,
+        headers (the first row's keys), total count and next cursor.
+    """
+    source =get_object_or_404(DataSource, id=source_id, profile=request.user.profile)
     real_instance = source.get_real_instance()
 
     data_types = real_instance.get_data_types()
@@ -268,7 +376,17 @@ def view_data_source(request, source_id):
 
 @login_required
 def edit_data_source(request, source_id):
-    source = get_object_or_404(DataSource, id=source_id, profile=request.user.profile)
+    """/data-sources/<source_id>/edit/: edit the user's AWARE or JSON URL source.
+
+    Other types get an error message and a redirect to the dashboard.
+    GET renders the form in ``data_sources/add_data_source.html``. A valid
+    POST saves (AWARE: name; JSON URL: name and URL) and redirects to the
+    dashboard; an invalid one re-renders the form (200).
+
+    Args:
+        source_id: Id of the source to edit, from the URL.
+    """
+    source =get_object_or_404(DataSource, id=source_id, profile=request.user.profile)
     real_instance = source.get_real_instance()
 
     # Select the correct form based on the model's class
@@ -301,7 +419,19 @@ def edit_data_source(request, source_id):
 
 @login_required
 def instructions(request, source_id):
-    source = get_object_or_404(DataSource, id=source_id, profile=request.user.profile)
+    """GET /data-sources/instructions/<source_id>/: setup instructions page.
+
+    Renders the source's ``get_instructions_card`` inside
+    ``data_sources/instructions_wrapper.html``. The optional ``consent_id``
+    query parameter is passed through unchecked. ``study_id`` is always
+    None: the consent lookup only runs when ``consent_id`` is empty. Types
+    without an instructions card (only AWARE has one) raise TypeError, a
+    500.
+
+    Args:
+        source_id: Id of the source to show instructions for, from the URL.
+    """
+    source =get_object_or_404(DataSource, id=source_id, profile=request.user.profile)
     real_source = source.get_real_instance()
 
     consent_id = request.GET.get('consent_id')
@@ -329,8 +459,18 @@ def instructions(request, source_id):
 
 
 @login_required
+@require_POST
 def confirm_data_source(request, source_id):
-    source = get_object_or_404(DataSource, id=source_id, profile=request.user.profile)
+    """POST /data-sources/<source_id>/confirm/: run the source's ``confirm``.
+
+    Other methods get 405 (after the login check, so anonymous users are
+    redirected to login first). Shows the returned message as success or
+    error and always redirects to the dashboard.
+
+    Args:
+        source_id: Id of the source to confirm, from the URL.
+    """
+    source =get_object_or_404(DataSource, id=source_id, profile=request.user.profile)
     real_source = source.get_real_instance()
 
     success, message = real_source.confirm(request)
@@ -344,7 +484,28 @@ def confirm_data_source(request, source_id):
 
 
 def token_view_dispatcher(request, token, view_type):
-    source = get_object_or_404(DataSource, config_token=token)
+    """/data-sources/config/<token>/<view_type>/: token-authenticated source pages.
+
+    No login: the source's secret ``config_token`` is the only
+    authorization, and any source with that token is used, whoever owns
+    it. POSTs need a CSRF token.
+
+    Args:
+        token: The source's ``config_token`` (UUID), from the URL.
+        view_type: Which token view to show, from the URL; interpreted by
+            the source.
+
+    Returns:
+        The response of the source's
+        ``handle_token_view(request, token, view_type)`` (see
+        ``AwareDataSource.handle_token_view``). For an unknown
+        ``view_type`` that is None, and Django raises ValueError (500).
+
+    Raises:
+        Http404: No source has this token.
+        AttributeError: The source type has no ``handle_token_view`` (500).
+    """
+    source =get_object_or_404(DataSource, config_token=token)
     real_source = source.get_real_instance()
     
     return real_source.handle_token_view(request, token, view_type)
@@ -352,7 +513,15 @@ def token_view_dispatcher(request, token, view_type):
 
 @login_required
 def auth_start(request, source_id):
-    source = get_object_or_404(DataSource, id=source_id, profile=request.user.profile)
+    """/data-sources/oauth/start/<source_id>/: redirect to the source's OAuth page.
+
+    Redirects to ``get_auth_url(request)``. No built-in type defines that
+    method, so this currently always gives a 500.
+
+    Args:
+        source_id: Id of the source to authorize, from the URL.
+    """
+    source =get_object_or_404(DataSource, id=source_id, profile=request.user.profile)
     real_source = source.get_real_instance()
 
     auth_url = real_source.get_auth_url(request)
@@ -361,7 +530,16 @@ def auth_start(request, source_id):
 
 @login_required
 def auth_callback(request):
-    state = request.GET.get('state')
+    """/data-sources/oauth/callback/: OAuth provider redirect target.
+
+    An ``error`` or missing ``state`` query parameter gives an error
+    message. Otherwise finds the user's own source whose ``oauth_state``
+    equals ``state`` and calls its ``handle_auth_callback(request)``,
+    ignoring the result. No matching source gives a 500, as does a type
+    without that method (no built-in type has one). Always redirects to
+    the dashboard otherwise.
+    """
+    state =request.GET.get('state')
     error = request.GET.get('error')
 
     if error:

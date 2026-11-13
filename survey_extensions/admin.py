@@ -1,3 +1,4 @@
+"""Survey admin with the username-leaking export actions removed."""
 from django.contrib import admin
 
 from survey.actions import make_published

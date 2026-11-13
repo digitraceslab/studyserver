@@ -9,6 +9,10 @@ from survey_datasource.models import SurveyDataSource
 @datasourceadmin(SurveyDataSource)
 @admin.register(SurveyDataSource)
 class SurveyDataSourceAdmin(PolymorphicChildModelAdmin):
+    """Admin for survey data sources, registered as a child of ``DataSource``.
+
+    Lists name, device_id and profile; ``device_id`` is read-only.
+    """
     base_model = DataSource
     show_in_index = True
     readonly_fields = ('device_id',)

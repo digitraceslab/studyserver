@@ -39,7 +39,11 @@
     <div class="source-setup-section">
         <h3> Setup Required for {{ item.source.display_type }} </h3>
 
-        After following the setup instructions, <a href="{{ item.source.get_confirm_url }}" class="source-check-link">Click here to check for data</a>
+        <form method="post" action="{{ item.source.get_confirm_url }}" class="source-check-form">
+            {% csrf_token %}
+            After following the setup instructions,
+            <button class="btn btn-secondary btn-small source-check-link">Check for data</button>
+        </form>
 
         {% if forloop.first %}
             {% include instructions_template %}

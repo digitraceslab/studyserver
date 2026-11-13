@@ -17,7 +17,7 @@
 
         {% if source.requires_confirmation %}
             <p class="setup-alt-note"><strong>Or if you've already set up:</strong></p>
-            <a href="{{ source.get_confirm_url }}?consent_id={{ consent.id }}" class="check-data-button btn btn-primary">Check for Data</a>
+            <form method="post" action="{{ source.get_confirm_url }}">{% csrf_token %}<button type="submit" class="check-data-button btn btn-primary">Check for Data</button></form>
         {% endif %}
     {% endif %}
 
@@ -39,7 +39,7 @@
 
                 {% if source.requires_confirmation %}
                     <p class="setup-alt-note"><strong>Or if you've already set up:</strong></p>
-                    <a href="{{ source.get_confirm_url }}?consent_id={{ consent.id }}" class="check-data-button btn btn-primary">Check for Data</a>
+                    <form method="post" action="{{ source.get_confirm_url }}">{% csrf_token %}<button type="submit" class="check-data-button btn btn-primary">Check for Data</button></form>
                 {% endif %}
             {% endif %}
         {% endif %}

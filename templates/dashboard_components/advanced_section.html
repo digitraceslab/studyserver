@@ -8,7 +8,7 @@
         <span class="source-date-added">Added {{ source.date_added|date:"Y-m-d H:i" }}</span>
 
         {% if source.status == 'pending' and source.get_confirm_url %}
-            <a href="{{ source.get_confirm_url }}">(Check for Data)</a>
+            <form method="post" action="{{ source.get_confirm_url }}">{% csrf_token %}<button type="submit">(Check for Data)</button></form>
         {% endif %}
 
         <a href="{% url 'view_data_source' source.id %}">(View Data)</a>

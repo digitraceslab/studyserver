@@ -1,3 +1,7 @@
+"""Django admin for data sources: a polymorphic parent admin and one child
+admin per built-in type. Other apps register their child admins with
+``@datasourceadmin``. Access is the Django admin's own (staff users)."""
+
 from django.contrib import admin
 from polymorphic.admin import PolymorphicParentModelAdmin, PolymorphicChildModelAdmin
 from .models import DataSource, NiimportDataSource, AwareDataSource, JsonUrlDataSource
@@ -34,6 +38,7 @@ class DataSourceAdmin(PolymorphicParentModelAdmin):
     base_model = DataSource
 
     def get_child_models(self):
+        """Return the child models registered with ``@datasourceadmin``."""
         return DataSource.get_registered_admin_child_models()
 
 

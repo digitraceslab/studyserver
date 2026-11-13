@@ -1,3 +1,5 @@
+"""JSON URL data source: rows fetched live from a participant-given URL."""
+
 import uuid
 
 from django.db import models
@@ -6,24 +8,33 @@ from .base import DataSource
 import requests
 
 class JsonUrlDataSource(DataSource):
+    """Data source whose data is the JSON list served at ``url``.
+
+    No setup or confirmation: active at once. The URL is fetched from the
+    server on every call (10 s timeout), so whoever sets ``url`` makes the
+    server send a GET request to it. Does not support deletion.
+    """
+
     SOURCE_TYPE = "json_url"
-    
+
     url = models.URLField(max_length=500, help_text="The URL where the JSON data can be fetched")
 
     @property
     def display_type(self):
-        """Returns a user-friendly name for the data source type."""
+        """User-friendly name for the data source type ("JSON URL Data")."""
         return self.display_type_for_configuration(self.configuration)
 
     @classmethod
     def display_type_for_configuration(cls, configuration):
+        """Always "JSON URL Data"; the configuration is ignored."""
         return "JSON URL Data"
-    
+
     def get_data_types(self):
+        """Always ``["raw_json"]``."""
         return ["raw_json"]
 
     def fetch_data(self, data_type, timestamp=0, limit=1000):
-        """Fetches and returns the JSON data from the source URL.
+        """Fetch the JSON data from the source URL.
 
         Filters to rows with ``int(row['timestamp']) >= timestamp``, sorts
         ascending by timestamp, then applies the soft-limit rule: up to
@@ -31,7 +42,28 @@ class JsonUrlDataSource(DataSource):
         last timestamp so the caller can advance its cursor safely.
 
         json_url does not support deletion, so the soft-limit / cursor
-        behaviour is best-effort."""
+        behaviour is best-effort.
+
+        Rows are the served JSON objects (a single object is treated as a
+        one-row list) with ``device_id`` set to this source's device_id,
+        generated and saved on first use; a served ``device_id`` is kept as
+        ``json_device_id``.
+
+        Args:
+            data_type: Must be "raw_json".
+            timestamp: Unix-ms cursor; only rows at or after it are returned.
+            limit: Soft maximum number of rows.
+
+        Returns:
+            The rows. Unlike ``DataSource.fetch_data`` it does not always
+            return a list: ``(False, "No consent found.")`` without an active
+            consent, ``{"error": ...}`` for a data type other than "raw_json"
+            or when the request fails or the response is not JSON.
+
+        Raises:
+            KeyError: If a served object has no ``timestamp``.
+            ValueError: If a ``timestamp`` is not int-convertible.
+        """
         if not self.has_active_consent():
             return False, "No consent found."
 
@@ -78,7 +110,18 @@ class JsonUrlDataSource(DataSource):
             return {"error": f"Could not fetch data from URL: {e}"}
 
     def count_rows(self, data_type, start_date=None, end_date=None):
-        """Return number of rows for the given data_type. This will fetch the JSON and count entries."""
+        """Count the rows for the given data_type by fetching the JSON and counting entries.
+
+        Does not check consent.
+
+        Args:
+            data_type: Must be "raw_json".
+            start_date: Ignored.
+            end_date: Ignored.
+
+        Returns:
+            The row count; 0 for an unknown data type or a failed request.
+        """
         if data_type != 'raw_json':
             return 0
 

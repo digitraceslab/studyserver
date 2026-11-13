@@ -27,9 +27,7 @@
     <span class="consent-status consent-status-processing">Waiting for data.</span>
     </br>This data source is set up and awaiting data.
     {% if consent.source.get_confirm_url %}
-        <a href="{{ consent.source.get_confirm_url }}?consent_id={{ consent.consent.id }}" class="data-check-link">
-            Check for data
-        </a>
+        <form method="post" action="{{ consent.source.get_confirm_url }}">{% csrf_token %}<button type="submit" class="data-check-link">Check for data</button></form>
     {% endif %}
     <a href="{% url 'revoke_consent' consent.consent.id %}" class="revoke-link">
         (Revoke)

@@ -1,3 +1,22 @@
+"""Admin pages for the study, its participants, consents and legal texts.
+
+Access: Django admin (staff login). Superusers see everything; other users
+(researchers, given model permissions by the "Researchers" group, see
+studies/apps.py) see only studies they are listed in as researchers and those
+studies' participants and consents. Participants are shown by pseudo_id only.
+
+Custom URLs under `/admin/studies/studyparticipant/` (staff login required;
+scoped to the user's own participants, 404 otherwise):
+- `<id>/approve/`, `<id>/unapprove/` (`studies_studyparticipant_approve`,
+  `..._unapprove`): POST sets `researcher_approved` (needs change
+  permission); GET only redirects to the change page.
+- `<id>/send-email/` (`studies_studyparticipant_send_email`): GET shows an
+  email form, POST sends it to that participant (needs view permission).
+- `send-email-by-ids/` (`studies_studyparticipant_send_email_by_ids`): GET
+  form, POST emails participants listed by pseudo_id.
+Recipient addresses are never shown to the sender.
+"""
+
 import json
 import re
 import uuid
@@ -92,7 +111,12 @@ class SendParticipantEmailByIdsForm(SendParticipantEmailForm):
 
 
 def _consent_summary(study_participant):
-    """(required_complete, required_total, optional_complete, optional_total) for a participant."""
+    """Count a participant's complete and total consents.
+
+    Returns:
+        (required_complete, required_total, optional_complete, optional_total)
+        for the participant.
+    """
     consents = study_participant.consents.filter(revocation_date__isnull=True)
     required = consents.filter(is_optional=False)
     optional = consents.filter(is_optional=True)
@@ -400,7 +424,11 @@ class StudyParticipantAdmin(admin.ModelAdmin):
         )
 
     def _reply_to_contacts(self, request):
-        """Distinct study contact emails visible to this user, for Reply-to."""
+        """Get distinct study contact emails visible to this user, for Reply-to.
+
+        Returns:
+            The list of contact emails.
+        """
         contacts = []
         qs = self.get_queryset(request)
         for contact in qs.values_list("study__contact_email", flat=True).distinct():
@@ -489,13 +517,21 @@ class StudyParticipantAdmin(admin.ModelAdmin):
         """Send one email synchronously, never exposing the recipient address.
 
         The From address stays on the authenticated DEFAULT_FROM_EMAIL domain so
-        it isn't spam-filtered; reply_to (the sender's chosen Reply-to address)
-        is where participant replies go. Returns 1 on success, 0 if the
-        participant has no usable email address.
+        it isn't spam-filtered.
+
+        Args:
+            study_participant: The participant to email.
+            subject: The email subject.
+            message: The email body.
+            reply_to: The sender's chosen Reply-to address, where participant
+                replies go.
+
+        Returns:
+            1 on success, 0 if the participant has no usable email address.
         """
         if not study_participant.participant:
             return 0
-        recipient = study_participant.participant.user.email
+        recipient = study_participant.participant.email
         if not recipient:
             return 0
         email = EmailMessage(
@@ -508,7 +544,14 @@ class StudyParticipantAdmin(admin.ModelAdmin):
         return email.send(fail_silently=False)
 
     def _send_researcher_copy(self, request, subject, message, participants):
-        """Email the sending researcher a copy listing who received the message."""
+        """Email the sending researcher a copy listing who received the message.
+
+        Args:
+            request: The current request; its user is the researcher.
+            subject: The subject of the original email.
+            message: The body of the original email.
+            participants: The participants who received the message.
+        """
         if not request.user.email or not participants:
             return
         id_list = "\n".join(str(p.pseudo_id) for p in participants)

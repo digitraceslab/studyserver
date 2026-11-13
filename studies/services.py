@@ -1,3 +1,10 @@
+"""Study content fetched from the study's configuration repository.
+
+Pages and consent texts can live in a config repository (``Study.config_url``).
+These helpers fetch them over HTTP with a 5 s timeout and cache successful
+responses for 300 s.
+"""
+
 import os
 import requests
 from django.core.cache import cache
@@ -6,6 +13,17 @@ from django.conf import settings
 
 
 def get_study_page_html(repo_url):
+    """Return the study front page HTML from ``<repo_url>/front_page.html``.
+
+    Never raises: returns a "not configured" heading when ``repo_url`` is
+    empty, and an error heading with the exception text when the fetch fails.
+
+    Args:
+        repo_url: The raw content base URL (``Study.raw_content_base_url``).
+
+    Returns:
+        A Django template source; the caller renders it.
+    """
     if not repo_url:
         return "<h2>Study page has not been configured.</h2>"
     
@@ -31,6 +49,23 @@ def _get_default_consent_template():
         return f.read()
 
 def get_consent_template(study, source_type, source_configuration=None):
+    """Return the consent page template source for one source type.
+
+    Order: ``source_configuration.consent_template_html`` when set; else
+    ``consent_<source_type lowercased>.html`` from the study's config
+    repository (cached per study and source type); else the default
+    ``templates/studies/consent_default.html`` (also used when the study has
+    no config repository or the fetch fails). Never raises for fetch errors.
+
+    Args:
+        study: The study whose config repository is consulted.
+        source_type: The source type the consent page is for.
+        source_configuration: Optional source configuration whose
+            ``consent_template_html`` takes precedence when set.
+
+    Returns:
+        The consent page template source.
+    """
     # A per-source-configuration consent template, when set by the researcher,
     # takes precedence over the repo-fetched template.
     if source_configuration is not None and source_configuration.consent_template_html:

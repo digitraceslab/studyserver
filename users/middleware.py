@@ -15,6 +15,14 @@ from .models import Profile
 
 
 class ProfileRequiredMiddleware:
+    """Replace a profile-less authenticated user with ``AnonymousUser``.
+
+    Must come after ``AuthenticationMiddleware``. Applies to every path except
+    those starting with ``/admin/``. It only sees session authentication:
+    Django REST framework authenticates tokens later, inside the view, so a
+    token request from a profile-less user is not covered.
+    """
+
     def __init__(self, get_response):
         self.get_response = get_response
 

@@ -15,7 +15,7 @@ from data_sources.models.aware import AwareDataSource
 from data_sources.models.jsonurl import JsonUrlDataSource
 from data_sources.models.niimport import NiimportDataSource
 from .models import Study, Consent, StudyParticipant, StudySourceConfiguration
-from .views import get_next_consent, _make_timezone_aware
+from .views import _get_next_consent, _make_timezone_aware
 
 
 def expected_ms(d):
@@ -457,7 +457,7 @@ class JoinStudyViewTest(StudyTestMixin, TestCase):
         self.assertIn('/login', response['Location'])
 
     def test_no_study_configured_404(self):
-        # Delete all studies to trigger Http404 from get_study()
+        # Delete all studies to trigger Http404 from _get_study()
         Study.objects.all().delete()
         url = reverse('join_study')
         response = self.client.get(url)
@@ -1108,11 +1108,11 @@ class GetNextConsentHelperTest(StudyTestMixin, TestCase):
             is_optional=False,
             study_participant=self.study_participant,
         )
-        result = get_next_consent(self.profile, self.study, consent_id=consent.id)
+        result = _get_next_consent(self.profile, self.study, consent_id=consent.id)
         self.assertEqual(result, consent)
 
     def test_404_for_nonexistent_id(self):
-        self.assertRaises(Http404, get_next_consent, self.profile, self.study, consent_id=99999)
+        self.assertRaises(Http404, _get_next_consent, self.profile, self.study, consent_id=99999)
 
     def test_returns_first_incomplete_required(self):
         source_config = get_source_config(self.study, 'aware')
@@ -1134,7 +1134,7 @@ class GetNextConsentHelperTest(StudyTestMixin, TestCase):
             is_optional=False,
             study_participant=self.study_participant,
         )
-        result = get_next_consent(self.profile, self.study)
+        result = _get_next_consent(self.profile, self.study)
         self.assertIsNotNone(result)
         self.assertIn(result, [consent1, consent2])
 
@@ -1150,7 +1150,7 @@ class GetNextConsentHelperTest(StudyTestMixin, TestCase):
             consent_date=timezone.now(),
             study_participant=self.study_participant,
         )
-        result = get_next_consent(self.profile, self.study)
+        result = _get_next_consent(self.profile, self.study)
         self.assertIsNone(result)
 
     def test_ignores_optional_consents(self):
@@ -1164,7 +1164,7 @@ class GetNextConsentHelperTest(StudyTestMixin, TestCase):
             is_optional=True,
             study_participant=self.study_participant,
         )
-        result = get_next_consent(self.profile, self.study)
+        result = _get_next_consent(self.profile, self.study)
         self.assertIsNone(result)
 
     def test_ignores_revoked_consents(self):
@@ -1177,7 +1177,7 @@ class GetNextConsentHelperTest(StudyTestMixin, TestCase):
             revocation_date=timezone.now(),
             study_participant=self.study_participant,
         )
-        result = get_next_consent(self.profile, self.study)
+        result = _get_next_consent(self.profile, self.study)
         self.assertIsNone(result)
 
 

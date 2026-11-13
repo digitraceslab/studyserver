@@ -1,3 +1,10 @@
+"""Study URLs, mounted at ``/studies/``.
+
+Each view's docstring states its methods, access rules and responses; the
+access groups are summarized in the studies.views module docstring. The
+``api/...`` routes also accept a trailing slash (unnamed duplicates).
+"""
+
 from django.urls import path
 from . import views
 
