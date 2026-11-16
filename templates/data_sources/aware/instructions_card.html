@@ -1,15 +1,18 @@
 {% block content %}
 
 <div class="instructions-card">
-<ul>
-    <li>
-    Scan the QR code below with your phone's camera to open a setup page on your phone.
-    <div class="qr-code-container">
-        <img src="data:image/png;base64,{{ instructions_context.qr_code_image }}" alt="QR Code" class="qr-code">
-    </div>
-    Use this link to open the setup page and see the instructions: <a href="{{ instructions_context.qr_link }}">{{ instructions_context.qr_link }}</a>
-    </li>
-</ul>
+    <ul>
+        <li>
+        Go to the 
+        <button class="btn btn-primary">Aware Instructions</button>
+        </li>
+        <li>Or scan the QR code to open the instructions on a different device.
+
+        <div class="qr-code-container">
+            <img src="data:image/png;base64,{{ instructions_context.qr_code_image }}" alt="QR Code" class="qr-code">
+        </div>
+        </li>
+    </ul>
 </div>
 
 
