@@ -1,0 +1,255 @@
+[
+  {
+    "title": "Unclear 'Create New <type>' wording on the consent screen",
+    "location": "templates/studies/consent_action.html, templates/studies/source_selection_form.html; display_type_for_configuration in data_sources/models/*.py and survey_datasource/models.py",
+    "problem": "The consent screen shows 'Create New Survey', which reads as creating a survey rather than a data source. Users don't know what a 'survey source' is either. The same display label is used elsewhere: 'Consent Required for Survey' could suggest a single survey, although these other places are mostly off the default use paths.",
+    "suggestion": "Not decided. Adding ' Source' to every display label has side effects: the 'Data Source' fallback in data_sources/models/base.py would become 'Data Source Source', consent_summary.html compares display_type with the literal 'Google Portability Data', tests check the exact labels, studies/views.py falls back to the raw slug, and data_sources/views.py builds its own labels. The alternative is to change only the 'Create New' template strings. With one study, a user should never have two sources of the same type (maybe several AWARE devices, never several survey sources), so the button may not need to mention creating something at all.",
+    "open_questions": [
+      "What wording participants actually understand for this button and the related headings."
+    ]
+  },
+  {
+    "title": "AWARE MySQL schema missing columns for aware_studies and aware_log",
+    "location": "AWARE MySQL database (aware.cs.aalto.fi:3446, aware_db); client side aware-client/aware-core/src/main/java/com/aware/utils/Jdbc.java",
+    "problem": "With direct database upload, the client's inserts into aware_studies fail with \"Unknown column 'double_updated' in 'field list'\" and inserts into aware_log fail with \"Unknown column 'log_type' in 'field list'\". The rows are retried and rejected on every sync. Sensor tables are unaffected.",
+    "suggestion": "Add the missing columns to the server tables, or check whether the server schema is older than the client expects."
+  },
+  {
+    "title": "Screentext from the last used listed app stays unsaved",
+    "location": "aware-client/aware-core/src/main/java/com/aware/Applications.java, onAccessibilityEvent",
+    "problem": "Captured screentext is buffered in memory and written to the local database only when the buffer reaches TEXT_BUFFER_LIMIT (100) or when a tracked event arrives from a different app. With package_specification 0 (include list), leaving a listed app for an unlisted one does not flush the buffer, so the text waits until another listed app is opened, and is lost if the service is killed. Low priority: for a 3 month study losing the last batch does not matter.",
+    "suggestion": "Also flush the buffer when the foreground app changes to an untracked app, or on screen off."
+  },
+  {
+    "title": "Survey pages add the study-level CSS",
+    "location": "templates/survey/survey.html (overrides django-survey's survey/survey.html)",
+    "problem": "Survey pages extend django-survey's own template and add the study's custom CSS (via the study_custom_css tag) in the extracss block. Surveys have their own CSS snippets, which should already cover everything the study-level CSS provides, so the study CSS should not be added at all. Survey pages are also not based on base.html, so they have no header and no light/dark theme.",
+    "suggestion": "Not decided. Either surveys are based on base.html and get the header and the light and dark themes along with the study CSS, or they stay outside base.html and use only the CSS from the survey package, and templates/survey/survey.html is removed.",
+    "open_questions": [
+      "Should survey pages have the site header and light/dark themes, or only the survey package's CSS?"
+    ]
+  },
+  {
+    "title": "Security: download_static_file path check can be bypassed",
+    "location": "study_server/views.py download_static_file (/download/<path>/)",
+    "problem": "The traversal check compares string prefixes of abspath. A path such as ../staticfiles_other/x resolves to a sibling folder whose name starts with STATIC_ROOT and passes. Symlinks are not resolved either.",
+    "suggestion": "Compare os.path.realpath of the file against realpath(STATIC_ROOT) with os.path.commonpath. Add tests for the sibling-prefix and symlink cases."
+  },
+  {
+    "title": "Security: researcher signup is open and grants staff",
+    "location": "users/views.py signup_researcher (/accounts/signup/researcher/)",
+    "problem": "The page is public. Anyone with an allowed email domain gets a researcher account with is_staff=True, which includes admin login.",
+    "suggestion": "Not decided: invite-only, admin approval, or dropping is_staff.",
+    "open_questions": [
+      "How should researcher accounts be created?"
+    ]
+  },
+  {
+    "title": "Researcher signup is not atomic",
+    "location": "users/views.py signup_researcher",
+    "problem": "If the 'Researchers' group is missing, the user is saved and then the request returns 500, leaving a user without a Profile.",
+    "suggestion": "Wrap the signup in a transaction, or get the group before saving the user."
+  },
+  {
+    "title": "my_data_api returns 500 for a token user without a Profile",
+    "location": "users/views.py my_data_api; users ProfileRequiredMiddleware",
+    "problem": "ProfileRequiredMiddleware only sees session logins; DRF checks tokens inside the view. A valid token for a user without a Profile gives a 500.",
+    "suggestion": "Check for the profile in the view, or in a DRF permission class."
+  },
+  {
+    "title": "Security: participant_detail allows ID probing and access outside the study",
+    "location": "users/views.py participant_detail",
+    "problem": "get_object_or_404 runs before the role check, so any logged-in user can tell which Study and Profile IDs exist (404 vs redirect). A study's researcher can open any Profile ID, including ones not in their study.",
+    "suggestion": "Check the role first, and limit the profile lookup to participants of the researcher's study."
+  },
+  {
+    "title": "Security: unapproving a participant does not stop data access",
+    "location": "studies admin (researcher_approved); studies/views.py study_data_api, study_participants_api, mark_data_deletable",
+    "problem": "Revoking approval only sets researcher_approved=False. The consents stay active, so the researcher data APIs keep serving and acting on that participant's data. Only new consent steps are blocked.",
+    "suggestion": "Not decided.",
+    "open_questions": [
+      "Should unapproving also block the data APIs, or is this intended?"
+    ]
+  },
+  {
+    "title": "Creating a data source does not require login",
+    "location": "data_sources/views.py add_data_source (/data-sources/add/<type>/)",
+    "problem": "There is no login_required. An anonymous request gets a 500 (request.user.profile) instead of a login redirect.",
+    "suggestion": "Decided: require a logged-in user."
+  },
+  {
+    "title": "Data source state changes on GET, without CSRF protection",
+    "location": "data_sources/views.py add_data_source, confirm_data_source",
+    "problem": "add_data_source creates a source on a plain GET when the form has only a name field (AWARE, survey). confirm_data_source activates a source on any method, including GET, so neither is CSRF protected.",
+    "suggestion": "Decided: CSRF protection wherever possible. Make state changes POST-only."
+  },
+  {
+    "title": "add_data_source accepts any study configuration",
+    "location": "data_sources/views.py add_data_source",
+    "problem": "Any source_configuration_id of the matching type is accepted without checking it against the user's study or consents. Its configuration, dates and requested data types are copied into the new source.",
+    "suggestion": "Accept only configurations of the study the user is consenting to."
+  },
+  {
+    "title": "Deprecated AWARE config-from-studyserver path",
+    "location": "data_sources views token_view_dispatcher (config/<token>/...); AwareDataSource.handle_token_view",
+    "problem": "The token 'config' view returns the AWARE DB insert user (write-only, meant to be shared with all participants) to anyone holding config_token, without login. POSTs from the phone get 403 (no csrf_exempt). handle_token_view returns None for an unknown view_type (500). The path is deprecated: AWARE now uses the HTTPS interface and the config is never served from studyserver.",
+    "suggestion": "Decided: no changes now; actively avoid using it. Remove the path later."
+  },
+  {
+    "title": "Admin send_email_by_ids_view checks no model permission",
+    "location": "studies/admin.py send_email_by_ids_view",
+    "problem": "It relies only on staff login plus get_queryset scoping; send_email_view checks the view permission.",
+    "suggestion": "Check the same permission as send_email_view."
+  },
+  {
+    "title": "Niimport data source has fallen into disrepair",
+    "location": "data_sources/models (NiimportDataSource)",
+    "problem": "fetch_data now has the base signature (data_type, timestamp, limit), so view_data_source no longer crashes, but timestamp is ignored: every call returns the first page and the data browser keeps offering a next page. Niimport is not in active use.",
+    "suggestion": "Decided: implement the cursor later, based on the API the niimport package provides (../niimport, not mounted in the container yet)."
+  },
+  {
+    "title": "JsonUrlDataSource.fetch_data breaks the return contract",
+    "location": "data_sources/models jsonurl.py",
+    "problem": "Returns (False, 'No consent found.') or {'error': ...} instead of a list, and raises when a row has no int timestamp or the response isn't JSON.",
+    "suggestion": "Follow the base contract: always a list, errors raised or logged as the contract says."
+  },
+  {
+    "title": "Instructions card contract: base default vs instructions view",
+    "location": "data_sources base get_instructions_card; data_sources/views.py instructions view (/data-sources/instructions/<id>/)",
+    "problem": "The base default returns None, but the view unpacks a (context, template) tuple, so every type except AWARE gives a 500. Only AWARE provides instructions; the dashboard asks the source and shows instructions only when needed.",
+    "suggestion": "Not decided: crash on misuse (current behavior, documented), or return None when no instructions are needed and have callers handle it.",
+    "open_questions": [
+      "Crash or None?"
+    ]
+  },
+  {
+    "title": "Base confirm() default gives an empty error message",
+    "location": "data_sources base confirm(); confirm_data_source view",
+    "problem": "The default returns (None, None), so the view shows an error message with no text.",
+    "suggestion": "Define the default in the contract and handle it in the view."
+  },
+  {
+    "title": "Instructions view: inverted consent check; study_id not needed",
+    "location": "data_sources/views.py instructions view",
+    "problem": "The check `if consent_id in [None, '', 'None']` is inverted, so study_id is always None.",
+    "suggestion": "There is only one study and every component can rely on that, so drop study_id instead of fixing the check."
+  },
+  {
+    "title": "OAuth routes that always fail",
+    "location": "data_sources/views.py auth_start, auth_callback and their routes",
+    "problem": "They call get_auth_url and handle_auth_callback, which no source defines, so they always return 500; auth_callback also 500s when no source matches state. Studyserver should not have OAuth routes.",
+    "suggestion": "Remove the routes and the code only they use."
+  },
+  {
+    "title": "Survey source page count is wrong",
+    "location": "survey_datasource/models.py SurveyDataSource.count_rows, get_data_types, fetch_data",
+    "problem": "count_rows counts the survey's questions, not the rows fetch_data returns, so view_data_source shows the wrong page count. get_data_types names an unnamed survey 'Survey <id>', which fetch_data can't look up.",
+    "suggestion": "Count the rows fetch_data would return (the data is local). Make get_data_types names resolvable by fetch_data."
+  },
+  {
+    "title": "Drop custom data sources from the dashboard",
+    "location": "dashboard (users) advanced section; data_sources/views.py select_data_source_type and related views",
+    "problem": "select_data_source_type lists only data_sources models, so the survey type is never offered. Collecting your own data is not supported in the single-study version.",
+    "suggestion": "Decided: remove the option from the dashboard (users) and remove whatever is no longer called after that."
+  },
+  {
+    "title": "Background processing stops at the first failing source",
+    "location": "data_sources/tasks.py process_data_sources",
+    "problem": "One source raising stops the pass for all sources after it. Sources can fail because a server is down or slow.",
+    "suggestion": "Decided: try/except per source, logging the failure and continuing."
+  },
+  {
+    "title": "study_data_api data window is whole days",
+    "location": "studies/views.py study_data_api",
+    "problem": "Consent.data_start/data_end are DateTimeFields, but the view applies datetime.combine(), dropping time and timezone. Data from the start of the data_start day (server timezone) is served even if consent was given later that day.",
+    "suggestion": "Use the full datetimes."
+  },
+  {
+    "title": "create_study leaves a partial study on an unknown source type",
+    "location": "studies create_study management command",
+    "problem": "CommandError is raised after the Study row exists, leaving it with some sources missing; a rerun fails with 'A study already exists'.",
+    "suggestion": "Validate source types first, or run in a transaction."
+  },
+  {
+    "title": "studies uses data_sources private names",
+    "location": "studies/forms.py get_data_source_type_choices (DataSource._data_source_types); StudySourceConfiguration.matches_data_source and views.get_existing_sources_for_consent (_matches_configuration)",
+    "problem": "Module boundary violation.",
+    "suggestion": "data_sources adds a public matches_configuration (private name kept as alias until studies switches); studies uses registered_source_types().",
+    "open_questions": [
+      "May data_sources add the public matches_configuration?",
+      "registered_source_types() is alphabetical, so the admin source-type choices would change from registration order. Acceptable?"
+    ]
+  },
+  {
+    "title": "Double slash in study page and consent template URLs",
+    "location": "studies/services.py get_study_page_html, get_consent_template",
+    "problem": "They build f\"{repo_url}/file.html\", but raw_content_base_url already ends in '/'. Unchecked whether GitHub/GitLab raw hosts accept it.",
+    "suggestion": "Drop the extra slash."
+  },
+  {
+    "title": "StudyAdminForm.clean quirks",
+    "location": "studies/forms.py StudyAdminForm",
+    "problem": "clean reads self.user, which works only because StudyAdmin.get_form sets it on the class; the request keyword is popped and unused; clean returns cleaned_data only on the researcher branch.",
+    "suggestion": "Pass the user per instance and always return cleaned_data."
+  },
+  {
+    "title": "Unused past_consents in the dashboard",
+    "location": "users/views.py dashboard (get_past_consents)",
+    "problem": "The dashboard computes past_consents, but no template displays it since the 'Past Studies' section was removed.",
+    "suggestion": "Not decided: show past consents again, or remove the call."
+  },
+  {
+    "title": "Duplicate Logout buttons",
+    "location": "templates/dashboard.html, home.html, researcher_dashboard.html",
+    "problem": "These pages keep their own Logout button besides the new one in the header.",
+    "suggestion": "Remove the page-level buttons."
+  },
+  {
+    "title": "Untested API across components",
+    "location": "all apps (API audit 2026-11-12)",
+    "problem": "Many public views, URLs and model methods have no tests, e.g. the version pages and info sheet placeholder, the /accounts legacy redirects, unsafe next in signup, the researcher data APIs, most data_sources views and DataSource methods, download_static_file, survey_extensions.",
+    "suggestion": "After the API docs are complete, an API-only test writer fills the gaps per component."
+  },
+  {
+    "title": "Move participant email sending to users",
+    "location": "studies/admin.py (_send_email_to_participant and the email admin views)",
+    "problem": "The studies admin builds and sends participant emails. Email belongs with users, which owns the addresses (Profile.email).",
+    "suggestion": "Decided for later: move sending into users after the pilot study; keep it in studies until then."
+  },
+  {
+    "title": "Old accounts may have an empty user.email",
+    "location": "users Profile.email; live database",
+    "problem": "Profile.email reads user.email, the authoritative copy. Accounts created before signup required an email username may have it empty, so admin email to them goes nowhere.",
+    "suggestion": "Check the live database for profiles with an empty user.email."
+  },
+  {
+    "title": "Researcher HTML context has more than the API",
+    "location": "studies views/services that render database HTML",
+    "problem": "The template context still contains study, user, request, assets and config_repository, although the researcher API is only {% include join_or_login_section %}.",
+    "suggestion": "Narrow the context to what the API needs, after checking the live study pages."
+  },
+  {
+    "title": "Niimport get_setup_url creates a donation when a page renders",
+    "location": "data_sources NiimportDataSource.get_setup_url; templates consent_summary.html, studies/consent_action.html, users/participant_detail.html",
+    "problem": "Templates call get_setup_url, and on NiimportDataSource it creates a donation on the portability server as a side effect of rendering the page.",
+    "suggestion": "Make get_setup_url side-effect free; create the donation on an explicit POST. Part of the Niimport repair."
+  },
+  {
+    "title": "Split the Study model; keep a small singleton study",
+    "location": "studies/models.py Study",
+    "problem": "Most of what lives on Study belongs in separate models. A singleton study object is needed, but it should be much smaller.",
+    "suggestion": "Not decided: which parts move to which new models. Large change; after the pilot study."
+  },
+  {
+    "title": "Turn data sources into apps",
+    "location": "data_sources/ (models per source type)",
+    "problem": "The data source types should mostly become their own Django apps instead of models inside data_sources.",
+    "suggestion": "Not decided: what stays in data_sources (the DataSource contract and registry) and how each type becomes an app. Large change; after the pilot study."
+  },
+  {
+    "title": "Header study name overlaps the buttons on phones",
+    "location": "templates/base.html header",
+    "problem": "On a standard phone screen width, the study name in the header overlaps the header buttons.",
+    "suggestion": "Not decided."
+  }
+]
