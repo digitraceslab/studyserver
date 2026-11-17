@@ -111,8 +111,14 @@ class AwareDataSource(DataSource):
         return f"https://{settings.AWARE_DB_HOST}/v{version}/{self.device_label}/"
 
     def show_links(self):
-        """Keep the setup instructions reachable from the dashboard after setup."""
-        return [(self.get_setup_url(), "Setup instructions")]
+        """Link the setup instructions once active.
+
+        Before that the dashboard shows the instructions card itself, so no
+        link is returned.
+        """
+        if self.status == "active":
+            return [(self.get_setup_url(), "Setup instructions")]
+        return []
 
     def _check_for_device(self):
         """Link the device that uploaded data under ``device_label``.

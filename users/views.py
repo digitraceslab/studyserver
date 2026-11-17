@@ -239,6 +239,7 @@ def _get_active_studies_data(profile, request):
     source.needs_participant_action() is True, else into 'active_consents'
     (required) or 'optional_consents' (optional). Optional consents that are
     not complete or have no source also go into 'optional_consents'.
+    'incomplete_sources' lists sources with requires_setup first.
     Studies whose registration is awaiting required approval are skipped.
     """
     studies_data = {}
@@ -295,6 +296,10 @@ def _get_active_studies_data(profile, request):
                     studies_data[study]['active_consents'].append(
                         consent_data
                     )
+        # Sources that need setup (instructions card) come before action-only ones.
+        studies_data[study]['incomplete_sources'].sort(
+            key=lambda item: not item['source'].requires_setup
+        )
     return studies_data
 
 def _get_next_instructions_card(request, studies_data):
