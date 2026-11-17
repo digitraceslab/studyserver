@@ -39,7 +39,7 @@
             {% include "studies/consent_action.html" with consent=item.consent study=study source=item.source %}
         {% endif %}
         {% else %}
-        <h3> Action Required for {{ item.source.display_type }} </h3>
+        <h3> {{ item.source.display_type }} </h3>
         {% endif %}
 
         {% for url, text in item.links %}
