@@ -33,12 +33,6 @@
         {% if item.source.requires_setup %}
         <h3> Setup Required for {{ item.source.display_type }} </h3>
 
-        <form method="post" action="{{ item.source.get_confirm_url }}" class="source-check-form">
-            {% csrf_token %}
-            After following the setup instructions,
-            <button class="btn btn-secondary btn-small source-check-link">Check for data</button>
-        </form>
-
         {% if item.show_instructions %}
             {% include instructions_template %}
         {% else %}
