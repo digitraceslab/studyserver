@@ -235,6 +235,10 @@ def _get_active_studies_data(profile, request):
     Returns {study: {'active_consents', 'incomplete_consents',
     'incomplete_sources', 'optional_consents'}}, each a list of dicts with
     'consent', 'type_name' and, when a data source exists, 'source' and 'links'.
+    A complete consent with a source goes into 'incomplete_sources' when
+    source.needs_participant_action() is True, else into 'active_consents'
+    (required) or 'optional_consents' (optional). Optional consents that are
+    not complete or have no source also go into 'optional_consents'.
     Studies whose registration is awaiting required approval are skipped.
     """
     studies_data = {}
@@ -275,12 +279,15 @@ def _get_active_studies_data(profile, request):
                 consent_data['links'] = consent.data_source.show_links()
             
             if consent.is_optional:
-                studies_data[study]['optional_consents'].append(consent_data)
+                if (consent.is_complete and consent.data_source
+                        and source.needs_participant_action()):
+                    studies_data[study]['incomplete_sources'].append(consent_data)
+                else:
+                    studies_data[study]['optional_consents'].append(consent_data)
             elif not consent.is_complete:
                 studies_data[study]['incomplete_consents'].append(consent_data)
             elif consent.data_source:
-                instructions = source.get_instructions_card(request, consent_id=consent.id, study_id=study.id)
-                if source.status == 'pending' and instructions:
+                if source.needs_participant_action():
                     studies_data[study]['incomplete_sources'].append(
                         consent_data
                     )
@@ -293,12 +300,15 @@ def _get_active_studies_data(profile, request):
 def _get_next_instructions_card(request, studies_data):
     """Find the first incomplete source that requires setup.
 
-    studies_data is the dict from _get_active_studies_data. Returns
-    (card_template, card_context) for that source, or (None, None) if none.
+    studies_data is the dict from _get_active_studies_data. Marks that item
+    with 'show_instructions' = True so the template shows the card there.
+    Returns (card_template, card_context) for that source, or (None, None)
+    if none.
     """
     for study, data in studies_data.items():
         for item in data['incomplete_sources']:
             if item['source'].requires_setup:
+                item['show_instructions'] = True
                 card_context, card_template = item['source'].get_instructions_card(
                     request,
                     consent_id=item['consent'].id,

@@ -30,6 +30,7 @@
 
     {% for item in study_data.incomplete_sources %}
     <div class="source-setup-section">
+        {% if item.source.requires_setup %}
         <h3> Setup Required for {{ item.source.display_type }} </h3>
 
         <form method="post" action="{{ item.source.get_confirm_url }}" class="source-check-form">
@@ -38,11 +39,22 @@
             <button class="btn btn-secondary btn-small source-check-link">Check for data</button>
         </form>
 
-        {% if forloop.first %}
+        {% if item.show_instructions %}
             {% include instructions_template %}
         {% else %}
             {% include "studies/consent_action.html" with consent=item.consent study=study source=item.source %}
         {% endif %}
+        {% else %}
+        <h3> Action Required for {{ item.source.display_type }} </h3>
+        {% endif %}
+
+        {% for url, text in item.links %}
+            {% if url %}
+            <a href="{{ url }}" class="btn btn-primary btn-small">{{ text }}</a>
+            {% else %}
+            <span>{{ text }}</span>
+            {% endif %}
+        {% endfor %}
     </div>
     {% endfor %}
 
@@ -51,16 +63,6 @@
         <h3>Consent Required for {{ item.type_name }}</h3>
         <a href="{% url 'consent_workflow' %}?consent_id={{ item.consent.id }}" class="consent_button continue_consent_button btn btn-primary">Continue Consent Workflow</a>
     </div>
-    {% endfor %}
-
-    {% for opt_item in study_data.optional_consents %}
-        {% if not opt_item.consent.is_complete or not opt_item.source %}
-        <div class="optional-setup-section">
-            <h3>Optional: {{ opt_item.type_name }}</h3>
-            Setup {{ opt_item.type_name }}
-            <a href="{% url 'consent_workflow' %}?consent_id={{ opt_item.consent.id }}">here</a>
-        </div>
-        {% endif %}
     {% endfor %}
 {% elif study and not pending_participations %}
     <div class="join-section">
@@ -71,6 +73,16 @@
 {% include "dashboard_components/protected_identifiers.html" %}
 
 {% if study_data %}
+    {% for opt_item in study_data.optional_consents %}
+        {% if not opt_item.consent.is_complete or not opt_item.source %}
+        <div class="optional-setup-section">
+            <h3>Optional: {{ opt_item.type_name }}</h3>
+            Setup {{ opt_item.type_name }}
+            <a href="{% url 'consent_workflow' %}?consent_id={{ opt_item.consent.id }}">here</a>
+        </div>
+        {% endif %}
+    {% endfor %}
+
     {% if study_data.active_consents %}
         <div class="active-consents-section">
             <h3>Completed Required Data Sources</h3>

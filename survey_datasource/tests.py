@@ -123,3 +123,42 @@ class SurveyDataSourceCountRowsTest(TestCase):
         start = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
         end = datetime.datetime(2026, 1, 31, tzinfo=datetime.timezone.utc)
         self.assertEqual(self.source.count_rows('Count Survey', start, end), 2)
+
+
+class SurveyDataSourceNeedsParticipantActionTest(TestCase):
+    """needs_participant_action follows open, unfilled surveys, not status."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='survey_action_user', password='testpass')
+        self.profile = Profile.objects.create(user=self.user)
+        today = datetime.date.today()
+        self.survey = Survey.objects.create(
+            name='Open Survey',
+            description='An open survey',
+            need_logged_user=True,
+            is_published=True,
+            publish_date=today - datetime.timedelta(days=1),
+            expire_date=today + datetime.timedelta(days=1),
+        )
+        self.source = SurveyDataSource.objects.create(
+            profile=self.profile,
+            name='Survey Source',
+            status='active',
+        )
+
+    def test_open_unfilled_survey_needs_action_while_active(self):
+        self.assertTrue(self.source.needs_participant_action())
+
+    def test_filled_survey_needs_no_action(self):
+        Response.objects.create(
+            survey=self.survey,
+            user=self.user,
+            interview_uuid=str(uuid.uuid4()),
+        )
+        self.assertFalse(self.source.needs_participant_action())
+
+    def test_expired_survey_needs_no_action_even_if_pending(self):
+        self.survey.expire_date = datetime.date.today() - datetime.timedelta(days=1)
+        self.survey.save()
+        self.source.status = 'pending'
+        self.assertFalse(self.source.needs_participant_action())

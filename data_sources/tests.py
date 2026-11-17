@@ -366,6 +366,15 @@ class DataSourceModelTest(TestCase):
         with self.assertRaises(NotImplementedError):
             self.base.count_rows()
 
+    def test_needs_participant_action_while_pending(self):
+        self.base.status = "pending"
+        self.assertTrue(self.base.needs_participant_action())
+
+    def test_no_participant_action_when_not_pending(self):
+        for status in ("processing", "active"):
+            self.base.status = status
+            self.assertFalse(self.base.needs_participant_action())
+
 
 class AwareDataSourceTest(TestCase):
     def setUp(self):

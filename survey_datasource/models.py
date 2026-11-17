@@ -68,6 +68,14 @@ class SurveyDataSource(DataSource):
                 links.append(("", f"{survey_name} (completed)"))
         return links
 
+    def needs_participant_action(self):
+        """True when an open survey is not yet filled, regardless of status.
+
+        Returns:
+            True if ``show_links`` has an entry with a non-empty url.
+        """
+        return any(url for url, _ in self.show_links())
+
     def get_data_types(self):
         """Return the surveys this participant can see or has answered, as data types.
 

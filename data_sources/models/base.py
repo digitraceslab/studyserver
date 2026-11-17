@@ -14,6 +14,7 @@ Writing a subclass:
 - Optionally override the setup / confirmation / dashboard hooks
   (``requires_setup``, ``requires_confirmation``, ``get_setup_url``,
   ``confirm``, ``get_instructions_card``, ``show_links``,
+  ``needs_participant_action``,
   ``revoke_before_delete``, ``_process_data``) and the deletion hooks
   (``supports_deletion``, ``latest_timestamp``, ``mark_deletable``,
   ``unmark_deletable``).
@@ -302,6 +303,19 @@ class DataSource(PolymorphicModel):
             plain text.
         """
         return []
+
+    def needs_participant_action(self):
+        """Whether the participant has something to do for this source now.
+
+        Used by the dashboard to show sources that need attention. It is
+        separate from ``status``: a source may be "active" (data flows)
+        and still need action, e.g. an open survey not yet filled.
+
+        Returns:
+            True while ``status`` is "pending" (the default); subclasses
+            may override.
+        """
+        return self.status == "pending"
 
     def get_instructions_card(self, request, consent_id=None, study_id=None):
         """Setup instructions shown by the ``instructions`` view and dashboard.
