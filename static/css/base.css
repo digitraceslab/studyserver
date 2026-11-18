@@ -573,7 +573,7 @@ button.withdraw-button { background: transparent; border-color: var(--error); }
 /* Copy button with the study URL QR code at its right, about the button's height */
 .url-actions { display: flex; align-items: center; gap: 12px; }
 .url-actions .qr-code-container { padding: 4px; border-radius: 8px; }
-.url-actions .qr-code { height: 2.75em; width: auto; max-width: none; }
+.url-actions .qr-code { height: 3.5em; width: auto; max-width: none; }
 
 /* Completion box */
 .finish { margin: 30px 0 0; padding: 22px 22px 24px; border-radius: 20px; border: 1.5px solid var(--live); max-width: 40em; }
