@@ -275,14 +275,16 @@
           <div class="url-card">
             <span class="url-label" id="configUrlLabel">Study URL</span>
             <code class="url-value" id="configUrl" aria-labelledby="configUrlLabel">{{ config_url }}</code>
-            <button class="btn copy-btn" type="button" id="copyBtn">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg>
-              <span id="copyLabel">Copy URL</span>
-            </button>
+            <div class="url-actions">
+              <button class="btn copy-btn" type="button" id="copyBtn">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg>
+                <span id="copyLabel">Copy URL</span>
+              </button>
+              <div class="qr-code-container">
+                <img src="data:image/png;base64,{{ config_qr_code_image }}" alt="QR code of the study URL" class="qr-code">
+              </div>
+            </div>
             <span class="copy-status" id="copyStatus" role="status" aria-live="polite"></span>
-          </div>
-          <div class="qr-code-container">
-            <img src="data:image/png;base64,{{ config_qr_code_image }}" alt="QR code of the study URL" class="qr-code">
           </div>
         </li>
         <li>Leave the password field empty and tap <b>Join</b>.</li>
