@@ -271,7 +271,7 @@
       <ol class="sub">
         <li>Open AWARE and tap <b>Join a Study</b>.</li>
         <li>
-          Copy this URL and paste it into the URL field in AWARE.
+          Copy this URL and paste it into the URL field in AWARE, or scan this QR code.
           <div class="url-card">
             <span class="url-label" id="configUrlLabel">Study URL</span>
             <code class="url-value" id="configUrl" aria-labelledby="configUrlLabel">{{ config_url }}</code>
@@ -280,6 +280,9 @@
               <span id="copyLabel">Copy URL</span>
             </button>
             <span class="copy-status" id="copyStatus" role="status" aria-live="polite"></span>
+          </div>
+          <div class="qr-code-container">
+            <img src="data:image/png;base64,{{ config_qr_code_image }}" alt="QR code of the study URL" class="qr-code">
           </div>
         </li>
         <li>Leave the password field empty and tap <b>Join</b>.</li>
