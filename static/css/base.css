@@ -570,6 +570,10 @@ button.withdraw-button { background: transparent; border-color: var(--error); }
 .copy-btn:hover { filter: none; background: var(--accent-tint); border-color: var(--accent-tint); }
 .copy-btn.copied { background: var(--live-tint); border-color: var(--live-tint); color: var(--ink); }
 .copy-status { display: inline-block; margin-left: 12px; font-size: .92rem; font-weight: 600; }
+/* Copy button with the study URL QR code at its right, about the button's height */
+.url-actions { display: flex; align-items: center; gap: 12px; }
+.url-actions .qr-code-container { padding: 4px; border-radius: 8px; }
+.url-actions .qr-code { height: 2.75em; width: auto; max-width: none; }
 
 /* Completion box */
 .finish { margin: 30px 0 0; padding: 22px 22px 24px; border-radius: 20px; border: 1.5px solid var(--live); max-width: 40em; }
