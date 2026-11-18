@@ -185,8 +185,9 @@ class AwareDataSource(DataSource):
             token: The ``config_token`` from the URL.
             view_type: Which page to serve:
 
-                - "setup": HTML page with the AWARE config URL and device
-                  label.
+                - "setup": HTML page with the AWARE config URL, a QR code of
+                  it (the app's scan option expects the bare URL) and the
+                  device label.
                 - "config": JSON AWARE study config built from this source's
                   active consents (study info of the first, merged questions /
                   schedules / sensors of all). It includes the AWARE database
@@ -206,10 +207,15 @@ class AwareDataSource(DataSource):
 
         if view_type == "setup":
             config_url = self._get_config_url()
+            qr_img = qrcode.make(config_url)
+            buffer = io.BytesIO()
+            qr_img.save(buffer, format="PNG")
+            config_qr_b64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
             context = {
                 "source": self,
                 "config_url": config_url,
+                "config_qr_code_image": config_qr_b64,
                 "device_label": self.device_label,
             }
             return render(request, "data_sources/aware/mobile_setup.html", context)
